@@ -1,0 +1,26 @@
+{
+  "backend": "ray",
+  "model_path": "/Volumes/emberstuff/xLSTM/xlstm_7b_model",
+  "prompt": null,
+  "new": 32,
+  "mode": "ga",
+  "generations": 3,
+  "population": 8,
+  "trials": 20,
+  "repeats": 1,
+  "bounds": {
+    "heads": [
+      2,
+      8
+    ],
+    "chunks": [
+      16,
+      64
+    ],
+    "workers": [
+      4,
+      8
+    ]
+  },
+  "seed": 1337
+}
