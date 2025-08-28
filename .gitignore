@@ -65,3 +65,6 @@ Thumbs.db
 # Benchmarking results
 benchmark_results.json
 *.benchmark
+# External reference implementations (not tracked)
+mlx_implementation/
+pytorch_implementation/
