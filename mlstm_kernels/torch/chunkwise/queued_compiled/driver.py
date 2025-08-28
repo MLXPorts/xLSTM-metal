@@ -1,6 +1,7 @@
 import os
 import math
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
+import time
 from typing import Tuple
 
 import torch
@@ -22,6 +23,7 @@ def _process_head_band(
     c_state: torch.Tensor,
     n_state: torch.Tensor,
     m_state: torch.Tensor,
+    stream: "torch.mps.Stream | None" = None,
 ):
     B, NH, S, DHQK = q.shape
     DHHV = v.shape[-1]
@@ -40,27 +42,42 @@ def _process_head_band(
     )
 
     pos = 0
+    steps_processed = 0
+    t_start = time.perf_counter()
     while pos < S:
         seg = min(chunk_size, S - pos)
         # step along this chunk
-        for t in range(pos, pos + seg):
-            H, (C, N, M) = mlstm_recurrent_step__metal(
-                q=q[:, hs:he, t],
-                k=k[:, hs:he, t],
-                v=v[:, hs:he, t],
-                i=i[:, hs:he, t : t + 1],
-                f=f[:, hs:he, t : t + 1],
-                c=C,
-                n=N,
-                m=M,
-                eps=eps,
-                dtype_state=torch.float32,
-            )
-            # write output slice
-            h_out_ref[:, hs:he, t] = H
+        # Use provided MPS stream to encourage concurrency across bands
+        if stream is not None:
+            ctx = torch.mps.stream(stream)
+        else:
+            # no-op context manager
+            class _Null:
+                def __enter__(self_):
+                    return None
+                def __exit__(self_, exc_type, exc, tb):
+                    return False
+            ctx = _Null()
+        with ctx:
+            for t in range(pos, pos + seg):
+                H, (C, N, M) = mlstm_recurrent_step__metal(
+                        q=q[:, hs:he, t],
+                        k=k[:, hs:he, t],
+                        v=v[:, hs:he, t],
+                        i=i[:, hs:he, t : t + 1],
+                        f=f[:, hs:he, t : t + 1],
+                        c=C,
+                        n=N,
+                        m=M,
+                        eps=eps,
+                        dtype_state=torch.float32,
+                    )
+                # write output slice
+                h_out_ref[:, hs:he, t] = H
+                steps_processed += 1
         pos += seg
-
-    return C, N, M
+    t_total = time.perf_counter() - t_start
+    return C, N, M, steps_processed, t_total
 
 
 def mlstm_chunkwise__queued_compiled_steps(
@@ -88,23 +105,73 @@ def mlstm_chunkwise__queued_compiled_steps(
     B, NH, S, DHQK = q.shape
     DHHV = v.shape[-1]
 
+    # Optional warm-up to compile tiny step kernel variants (one-time)
+    if os.environ.get("XLSTM_MPS_WARMUP", "1") != "0":
+        try:
+            _ = mlstm_recurrent_step__metal(
+                q[:, :1, 0], k[:, :1, 0], v[:, :1, 0], i[:, :1, 0:1], f[:, :1, 0:1],
+                c_initial[:, :1] if c_initial is not None else None,
+                n_initial[:, :1] if n_initial is not None else None,
+                m_initial[:, :1] if m_initial is not None else None,
+                eps=eps, dtype_state=torch.float32,
+            )
+        except Exception:
+            pass
+
     # Output allocation
     h_out = torch.empty(B, NH, S, DHHV, dtype=q.dtype, device=q.device)
 
     # Threading parameters
     heads_per_band = int(os.environ.get("XLSTM_MPS_HEADS_PER_BAND", "4"))
     num_workers = int(os.environ.get("XLSTM_MPS_WORKERS", "6"))
+    num_streams = int(os.environ.get("XLSTM_MPS_STREAMS", str(num_workers)))
+    autoscale = os.environ.get("XLSTM_MPS_AUTOSCALE", "0") == "1"
     heads_per_band = max(1, min(NH, heads_per_band))
     num_workers = max(1, num_workers)
+
+    # Optional micro autoscale: adjust heads_per_band based on a small probe
+    if autoscale and NH >= 4:
+        probe_hpb = max(1, min(heads_per_band, NH))
+        t0 = time.perf_counter()
+        _ = _process_head_band(
+            q[:, :probe_hpb, : min(8, S)],
+            k[:, :probe_hpb, : min(8, S)],
+            v[:, :probe_hpb, : min(8, S)],
+            i[:, :probe_hpb, : min(8, S)],
+            f[:, :probe_hpb, : min(8, S)],
+            0,
+            probe_hpb,
+            min(8, chunk_size),
+            eps,
+            torch.empty(B, probe_hpb, min(8, S), DHHV, device=q.device, dtype=q.dtype),
+            c_initial[:, :probe_hpb] if c_initial is not None else None,
+            n_initial[:, :probe_hpb] if n_initial is not None else None,
+            m_initial[:, :probe_hpb] if m_initial is not None else None,
+            None,
+        )
+        t_probe = time.perf_counter() - t0
+        # Heuristic: if probe is slow, reduce heads per band to increase parallelism
+        if t_probe > 0.010 and heads_per_band > 2:
+            heads_per_band = max(2, heads_per_band // 2)
 
     bands = []
     for hs in range(0, NH, heads_per_band):
         he = min(NH, hs + heads_per_band)
         bands.append((hs, he))
 
+    # Create dedicated MPS streams to enable true concurrency
+    # Create streams if supported by this torch build; otherwise fall back to None
+    streams: list = []
+    try:
+        _Stream = getattr(torch.mps, "Stream", None)
+        if _Stream is not None:
+            streams = [_Stream() for _ in range(max(1, num_streams))]
+    except Exception:
+        streams = []
     results = []
     with ThreadPoolExecutor(max_workers=num_workers) as ex:
         for hs, he in bands:
+            stream = streams[(hs // heads_per_band) % len(streams)] if len(streams) > 0 else None
             fut = ex.submit(
                 _process_head_band,
                 q,
@@ -120,6 +187,7 @@ def mlstm_chunkwise__queued_compiled_steps(
                 c_initial,
                 n_initial,
                 m_initial,
+                stream,
             )
             results.append((hs, he, fut))
 
@@ -130,15 +198,24 @@ def mlstm_chunkwise__queued_compiled_steps(
         )
         Nf = torch.empty((B, NH, DHQK), device=q.device, dtype=torch.float32)
         Mf = torch.empty((B, NH, 1), device=q.device, dtype=torch.float32)
+        total_steps = 0
+        total_time = 0.0
         for hs, he, fut in results:
-            C, N, M = fut.result()
+            C, N, M, steps, t_time = fut.result()
             Cf[:, hs:he] = C
             Nf[:, hs:he] = N
             Mf[:, hs:he] = M
+            total_steps += steps
+            total_time += t_time
+        # Attach simple telemetry for callers (attrs on tensor)
+        try:
+            h_out._mps_steps = total_steps  # type: ignore[attr-defined]
+            h_out._mps_time = total_time    # type: ignore[attr-defined]
+        except Exception:
+            pass
         return h_out, (Cf, Nf, Mf)
     else:
         # ensure completion
         for _, _, fut in results:
             _ = fut.result()
         return h_out
-

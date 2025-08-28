@@ -7,6 +7,7 @@ Run a local xLSTM HF checkpoint on Apple Silicon (MPS) using the compiled backen
 - Maps known key differences (backbone.embeddings.weight -> embedding.weight).
 """
 import argparse
+import os
 import json
 from pathlib import Path
 
@@ -74,6 +75,8 @@ def main():
     ap.add_argument("--max_new_tokens", type=int, default=20)
     ap.add_argument("--workers", type=int, default=6, help="CPU coordinator threads (MPS queued backend)")
     ap.add_argument("--heads-per-band", type=int, default=4, help="Heads per task (MPS queued backend)")
+    ap.add_argument("--streams", type=int, default=None, help="MPS streams (defaults to workers)")
+    ap.add_argument("--chunk-size", type=int, default=32, help="Chunk size for queued backend")
     args = ap.parse_args()
 
     model_dir = Path(args.model_path)
@@ -82,6 +85,8 @@ def main():
 
     # Load config and model
     mcfg = load_local_config(model_dir / "config.json")
+    # Apply CLI chunk size
+    mcfg.chunk_size = args.chunk_size
     model = xLSTMLarge(mcfg)
     # Load weights
     print("Loading weights ...")
@@ -118,6 +123,8 @@ def main():
     # Set queued backend tuning if selected
     os.environ["XLSTM_MPS_WORKERS"] = str(args.workers)
     os.environ["XLSTM_MPS_HEADS_PER_BAND"] = str(args.heads_per_band)
+    if args.streams:
+        os.environ["XLSTM_MPS_STREAMS"] = str(args.streams)
 
     print(f"Generating (workers={args.workers}, heads_per_band={args.heads_per_band}) ...")
     import time

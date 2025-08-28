@@ -20,8 +20,11 @@ Quick Start (Local Checkpoint)
        --workers 6 --heads-per-band 4`
 
 Tuning Knobs (Environment)
-- `XLSTM_MPS_WORKERS` (default 6): number of CPU coordinator threads.
-- `XLSTM_MPS_HEADS_PER_BAND` (default 4): how many heads each worker processes per task.
+- `XLSTM_MPS_WORKERS` (default 6): CPU coordinator threads.
+- `XLSTM_MPS_HEADS_PER_BAND` (default 4): heads per task.
+- `XLSTM_MPS_STREAMS` (default = workers): dedicated MPS streams (one per worker is typical).
+- `XLSTM_MPS_AUTOSCALE=1`: enable a micro-probe to adjust heads per band automatically.
+- `XLSTM_MPS_WARMUP=0|1` (default 1): enable step-kernel warm-up.
 - `PYTORCH_ENABLE_MPS_FALLBACK=0`: enforce GPU-only execution.
 - Optional logs: `TORCH_LOGS=+dynamo` and `TORCHDYNAMO_VERBOSE=1` for compile debugging.
 
@@ -37,3 +40,6 @@ Validation
 - mLSTM parity: `PYTHONPATH=. python tools/test_metal_parity.py`
 - sLSTM parity: `PYTHONPATH=. python tools/test_slstm_parity.py`
 
+Metrics & Telemetry
+- Local runner prints total time; queued backend also tracks aggregate steps/time internally.
+- You can estimate prefill throughput by: steps/time from backend, or simply tokens/sec from CLI output.
