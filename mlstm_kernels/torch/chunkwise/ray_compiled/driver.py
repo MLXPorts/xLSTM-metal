@@ -97,6 +97,14 @@ class HeadBandWorker:
         H_out = torch.empty(
             (B, he - hs, s_end - s_start, DHHV), device=self.q.device, dtype=self.q.dtype
         )
+        # CfC-hybrid experimental override
+        cfc_on = os.environ.get("XLSTM_CFC_HYBRID", "0") == "1"
+        cfc_dt = float(os.environ.get("XLSTM_CFC_DT", "0.01"))
+        cfc_alpha = float(os.environ.get("XLSTM_CFC_ALPHA", "1.0"))
+        cfc_act = os.environ.get("XLSTM_CFC_ACT", "sigmoid")
+        h_cfc = None
+        if cfc_on:
+            h_cfc = torch.zeros((B, he - hs, DHHV), device=self.q.device, dtype=self.q.dtype)
         # Step through sequence slice
         for t in range(s_start, s_end):
             H, (C, N, M) = mlstm_recurrent_step__metal(
@@ -111,6 +119,17 @@ class HeadBandWorker:
                 eps=self.eps,
                 dtype_state=torch.float32,
             )
+            if cfc_on:
+                ff = torch.sigmoid(H) if cfc_act == "sigmoid" else (1.7159 * torch.tanh(0.666 * H))
+                try:
+                    i_t = self.i[:, hs:he, t : t + 1]
+                    f_t = self.f[:, hs:he, t : t + 1]
+                    lam = torch.sigmoid(cfc_alpha * (i_t + f_t)).squeeze(-1)
+                except Exception:
+                    lam = torch.zeros_like(h_cfc)
+                denom = 1.0 + cfc_dt * lam
+                h_cfc = (h_cfc + cfc_dt * ff) / denom
+                H = h_cfc
             H_out[:, :, t - s_start] = H
         return H_out, C, N, M
 
