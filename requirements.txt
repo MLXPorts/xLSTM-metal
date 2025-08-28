@@ -1,0 +1,16 @@
+# Core dependencies for xLSTM implementations
+
+# PyTorch (for PyTorch implementation)
+torch>=2.0.0
+
+# MLX (for Apple Silicon GPU acceleration)
+mlx>=0.5.0
+
+# Common dependencies
+numpy>=1.24.0
+tqdm>=4.65.0
+
+# Optional for training/evaluation
+transformers>=4.30.0
+datasets>=2.12.0
+wandb>=0.15.0

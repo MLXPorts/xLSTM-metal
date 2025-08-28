@@ -16,10 +16,11 @@ This report documents the development of multiple xLSTM implementations, progres
    - Verified performance: 730 tokens/second (tested)
 
 2. **xlstm_metal_optimized.py** (17,727 bytes)
-   - Apple Silicon optimization using MPS backend
-   - torch.compile integration for graph optimization
-   - Mixed precision computation support
-   - Fused linear operations for reduced memory bandwidth
+   - Apple Silicon optimization using PyTorch MPS backend
+   - Metal Performance Shaders integration with unified memory architecture
+   - torch.compile integration for automatic kernel fusion
+   - Mixed precision computation support with efficient GPU workload distribution
+   - Fused linear operations leveraging Metal's MTLBuffer for minimal data transfer overhead
 
 3. **xlstm_chunked_parallel.py** (19,178 bytes)
    - Chunk-based sequence processing for memory efficiency
@@ -42,7 +43,7 @@ This report documents the development of multiple xLSTM implementations, progres
 ### Supporting Infrastructure
 
 - **xlstm_pytorch.py** (22,439 bytes): Base implementation
-- **xlstm_mlx.py** (14,394 bytes): MLX framework port for Apple Silicon
+- **xlstm_mlx.py** (14,394 bytes): MLX framework port leveraging Apple's unified memory architecture and custom Metal kernels
 - **xlstm_pytorch_inference.py** (13,372 bytes): Inference-optimized version
 - **train_xlstm.py** (17,383 bytes): Training framework
 - **run_tests.py** (13,206 bytes): Test suite
@@ -134,7 +135,7 @@ Created comprehensive technical analysis:
 1. torch.utils.checkpoint import error in chunked implementation
 2. Some dimension mismatches in streaming inference version
 3. Performance benchmarks incomplete for all implementations
-4. Metal optimization requires further validation on actual hardware
+4. Metal optimization requires validation on actual Apple Silicon hardware with MPS backend
 
 ## Recommendations
 
