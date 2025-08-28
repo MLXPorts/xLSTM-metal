@@ -239,7 +239,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", type=str, choices=["ray", "queued"], required=True)
     ap.add_argument("--model_path", type=str, required=True)
-    ap.add_argument("--prompt", type=str, required=True)
+    ap.add_argument("--prompt", type=str, default=None)
+    ap.add_argument("--prompt-file", type=str, default=None)
     ap.add_argument("--new", type=int, default=64)
     ap.add_argument("--mode", type=str, choices=["ga", "random"], default="ga")
     ap.add_argument("--generations", type=int, default=5)
@@ -269,6 +270,12 @@ def main():
         chunkwise_key = "queued_compiled_steps"
 
     model, tok = build_model(args.model_path, chunkwise_key, args.chunks_min)
+    # Load prompt content
+    if args.prompt_file:
+        prompt_text = Path(args.prompt_file).read_text()
+    else:
+        assert args.prompt is not None, "Provide --prompt or --prompt-file"
+        prompt_text = args.prompt
 
     # Set up logging directory
     ts = time.strftime("%Y%m%d_%H%M%S")
@@ -334,7 +341,7 @@ def main():
         for g in range(args.generations):
             scored = []
             for p in pop:
-                m = eval_params(model, tok, args.prompt, args.new, args.backend, p, args.repeats)
+                m = eval_params(model, tok, prompt_text, args.new, args.backend, p, args.repeats)
                 log_trial(p, m)
                 scored.append((p, m))
             scored.sort(key=lambda pm: pm[1]["decode_tok_s"], reverse=True)
@@ -354,7 +361,7 @@ def main():
     else:
         for t in range(args.trials):
             p = random_params(args.backend, b)
-            m = eval_params(model, tok, args.prompt, args.new, args.backend, p, args.repeats)
+            m = eval_params(model, tok, prompt_text, args.new, args.backend, p, args.repeats)
             log_trial(p, m)
             if best_m is None or m["decode_tok_s"] > best_m["decode_tok_s"]:
                 best_p, best_m = p, m
