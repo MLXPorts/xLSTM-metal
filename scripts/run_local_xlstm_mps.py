@@ -140,6 +140,7 @@ def main():
     ap.add_argument("--cfc-hidden", type=int, default=32, help="CfC calibrator hidden size")
     ap.add_argument("--cfc-backbone", type=int, default=64, help="CfC calibrator backbone units")
     ap.add_argument("--cfc-mode", type=str, default="default", choices=["default","no_gate","pure"], help="CfC core mode")
+    ap.add_argument("--cfc-topk", type=int, default=0, help="If >0, apply sparse bias over top-K tokens from CfC hidden")
     # Ray / Dashboard controls
     ap.add_argument("--ray-dashboard", action="store_true", help="Start a local Ray head with dashboard enabled (http://127.0.0.1:8265)")
     ap.add_argument("--ray-dashboard-port", type=int, default=8265, help="Ray dashboard port (default 8265)")
@@ -327,6 +328,7 @@ def main():
                             backbone_layers=1,
                             mode=args.cfc_mode,
                             activation=("lecun_tanh" if args.cfc_calibrate=="lecun_tanh" else "lecun_tanh"),
+                            topk_bias=max(0, int(args.cfc_topk)),
                         ).to(device)
                     calibrator = _greedy_gen_timed._cfc_inst
                     logits, cfc_state = calibrator(logits, cfc_state, token_ids=next_tok.squeeze(1))

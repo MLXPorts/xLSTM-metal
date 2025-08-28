@@ -24,9 +24,11 @@ class CfCLogitCalibrator(nn.Module):
         backbone_layers: int = 1,
         mode: str = "default",
         activation: str = "lecun_tanh",
+        topk_bias: int = 0,
     ):
         super().__init__()
         self.vocab_size = vocab_size
+        self.topk_bias = topk_bias
         self.core = CfCTorch(
             input_size=4,  # entropy, max_prob, spread, token_id_scaled
             units=hidden,
@@ -37,6 +39,7 @@ class CfCLogitCalibrator(nn.Module):
             activation=activation,
         )
         self.head = nn.Linear(hidden, 2)
+        self.head_k = nn.Linear(hidden, topk_bias) if topk_bias and topk_bias > 0 else None
         # Initialize to identity: temp ≈ 1, bias ≈ 0
         nn.init.zeros_(self.head.weight)
         with torch.no_grad():
@@ -70,5 +73,11 @@ class CfCLogitCalibrator(nn.Module):
         temp_scale = F.softplus(ctrl[:, :1]) + 1e-3  # >0
         bias = ctrl[:, 1:2]
         logits_adj = logits / temp_scale + bias
+        # Optional top-k sparse bias over current top tokens
+        if self.topk_bias and self.topk_bias > 0 and self.head_k is not None:
+            with torch.no_grad():
+                topk = torch.topk(logits, k=min(self.topk_bias, logits.size(-1)), dim=-1).indices  # (B,K)
+            k_bias = self.head_k(h1)  # (B,K)
+            # Scatter-add into logits_adj
+            logits_adj.scatter_add_(dim=-1, index=topk, src=k_bias)
         return logits_adj, h1
-
