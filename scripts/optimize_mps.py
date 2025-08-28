@@ -28,6 +28,8 @@ Example (random, queued):
 from __future__ import annotations
 
 import argparse
+import csv
+import json
 import os
 import random
 import time
@@ -244,6 +246,9 @@ def main():
     ap.add_argument("--population", type=int, default=10)
     ap.add_argument("--trials", type=int, default=20)
     ap.add_argument("--repeats", type=int, default=1)
+    ap.add_argument("--seed", type=int, default=1337)
+    ap.add_argument("--log-dir", type=str, default="runs/mps_opt")
+    ap.add_argument("--tag", type=str, default="")
     # Bounds
     ap.add_argument("--heads-min", type=int, default=2)
     ap.add_argument("--heads-max", type=int, default=8)
@@ -252,6 +257,9 @@ def main():
     ap.add_argument("--workers-min", type=int, default=4)
     ap.add_argument("--workers-max", type=int, default=8)
     args = ap.parse_args()
+
+    # Seed for reproducibility of search
+    random.seed(args.seed)
 
     assert torch.backends.mps.is_available(), "MPS not available"
     if args.backend == "ray":
@@ -262,6 +270,43 @@ def main():
 
     model, tok = build_model(args.model_path, chunkwise_key, args.chunks_min)
 
+    # Set up logging directory
+    ts = time.strftime("%Y%m%d_%H%M%S")
+    tag = ("_" + args.tag) if args.tag else ""
+    run_dir = Path(args.log_dir) / f"{args.backend}_{ts}{tag}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+
+    # Write run metadata
+    meta = {
+        "backend": args.backend,
+        "model_path": args.model_path,
+        "prompt": args.prompt,
+        "new": args.new,
+        "mode": args.mode,
+        "generations": args.generations,
+        "population": args.population,
+        "trials": args.trials,
+        "repeats": args.repeats,
+        "bounds": {
+            "heads": [args.heads_min, args.heads_max],
+            "chunks": [args.chunks_min, args.chunks_max],
+            "workers": [args.workers_min, args.workers_max],
+        },
+        "seed": args.seed,
+    }
+    (run_dir / "run_meta.json").write_text(json.dumps(meta, indent=2))
+    trials_path = run_dir / "trials.jsonl"
+    best_path = run_dir / "best.json"
+    csv_path = run_dir / "summary.csv"
+
+    # Open CSV summary
+    csv_file = open(csv_path, "w", newline="")
+    csv_writer = csv.DictWriter(csv_file, fieldnames=[
+        "backend", "workers", "heads_per_band", "chunk_size",
+        "prefill_tok_s", "decode_tok_s", "prefill_s", "decode_s",
+    ])
+    csv_writer.writeheader()
+
     b = Bounds(
         heads_min=args.heads_min, heads_max=args.heads_max,
         chunks_min=args.chunks_min, chunks_max=args.chunks_max,
@@ -269,22 +314,59 @@ def main():
         workers_max=(args.workers_max if args.backend == "queued" else None),
     )
 
+    # Helper to log a trial
+    def log_trial(p: Dict[str, int], m: Dict[str, float]):
+        rec = {
+            "backend": args.backend,
+            "workers": p.get("workers"),
+            "heads_per_band": p.get("heads_per_band"),
+            "chunk_size": p.get("chunk_size"),
+            **m,
+        }
+        with open(trials_path, "a") as jf:
+            jf.write(json.dumps(rec) + "\n")
+        csv_writer.writerow(rec)
+        csv_file.flush()
+
+    best_p, best_m = None, None
     if args.mode == "ga":
-        best_p, best_m = optimize_ga(
-            args.backend, model, tok, args.prompt, args.new, b,
-            generations=args.generations, population=args.population, repeats=args.repeats,
-        )
+        pop = [random_params(args.backend, b) for _ in range(args.population)]
+        for g in range(args.generations):
+            scored = []
+            for p in pop:
+                m = eval_params(model, tok, args.prompt, args.new, args.backend, p, args.repeats)
+                log_trial(p, m)
+                scored.append((p, m))
+            scored.sort(key=lambda pm: pm[1]["decode_tok_s"], reverse=True)
+            if best_m is None or scored[0][1]["decode_tok_s"] > best_m["decode_tok_s"]:
+                best_p, best_m = scored[0]
+                best_path.write_text(json.dumps({"params": best_p, "metrics": best_m}, indent=2))
+            keep = max(1, int(0.3 * args.population))
+            elites = [p for p, _ in scored[:keep]]
+            new_pop = elites.copy()
+            while len(new_pop) < args.population:
+                a, c = random.sample(elites, 2) if len(elites) >= 2 else (elites[0], elites[0])
+                child = crossover(args.backend, a, c)
+                child = mutate(args.backend, child, b, 0.4)
+                new_pop.append(child)
+            pop = new_pop
+            print(f"[gen {g+1}/{args.generations}] best decode={best_m['decode_tok_s']:.2f} tok/s params={best_p}")
     else:
-        best_p, best_m = optimize_random(
-            args.backend, model, tok, args.prompt, args.new, b,
-            trials=args.trials, repeats=args.repeats,
-        )
+        for t in range(args.trials):
+            p = random_params(args.backend, b)
+            m = eval_params(model, tok, args.prompt, args.new, args.backend, p, args.repeats)
+            log_trial(p, m)
+            if best_m is None or m["decode_tok_s"] > best_m["decode_tok_s"]:
+                best_p, best_m = p, m
+                best_path.write_text(json.dumps({"params": best_p, "metrics": best_m}, indent=2))
+            print(f"[trial {t+1}/{args.trials}] decode={m['decode_tok_s']:.2f} tok/s params={p}")
 
     print("\n=== Best Configuration ===")
     print(best_p)
     print(best_m)
 
+    csv_file.close()
+
 
 if __name__ == "__main__":
     main()
-
