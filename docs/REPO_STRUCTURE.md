@@ -17,17 +17,23 @@ Repository Structure (High-level)
   - `blocks/slstm/`: sLSTM implementation; includes compiled backend for MPS.
 
 - `scripts/`
-  - `run_local_xlstm_mps.py`: run local HF checkpoint on MPS (Apple defaults).
-  - `run_hf_xlstm_metal.py`: run HF model id on MPS (Apple defaults).
+  - `runners/`: run/train/infer entrypoints (Ray default chunkwise backend).
+    - `run_local_xlstm_mps.py`: run local HF checkpoint on MPS.
+    - `run_hf_xlstm_metal.py`: run HF model id on MPS.
+  - `benchmarks/`: throughput/latency harnesses.
+  - `downloads/`: checkpoint acquisition.
+  - `debug/`, `checks/`, `build/`, `experiments/`.
+
+- `implementations/`
+  - `pytorch/`, `metal/`, `mlx/`: organized legacy/reference implementations (top‑level import shims preserved).
 
 - `tools/`
   - `test_metal_parity.py`: mLSTM parity checks.
   - `test_slstm_parity.py`: sLSTM parity checks.
 
 Conventions
-- Kernel registry keys:
-  - `chunkwise` backends: `"chunkwise--<variant>"`, e.g., `chunkwise--queued_compiled_steps`.
+- Kernel registry keys (Ray is default chunkwise):
+  - `chunkwise` backends: `"chunkwise--<variant>"`, e.g., `chunkwise--ray_compiled_steps` (default), `queued_compiled_steps` (legacy).
   - `sequence` backends: `"native_sequence__<variant>"`, e.g., `native_sequence__metal`.
   - `step` backends: `"<variant>"`, e.g., `metal`.
 - Compiled backends are strict: no CPU fallback; raise on unsupported device.
-

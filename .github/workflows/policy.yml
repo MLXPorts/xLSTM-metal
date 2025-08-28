@@ -1,0 +1,19 @@
+name: Repo Policy
+
+on:
+  pull_request:
+  push:
+    branches: [ main, master ]
+
+jobs:
+  policy:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Run policy checks
+        run: |
+          python scripts/lint/check_repo_policy.py
+

@@ -1,0 +1,15 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: detect-private-key
+  - repo: local
+    hooks:
+      - id: xlstm-policy
+        name: xlstm-policy
+        entry: python scripts/lint/check_repo_policy.py --only-staged
+        language: system
+        pass_filenames: false

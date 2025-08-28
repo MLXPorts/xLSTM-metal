@@ -11,7 +11,7 @@ from xlstm_official_full.xlstm_large.from_pretrained import load_from_pretrained
 # Load model using the official method
 model_path = "/Volumes/emberstuff/xLSTM/xlstm_7b_model"
 use_mps = torch.backends.mps.is_available()
-chunkwise_kernel = "chunkwise--native_autograd"  # training-only; leave native for now
+chunkwise_kernel = "chunkwise--ray_compiled_steps"
 sequence_kernel = "native_sequence__metal"
 step_kernel = "metal"
 

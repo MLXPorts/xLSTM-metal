@@ -1,3 +1,4 @@
+import os
 import torch
 import torch.nn.functional as F
 from typing import Tuple
@@ -66,8 +67,9 @@ def _mlstm_step_eager(
 
 
 try:
+    _mode = os.environ.get("XLSTM_COMPILE_MODE", "reduce-overhead")
     _mlstm_step_compiled_fn = torch.compile(
-        _mlstm_step_eager, backend="inductor", mode="reduce-overhead"
+        _mlstm_step_eager, backend="inductor", mode=_mode
     )
 except Exception as e:
     raise RuntimeError(

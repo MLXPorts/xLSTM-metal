@@ -1,0 +1,6 @@
+{"backend": "ray", "workers": null, "heads_per_band": 6, "chunk_size": 64, "prefill_tok_s": 21.563343943996266, "decode_tok_s": 23.851288621990225, "prefill_s": 0.27824997901916504, "decode_s": 2.641366720199585}
+{"backend": "ray", "workers": null, "heads_per_band": 3, "chunk_size": 36, "prefill_tok_s": 111.2247537136316, "decode_tok_s": 25.152780486690475, "prefill_s": 0.05394482612609863, "decode_s": 2.5046932697296143}
+{"backend": "ray", "workers": null, "heads_per_band": 7, "chunk_size": 64, "prefill_tok_s": 110.21255238921079, "decode_tok_s": 25.118784888831517, "prefill_s": 0.05444025993347168, "decode_s": 2.5080831050872803}
+{"backend": "ray", "workers": null, "heads_per_band": 6, "chunk_size": 36, "prefill_tok_s": 116.37590521905608, "decode_tok_s": 25.120747808622642, "prefill_s": 0.051557064056396484, "decode_s": 2.507887125015259}
+{"backend": "ray", "workers": null, "heads_per_band": 7, "chunk_size": 64, "prefill_tok_s": 117.02748300332028, "decode_tok_s": 25.00364795804432, "prefill_s": 0.0512700080871582, "decode_s": 2.519632339477539}
+{"backend": "ray", "workers": null, "heads_per_band": 4, "chunk_size": 64, "prefill_tok_s": 119.50945976749487, "decode_tok_s": 24.984479509298794, "prefill_s": 0.050205230712890625, "decode_s": 2.5215654373168945}

@@ -7,6 +7,7 @@ from typing import Tuple
 import torch
 
 from ...recurrent.metal.compiled import mlstm_recurrent_step__metal
+from ...monitoring.memory import MemoryMonitor, MemoryPressureAbort
 
 
 def _process_head_band(
@@ -24,6 +25,8 @@ def _process_head_band(
     n_state: torch.Tensor,
     m_state: torch.Tensor,
     stream: "torch.mps.Stream | None" = None,
+    chunk_size_ref: list | None = None,
+    monitor: MemoryMonitor | None = None,
 ):
     B, NH, S, DHQK = q.shape
     DHHV = v.shape[-1]
@@ -45,7 +48,11 @@ def _process_head_band(
     steps_processed = 0
     t_start = time.perf_counter()
     while pos < S:
-        seg = min(chunk_size, S - pos)
+        if monitor is not None:
+            monitor.check()
+        # allow dynamic shrink via shared ref
+        cur_chunk = chunk_size_ref[0] if chunk_size_ref is not None else chunk_size
+        seg = min(int(cur_chunk), S - pos)
         # step along this chunk
         # Use provided MPS stream to encourage concurrency across bands
         if stream is not None:
@@ -60,6 +67,8 @@ def _process_head_band(
             ctx = _Null()
         with ctx:
             for t in range(pos, pos + seg):
+                if monitor is not None:
+                    monitor.check()
                 H, (C, N, M) = mlstm_recurrent_step__metal(
                         q=q[:, hs:he, t],
                         k=k[:, hs:he, t],
@@ -129,6 +138,29 @@ def mlstm_chunkwise__queued_compiled_steps(
     heads_per_band = max(1, min(NH, heads_per_band))
     num_workers = max(1, num_workers)
 
+    # Memory watchdog with dynamic chunk-size shrinking
+    min_chunk = int(os.environ.get("XLSTM_MIN_CHUNK", "8"))
+    shrink_on_soft = os.environ.get("XLSTM_SHRINK_ON_SOFT", "1") != "0"
+    chunk_ref = [max(min_chunk, int(chunk_size))]
+    monitor: MemoryMonitor | None = None
+    if os.environ.get("XLSTM_MEM_WATCHDOG", "1") == "1":
+        def _on_soft(_st):
+            if not shrink_on_soft:
+                return
+            # halve chunk size down to min_chunk
+            cur = int(chunk_ref[0])
+            if cur > min_chunk:
+                new = max(min_chunk, cur // 2)
+                if new < cur:
+                    print(f"[xLSTM][mem] Shrinking chunk_size {cur} -> {new}", flush=True)
+                    chunk_ref[0] = new
+
+        def _on_hard(_st):
+            # nothing extra; raising is handled by monitor thread
+            return None
+
+        monitor = MemoryMonitor(on_soft=_on_soft, on_hard=_on_hard).start()
+
     # Optional micro autoscale: adjust heads_per_band based on a small probe
     if autoscale and NH >= 4:
         probe_hpb = max(1, min(heads_per_band, NH))
@@ -169,27 +201,35 @@ def mlstm_chunkwise__queued_compiled_steps(
     except Exception:
         streams = []
     results = []
-    with ThreadPoolExecutor(max_workers=num_workers) as ex:
-        for hs, he in bands:
-            stream = streams[(hs // heads_per_band) % len(streams)] if len(streams) > 0 else None
-            fut = ex.submit(
-                _process_head_band,
-                q,
-                k,
-                v,
-                i,
-                f,
-                hs,
-                he,
-                chunk_size,
-                eps,
-                h_out,
-                c_initial,
-                n_initial,
-                m_initial,
-                stream,
-            )
-            results.append((hs, he, fut))
+    try:
+        with ThreadPoolExecutor(max_workers=num_workers) as ex:
+            for hs, he in bands:
+                stream = streams[(hs // heads_per_band) % len(streams)] if len(streams) > 0 else None
+                fut = ex.submit(
+                    _process_head_band,
+                    q,
+                    k,
+                    v,
+                    i,
+                    f,
+                    hs,
+                    he,
+                    chunk_size,
+                    eps,
+                    h_out,
+                    c_initial,
+                    n_initial,
+                    m_initial,
+                    stream,
+                    chunk_ref,
+                    monitor,
+                )
+                results.append((hs, he, fut))
+    except MemoryPressureAbort as e:
+        # Propagate a cleaner message
+        if monitor is not None:
+            monitor.stop()
+        raise RuntimeError(f"Aborted due to unified memory pressure: {e}")
 
     # Aggregate final states
     if return_last_states:
@@ -213,9 +253,13 @@ def mlstm_chunkwise__queued_compiled_steps(
             h_out._mps_time = total_time    # type: ignore[attr-defined]
         except Exception:
             pass
+        if monitor is not None:
+            monitor.stop()
         return h_out, (Cf, Nf, Mf)
     else:
         # ensure completion
         for _, _, fut in results:
             _ = fut.result()
+        if monitor is not None:
+            monitor.stop()
         return h_out

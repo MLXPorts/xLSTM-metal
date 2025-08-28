@@ -39,6 +39,7 @@ from typing import Dict, Tuple
 
 import torch
 from transformers import AutoTokenizer
+import gc
 
 from xlstm_official_full.xlstm_large.model import xLSTMLarge
 from scripts.run_local_xlstm_mps import load_local_config, load_local_weights
@@ -100,8 +101,7 @@ def make_input(tok: AutoTokenizer, prompt: str) -> torch.Tensor:
 
 def eval_params(
     model: xLSTMLarge,
-    tok: AutoTokenizer,
-    prompt: str,
+    prefill_tokens: torch.Tensor,
     new_tokens: int,
     backend: str,
     params: Dict[str, int],
@@ -118,17 +118,16 @@ def eval_params(
         os.environ["XLSTM_MPS_STREAMS"] = "0"
         set_chunk_size(model, params["chunk_size"])
 
-    x = make_input(tok, prompt)
     # Warmup
-    _ = greedy_gen_timed(model, x, 1)
+    _ = greedy_gen_timed(model, prefill_tokens, 1)
     pref_times, dec_times = [], []
     for _ in range(repeats):
-        pt, dt = greedy_gen_timed(model, x, new_tokens)
+        pt, dt = greedy_gen_timed(model, prefill_tokens, new_tokens)
         pref_times.append(pt)
         dec_times.append(dt)
     pt = sum(pref_times) / len(pref_times)
     dt = sum(dec_times) / len(dec_times)
-    prompt_len = x.shape[1]
+    prompt_len = prefill_tokens.shape[1]
     prefill_tps = prompt_len / max(pt, 1e-9)
     decode_tps = max(new_tokens - 1, 1) / max(dt, 1e-9)
     return {"prefill_tok_s": prefill_tps, "decode_tok_s": decode_tps, "prefill_s": pt, "decode_s": dt}
@@ -237,8 +236,9 @@ def optimize_random(
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--backend", type=str, choices=["ray", "queued"], required=True)
-    ap.add_argument("--model_path", type=str, required=True)
+    ap.add_argument("--backend", type=str, choices=["ray", "queued"], default="ray")
+    ap.add_argument("--config", type=str, default=None, help="Optional JSON config with tunables to override CLI")
+    ap.add_argument("--model_path", type=str, default=None)
     ap.add_argument("--prompt", type=str, default=None)
     ap.add_argument("--prompt-file", type=str, default=None)
     ap.add_argument("--new", type=int, default=64)
@@ -263,6 +263,26 @@ def main():
     random.seed(args.seed)
 
     assert torch.backends.mps.is_available(), "MPS not available"
+
+    # Load JSON config (if provided) to override args
+    if args.config:
+        cfg_path = Path(args.config)
+        assert cfg_path.exists(), f"Config not found: {cfg_path}"
+        cfg = json.loads(cfg_path.read_text())
+        # Unbounded overrides: apply any keys present
+        for k, v in cfg.items():
+            # Flatten simple top-level keys that match argparse names
+            if hasattr(args, k):
+                setattr(args, k, v)
+        # Also accept nested optimizer block
+        if isinstance(cfg.get("optimizer"), dict):
+            for k, v in cfg["optimizer"].items():
+                if hasattr(args, k):
+                    setattr(args, k, v)
+
+    # Required after config application
+    assert args.backend in {"ray", "queued"}, "backend must be 'ray' or 'queued' (via --backend or config)"
+    assert args.model_path, "model_path is required (via --model_path or config)"
     if args.backend == "ray":
         os.environ.setdefault("XLSTM_RAY_LOCAL_MODE", "1")
         chunkwise_key = "ray_compiled_steps"
@@ -276,6 +296,8 @@ def main():
     else:
         assert args.prompt is not None, "Provide --prompt or --prompt-file"
         prompt_text = args.prompt
+    # Pre-tokenize prompt once to reduce RAM & CPU overhead
+    prefill_tokens = make_input(tok, prompt_text)
 
     # Set up logging directory
     ts = time.strftime("%Y%m%d_%H%M%S")
@@ -334,6 +356,12 @@ def main():
             jf.write(json.dumps(rec) + "\n")
         csv_writer.writerow(rec)
         csv_file.flush()
+        # Proactively release cached MPS memory
+        try:
+            torch.mps.empty_cache()
+        except Exception:
+            pass
+        gc.collect()
 
     best_p, best_m = None, None
     if args.mode == "ga":
@@ -341,7 +369,7 @@ def main():
         for g in range(args.generations):
             scored = []
             for p in pop:
-                m = eval_params(model, tok, prompt_text, args.new, args.backend, p, args.repeats)
+                m = eval_params(model, prefill_tokens, args.new, args.backend, p, args.repeats)
                 log_trial(p, m)
                 scored.append((p, m))
             scored.sort(key=lambda pm: pm[1]["decode_tok_s"], reverse=True)
@@ -361,7 +389,7 @@ def main():
     else:
         for t in range(args.trials):
             p = random_params(args.backend, b)
-            m = eval_params(model, tok, prompt_text, args.new, args.backend, p, args.repeats)
+            m = eval_params(model, prefill_tokens, args.new, args.backend, p, args.repeats)
             log_trial(p, m)
             if best_m is None or m["decode_tok_s"] > best_m["decode_tok_s"]:
                 best_p, best_m = p, m

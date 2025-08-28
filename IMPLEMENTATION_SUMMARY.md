@@ -1,4 +1,14 @@
-# xLSTM Metal Implementation Summary
+# xLSTM Implementation Summary
+
+Update — 2025-08-28
+- Inference on Apple Silicon uses compiled MPS backends:
+  - Step kernel `metal` is a `torch.compile`d function executing on MPS with float32 math and stabilized gating (not handwritten Metal shaders).
+  - Sequence kernel `native_sequence__metal` loops the compiled step for decode.
+  - Prefill uses our unique chunkwise schedulers:
+    - `chunkwise--queued_compiled_steps` (thread‑pool coordinator, bands × small chunks)
+    - `chunkwise--ray_compiled_steps` (Ray actors in local_mode)
+    - `chunkwise--native_compiled_autograd` (compiled chunkwise comparator)
+- Entrypoint and tuning: see `scripts/run_local_xlstm_mps.py` and `docs/TUNING_GUIDE.md`.
 
 ## Successfully Implemented
 
@@ -10,20 +20,7 @@
 
 ### 2. Working Implementations
 
-#### MLX Metal Kernels (`xlstm_metal_kernels.py`)
-- ✅ Soft-cap kernel using mx.fast.metal_kernel
-- ✅ Performance: 0.003s forward pass
-- ✅ Full xLSTM architecture with mLSTM and sLSTM blocks
-
-#### PyTorch Metal Extension (`metal_xlstm_mps.mm`)
-- ✅ Compiled Metal kernels for soft-cap operations
-- ✅ CPU fallback ensuring correctness
-- ✅ All tests passing with <1e-5 error
-
-#### Pure Python Implementation (`soft_cap_complete.py`)
-- ✅ Direct copy of official xLSTM soft-cap
-- ✅ Gate and logit soft-cap modules
-- ✅ Complete xLSTM gates and language model head
+This summary supersedes older references to handwritten Metal shaders for inference; those are not required in the current design.
 
 ### 3. Key Technical Solutions
 
@@ -67,7 +64,7 @@ All implementations tested and working:
 │   ├── metal_xlstm_mps.mm        # Working Metal extension
 │   ├── setup_mps.py               # Build script
 │   └── metal_xlstm_mps.*.so      # Compiled extension
-├── xlstm_metal_kernels.py        # MLX implementation
+├── implementations/metal/xlstm_metal_kernels.py        # Metal utils (not MLX)
 ├── soft_cap_complete.py          # Pure Python reference
 ├── test_mps_working.py           # Test suite
 └── Metal_Kernel_Guide.md         # Documentation

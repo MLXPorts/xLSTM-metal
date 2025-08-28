@@ -36,13 +36,15 @@ def main():
     print(f"Loading config for {model_id} ...")
     cfg = AutoConfig.from_pretrained(model_id, trust_remote_code=True)
 
-    # Select our Metal kernels
+    # Select our compiled MPS backends (Ray default)
     cfg.step_kernel = "metal"
-    # Use a parallel native kernel for chunkwise prefill for stability and speed on MPS
-    cfg.chunkwise_kernel = "chunkwise--native_compiled_autograd"
-    cfg.sequence_kernel = "native_sequence__metal"      # sequence loop that calls Metal step
+    cfg.chunkwise_kernel = "chunkwise--ray_compiled_steps"
+    cfg.sequence_kernel = "native_sequence__metal"      # sequence loop that calls compiled step
     cfg.mode = "inference"
     cfg.return_last_states = True
+
+    # Prefer Ray local_mode to avoid IPC overhead on Apple
+    os.environ.setdefault("XLSTM_RAY_LOCAL_MODE", "1")
 
     print("Loading model (this may take a while)...")
     t0 = time.time()

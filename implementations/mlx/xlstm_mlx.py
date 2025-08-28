@@ -1,0 +1,409 @@
+#!/usr/bin/env python
+"""
+xLSTM implementation for MLX (Apple Silicon GPU acceleration)
+Based on Beck et al. (2024) - "xLSTM: Extended Long Short-Term Memory"
+"""
+
+import mlx.core as mx
+import mlx.nn as nn
+from typing import Tuple, Optional, List
+import numpy as np
+
+
+class CausalConv1d(nn.Module):
+    """Causal 1D convolution layer for MLX"""
+    def __init__(self, in_channels, out_channels, kernel_size, dilation=1):
+        super().__init__()
+        self.kernel_size = kernel_size
+        self.dilation = dilation
+        self.padding = (kernel_size - 1) * dilation
+        self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, padding=self.padding)
+    
+    def __call__(self, x):
+        # MLX expects shape: (batch, length, channels)
+        # x comes in as (batch, channels) or (batch, length, channels)
+        if len(x.shape) == 2:
+            # Add length dimension
+            x = mx.expand_dims(x, axis=1)
+        
+        out = self.conv(x)
+        # Remove future positions for causality
+        if self.padding > 0:
+            out = out[:, :-self.padding, :]
+        return out
+
+
+def block_diag(*matrices):
+    """Create a block diagonal matrix from a list of matrices"""
+    rows = sum(mat.shape[0] for mat in matrices)
+    cols = sum(mat.shape[1] for mat in matrices)
+    
+    result = mx.zeros((rows, cols))
+    
+    current_row = 0
+    current_col = 0
+    for mat in matrices:
+        r, c = mat.shape
+        result[current_row:current_row + r, current_col:current_col + c] = mat
+        current_row += r
+        current_col += c
+    
+    return result
+
+
+class BlockLinear(nn.Module):
+    """Block diagonal linear layer for MLX"""
+    def __init__(self, block_specs, bias=False):
+        super().__init__()
+        self.block_specs = block_specs
+        self.out_dim = sum(out_dim for _, out_dim in block_specs)
+        self.in_dim = sum(in_dim for in_dim, _ in block_specs)
+        
+        # Store blocks as module attributes so they're tracked
+        for i, (in_dim, out_dim) in enumerate(block_specs):
+            # Initialize weights for each block
+            w = mx.random.normal((out_dim, in_dim)) * (0.02 / mx.sqrt(in_dim))
+            setattr(self, f'block_{i}', w)
+        
+        self.bias = mx.zeros(self.out_dim) if bias else None
+    
+    def __call__(self, x):
+        # Collect blocks
+        blocks = [getattr(self, f'block_{i}') for i in range(len(self.block_specs))]
+        
+        # Create block diagonal weight matrix
+        full_weight = block_diag(*blocks)
+        
+        # Apply linear transformation
+        # x shape: (batch, features)
+        # Need to handle both 2D and higher dimensional inputs
+        orig_shape = x.shape
+        if len(x.shape) > 2:
+            x = x.reshape(-1, x.shape[-1])
+        
+        out = x @ full_weight.T
+        
+        if self.bias is not None:
+            out = out + self.bias
+        
+        # Restore original batch dimensions
+        if len(orig_shape) > 2:
+            out = out.reshape(*orig_shape[:-1], -1)
+        
+        return out
+
+
+def enlarge_as(x, target):
+    """Expand tensor x to match target dimensions"""
+    while len(x.shape) < len(target.shape):
+        x = mx.expand_dims(x, axis=-1)
+    return x
+
+
+class sLSTMBlock(nn.Module):
+    """Scalar LSTM block with exponential gating and state normalization"""
+    def __init__(self, inp_dim, head_dim, head_num, p_factor=4/3, ker_size=4):
+        super().__init__()
+        self.inp_dim = inp_dim
+        self.head_dim = head_dim
+        self.head_num = head_num
+        self.hidden_dim = head_dim * head_num
+        
+        self.inp_norm = nn.LayerNorm(inp_dim)
+        self.hid_norm = nn.GroupNorm(head_num, self.hidden_dim)
+        
+        # Conv1d for sLSTM - operates on inp_dim channels
+        self.causal_conv = CausalConv1d(inp_dim, inp_dim, kernel_size=ker_size)
+        
+        self.W_z = nn.Linear(inp_dim, self.hidden_dim)
+        self.W_i = nn.Linear(inp_dim, self.hidden_dim)
+        self.W_o = nn.Linear(inp_dim, self.hidden_dim)
+        self.W_f = nn.Linear(inp_dim, self.hidden_dim)
+        
+        self.R_z = BlockLinear([(head_dim, head_dim)] * head_num)
+        self.R_i = BlockLinear([(head_dim, head_dim)] * head_num)
+        self.R_o = BlockLinear([(head_dim, head_dim)] * head_num)
+        self.R_f = BlockLinear([(head_dim, head_dim)] * head_num)
+        
+        proj_dim = int(p_factor * self.hidden_dim)
+        self.up_proj = nn.Linear(self.hidden_dim, 2 * proj_dim)
+        self.down_proj = nn.Linear(proj_dim, inp_dim)
+    
+    def init_hidden(self, batch_size):
+        """Initialize hidden states"""
+        n_0 = mx.ones((batch_size, self.hidden_dim))
+        c_0 = mx.zeros((batch_size, self.hidden_dim))
+        h_0 = mx.zeros((batch_size, self.hidden_dim))
+        m_0 = mx.zeros((batch_size, self.hidden_dim))
+        return c_0, n_0, h_0, m_0
+    
+    def __call__(self, x, hidden_state, use_conv=False):
+        c_tm1, n_tm1, h_tm1, m_tm1 = hidden_state
+        
+        x_t = self.inp_norm(x)
+        
+        if use_conv:
+            # Apply causal convolution
+            x_c = self.causal_conv(x_t)
+            x_c = nn.silu(mx.squeeze(x_c, axis=1) if len(x_c.shape) > 2 else x_c)
+        else:
+            x_c = x_t
+        
+        i_t = self.W_i(x_c) + self.R_i(h_tm1)
+        f_t = self.W_f(x_c) + self.R_f(h_tm1)
+        z_t = self.W_z(x_t) + self.R_z(h_tm1)
+        o_t = self.W_o(x_t) + self.R_o(h_tm1)
+        
+        m_t = mx.maximum(f_t + m_tm1, i_t)
+        i_t = mx.exp(i_t - m_t)
+        f_t = mx.exp(f_t - m_t + m_tm1)
+        
+        z_t = mx.tanh(z_t)
+        o_t = mx.sigmoid(o_t)
+        
+        c_t = f_t * c_tm1 + i_t * z_t
+        n_t = f_t * n_tm1 + i_t
+        h_t = o_t * (c_t / mx.maximum(n_t, 1.0))
+        
+        out = self.hid_norm(h_t)
+        out1, out2 = mx.split(self.up_proj(out), 2, axis=-1)
+        out = out1 * nn.gelu(out2)
+        out = self.down_proj(out)
+        
+        return out + x, (c_t, n_t, h_t, m_t)
+
+
+class mLSTMBlock(nn.Module):
+    """Matrix LSTM block with covariance update rule"""
+    def __init__(self, inp_dim, head_dim, head_num, p_factor=2, ker_size=4):
+        super().__init__()
+        self.inp_dim = inp_dim
+        self.head_dim = head_dim
+        self.head_num = head_num
+        self.hidden_dim = head_dim * head_num
+        
+        self.inp_norm = nn.LayerNorm(inp_dim)
+        self.hid_norm = nn.GroupNorm(head_num, self.hidden_dim)
+        
+        self.up_l_proj = nn.Linear(inp_dim, int(p_factor * inp_dim))
+        self.up_r_proj = nn.Linear(inp_dim, self.hidden_dim)
+        self.down_proj = nn.Linear(self.hidden_dim, inp_dim)
+        
+        # Conv1d for mLSTM - operates on projected dimension
+        proj_dim_int = int(p_factor * inp_dim)
+        self.causal_conv = CausalConv1d(proj_dim_int, proj_dim_int, kernel_size=ker_size)
+        self.skip_connection = nn.Linear(proj_dim_int, self.hidden_dim)
+        
+        self.W_i = nn.Linear(int(p_factor * inp_dim), head_num)
+        self.W_f = nn.Linear(int(p_factor * inp_dim), head_num)
+        self.W_o = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
+        
+        self.W_q = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
+        self.W_k = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
+        self.W_v = nn.Linear(int(p_factor * inp_dim), self.hidden_dim)
+    
+    def init_hidden(self, batch_size):
+        """Initialize hidden states"""
+        c_0 = mx.zeros((batch_size, self.head_num, self.head_dim, self.head_dim))
+        n_0 = mx.ones((batch_size, self.head_num, self.head_dim))
+        m_0 = mx.zeros((batch_size, self.head_num))
+        return c_0, n_0, m_0
+    
+    def __call__(self, x, hidden_state):
+        bs = x.shape[0]
+        c_tm1, n_tm1, m_tm1 = hidden_state
+        
+        x_n = self.inp_norm(x)
+        
+        x_t = self.up_l_proj(x_n)
+        r_t = self.up_r_proj(x_n)
+        
+        # Apply causal convolution
+        x_c = self.causal_conv(x_t)
+        x_c = nn.silu(mx.squeeze(x_c, axis=1) if len(x_c.shape) > 2 else x_c)
+        x_skip = self.skip_connection(x_c)
+        
+        q_t = mx.reshape(self.W_q(x_c), (bs, self.head_num, self.head_dim))
+        k_t = mx.reshape(self.W_k(x_c), (bs, self.head_num, self.head_dim)) / mx.sqrt(self.head_dim)
+        v_t = mx.reshape(self.W_v(x_t), (bs, self.head_num, self.head_dim))
+        
+        i_t = self.W_i(x_c)
+        f_t = self.W_f(x_c)
+        o_t = mx.sigmoid(self.W_o(x_t))
+        
+        m_t = mx.maximum(f_t + m_tm1, i_t)
+        i_t = mx.exp(i_t - m_t)
+        f_t = mx.exp(f_t - m_t + m_tm1)
+        
+        # Covariance update
+        i_expanded = mx.expand_dims(mx.expand_dims(i_t, axis=-1), axis=-1)
+        f_expanded = mx.expand_dims(mx.expand_dims(f_t, axis=-1), axis=-1)
+        v_expanded = mx.expand_dims(v_t, axis=-1)
+        k_expanded = mx.expand_dims(k_t, axis=-2)
+        
+        c_t = f_expanded * c_tm1 + i_expanded * (v_expanded @ k_expanded)
+        
+        f_n_expanded = mx.expand_dims(f_t, axis=-1)
+        i_n_expanded = mx.expand_dims(i_t, axis=-1)
+        n_t = f_n_expanded * n_tm1 + i_n_expanded * k_t
+        
+        # Compute output
+        q_expanded = mx.expand_dims(q_t, axis=-1)
+        h_numerator = mx.squeeze(c_t @ q_expanded, axis=-1)  # (batch, head_num, head_dim)
+        h_denominator = mx.maximum(mx.sum(n_t * q_t, axis=-1, keepdims=True), 1.0)  # (batch, head_num, 1)
+        h_t_heads = h_numerator / h_denominator  # (batch, head_num, head_dim)
+        h_t_flat = mx.reshape(h_t_heads, (bs, self.hidden_dim))  # Flatten heads
+        h_t = o_t * h_t_flat  # Apply output gate
+        
+        out = self.hid_norm(h_t) + x_skip
+        out = out * nn.silu(r_t)
+        out = self.down_proj(out)
+        
+        return out + x, (c_t, n_t, m_t)
+
+
+class xLSTM(nn.Module):
+    """xLSTM model combining sLSTM and mLSTM blocks"""
+    def __init__(
+        self,
+        vocab_size: int,
+        num_layers: int,
+        signature: Tuple[int, int],  # (num_mLSTM, num_sLSTM)
+        inp_dim: int,
+        head_dim: int,
+        head_num: int,
+        p_factor: Tuple[float, float] = (2.0, 4/3),  # (mLSTM_factor, sLSTM_factor)
+        ker_size: int = 4,
+        dropout: float = 0.0
+    ):
+        super().__init__()
+        self.vocab_size = vocab_size
+        self.num_layers = num_layers
+        self.inp_dim = inp_dim
+        self.hidden_dim = head_dim * head_num
+        
+        self.embedding = nn.Embedding(vocab_size, inp_dim)
+        self.dropout = nn.Dropout(dropout) if dropout > 0 else None
+        
+        m_factor, s_factor = p_factor
+        m_num, s_num = signature
+        block_types = [True] * m_num + [False] * s_num
+        
+        # Cycle through block types for the specified number of layers
+        self.blocks = []
+        for i in range(num_layers):
+            block_type = block_types[i % len(block_types)]
+            if block_type:  # mLSTM block
+                self.blocks.append(mLSTMBlock(inp_dim, head_dim, head_num, m_factor, ker_size))
+            else:  # sLSTM block
+                self.blocks.append(sLSTMBlock(inp_dim, head_dim, head_num, s_factor, ker_size))
+        
+        self.head = nn.Linear(inp_dim, vocab_size)
+    
+    def init_hidden(self, batch_size):
+        """Initialize hidden states for all blocks"""
+        return [block.init_hidden(batch_size) for block in self.blocks]
+    
+    def __call__(self, tokens, hidden_states=None, return_hidden=False):
+        """
+        Forward pass through xLSTM
+        
+        Args:
+            tokens: Input token indices (batch_size, seq_len)
+            hidden_states: Optional initial hidden states
+            return_hidden: Whether to return final hidden states
+            
+        Returns:
+            logits: Output logits (batch_size, seq_len, vocab_size)
+            hidden_states: Final hidden states (if return_hidden=True)
+        """
+        batch_size, seq_len = tokens.shape
+        
+        # Embed tokens
+        x = self.embedding(tokens)
+        if self.dropout:
+            x = self.dropout(x)
+        
+        # Initialize hidden states if not provided
+        if hidden_states is None:
+            hidden_states = self.init_hidden(batch_size)
+        
+        # Process sequence through blocks
+        outputs = []
+        for t in range(seq_len):
+            x_t = x[:, t, :]
+            for i, block in enumerate(self.blocks):
+                x_t, hidden_states[i] = block(x_t, hidden_states[i])
+                if self.dropout and i < len(self.blocks) - 1:
+                    x_t = self.dropout(x_t)
+            outputs.append(x_t)
+        
+        # Stack outputs and compute logits
+        output = mx.stack(outputs, axis=1)
+        logits = self.head(output)
+        
+        if return_hidden:
+            return logits, hidden_states
+        return logits
+
+
+def create_xlstm_model(
+    vocab_size: int = 50257,
+    num_layers: int = 12,
+    signature: Tuple[int, int] = (7, 1),
+    inp_dim: int = 768,
+    head_dim: int = 96,
+    head_num: int = 8,
+    p_factor: Tuple[float, float] = (2.0, 4/3),
+    ker_size: int = 4,
+    dropout: float = 0.1
+) -> xLSTM:
+    """
+    Create an xLSTM model with specified configuration
+    
+    Args:
+        vocab_size: Size of vocabulary
+        num_layers: Number of xLSTM blocks
+        signature: (num_mLSTM, num_sLSTM) blocks in pattern
+        inp_dim: Input/embedding dimension
+        head_dim: Dimension per head
+        head_num: Number of heads
+        p_factor: Projection factors for (mLSTM, sLSTM)
+        ker_size: Kernel size for causal convolution
+        dropout: Dropout rate
+        
+    Returns:
+        xLSTM model instance
+    """
+    return xLSTM(
+        vocab_size=vocab_size,
+        num_layers=num_layers,
+        signature=signature,
+        inp_dim=inp_dim,
+        head_dim=head_dim,
+        head_num=head_num,
+        p_factor=p_factor,
+        ker_size=ker_size,
+        dropout=dropout
+    )
+
+
+if __name__ == "__main__":
+    # Example usage
+    model = create_xlstm_model(
+        vocab_size=1000,
+        num_layers=4,
+        signature=(1, 1),
+        inp_dim=256,
+        head_dim=32,
+        head_num=8
+    )
+    
+    # Test forward pass
+    batch_size = 2
+    seq_len = 10
+    tokens = mx.random.randint(0, 1000, (batch_size, seq_len))
+    
+    logits = model(tokens)
+    print(f"Output shape: {logits.shape}")
+    print(f"Expected: ({batch_size}, {seq_len}, 1000)")
