@@ -171,12 +171,22 @@ def mlstm_chunkwise__ray_compiled_steps(
             band_states[(hs, he)] = None
             s = e
 
-    # Gather results in submission order and write into output; track last states
+    # Gather results as they complete and write into output; track last states
     last_states: dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = {}
-    for hs, he, s, e, ref in pending:
-        Hband, Cb, Nb, Mb = ray.get(ref)  # type: ignore[union-attr]
+    # Ray wait loop
+    # Convert to simple lists to work with ray.wait
+    refs = [ref for *_, ref in pending]
+    metas = [(hs, he, s, e) for hs, he, s, e, _ in pending]
+    while refs:
+        done, not_done = ray.wait(refs, num_returns=1)  # type: ignore[union-attr]
+        idx = refs.index(done[0])
+        hs, he, s, e = metas[idx]
+        Hband, Cb, Nb, Mb = ray.get(done[0])  # type: ignore[union-attr]
         h_out[:, hs:he, s:e] = Hband
         last_states[(hs, he)] = (Cb, Nb, Mb)
+        # remove this ref/meta
+        refs.pop(idx)
+        metas.pop(idx)
 
     if return_last_states:
         Cf = torch.empty(B, NH, DHQK, DHHV, device=q.device, dtype=torch.float32)
@@ -190,4 +200,3 @@ def mlstm_chunkwise__ray_compiled_steps(
         return h_out, (Cf, Nf, Mf)
     else:
         return h_out
-
