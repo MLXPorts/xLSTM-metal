@@ -35,7 +35,9 @@ class HRMXLSTM(nn.Module):
         # teacher = identity at boundary in this simple wrapper
         y_teacher = h
         commit_mask = boundary_commit_mask(times)
-        y_cg, alpha_mean, conf_mean = self.cube_gate(h, y_teacher=y_teacher, train=self.training, allow_commit=commit_mask)
+        y_cg, alpha_mean, conf_mean = self.cube_gate(
+            h, y_teacher=y_teacher, train=self.training, allow_commit=commit_mask, times=times
+        )
 
         # Halting & energy telemetry
         probs, mask, stats = self.act_head(y_cg)

@@ -45,7 +45,7 @@ class TransformerLNN(nn.Module):
         # commit mask: allow updates only on Z5 boundary (slot==4)
         commit_mask = boundary_commit_mask(times)
         y_cg, alpha_mean, conf_mean = self.cube_gate(
-            h1, y_teacher=y_teacher, train=self.training, allow_commit=commit_mask
+            h1, y_teacher=y_teacher, train=self.training, allow_commit=commit_mask, times=times
         )
         # ACT halting telemetry on gate output
         act_probs, act_mask, act_stats = self.act_head(y_cg)
