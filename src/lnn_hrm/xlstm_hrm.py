@@ -18,12 +18,14 @@ class HRMXLSTM(nn.Module):
     - Emits telemetry: alpha_mean, conf_mean, act_prob_mean, act_open_rate, energy_pre_gate, energy_post_gate.
     """
 
-    def __init__(self, config: xLSTMBlockStackConfig):
+    def __init__(self, config: xLSTMBlockStackConfig, use_cube: bool = True, use_act: bool = True, fuse_phase_keys: bool = True):
         super().__init__()
         self.stack = xLSTMBlockStack(config=config)
         d_model = config.embedding_dim
-        self.cube_gate = CubeGatedBlock(d_in=d_model)
-        self.act_head = ACTHaltingHead(d_model, threshold=0.5)
+        self.use_cube = use_cube
+        self.use_act = use_act
+        self.cube_gate = CubeGatedBlock(d_in=d_model, fuse_phase_keys=fuse_phase_keys) if use_cube else None
+        self.act_head = ACTHaltingHead(d_model, threshold=0.5) if use_act else None
 
     def forward(self, x: torch.Tensor, times: Optional[torch.Tensor] = None, **kwargs) -> tuple[torch.Tensor, Dict[str, float]]:
         B, L, D = x.shape
@@ -32,15 +34,20 @@ class HRMXLSTM(nn.Module):
             times = torch.arange(L, device=dev).unsqueeze(0).expand(B, -1)
 
         h = self.stack(x, **kwargs)
-        # teacher = identity at boundary in this simple wrapper
-        y_teacher = h
-        commit_mask = boundary_commit_mask(times)
-        y_cg, alpha_mean, conf_mean = self.cube_gate(
-            h, y_teacher=y_teacher, train=self.training, allow_commit=commit_mask, times=times
-        )
+        y_cg = h
+        alpha_mean = conf_mean = 0.0
+        if self.use_cube:
+            # teacher = identity at boundary in this simple wrapper
+            y_teacher = h
+            commit_mask = boundary_commit_mask(times)
+            y_cg, alpha_mean, conf_mean = self.cube_gate(
+                h, y_teacher=y_teacher, train=self.training, allow_commit=commit_mask, times=times
+            )
 
         # Halting & energy telemetry
-        probs, mask, stats = self.act_head(y_cg)
+        stats = {"act_prob_mean": 0.0, "act_open_rate": 0.0}
+        if self.use_act:
+            probs, mask, stats = self.act_head(y_cg)
         e_pre = energy(h)
         e_post = energy(y_cg)
 

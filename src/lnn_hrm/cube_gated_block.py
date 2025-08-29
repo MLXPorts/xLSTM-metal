@@ -35,8 +35,10 @@ class CubeGatedBlock(nn.Module):
         times: torch.Tensor | None = None,
     ):
         B, L, D = h_in.shape
+        # Base keys
         keys = self.key_proj(h_in)
         if self.fuse_phase_keys and times is not None:
+            assert times.shape[:2] == h_in.shape[:2], "times must be (B,L) aligning with h_in"
             # Build lightweight phase features per token (fast/mid/slow + Z5 slot one-hot)
             # times: (B,L)
             t = times.float()
@@ -55,8 +57,10 @@ class CubeGatedBlock(nn.Module):
             # concat and reduce to 8 dims (6 trig + 5 one-hot -> 11 -> project to 8 via linear on channel dim)
             # For simplicity, pick first 8 features: 3 cos + 3 sin + first 2 of one-hot
             # but better: a small linear on the 11-dim feature to 8 dims per position
-            phase_full = torch.cat([phi, z5], dim=-1)
-            phase_feats = torch.tanh(torch.nn.functional.linear(phase_full, torch.eye(phase_full.size(-1), device=h_in.device)[:8]))
+            phase_full = torch.cat([phi, z5], dim=-1)  # (B,L,11)
+            # Simple selection + tanh squash to 8 dims for stability
+            sel = torch.arange(8, device=h_in.device)
+            phase_feats = torch.tanh(phase_full.index_select(-1, sel))  # (B,L,8)
             # Broadcast phase to key dim via concat and linear
             k_cat = torch.cat([keys, phase_feats], dim=-1)
             keys = self.phase_proj(k_cat)
@@ -75,6 +79,7 @@ class CubeGatedBlock(nn.Module):
         if train and y_teacher is not None:
             delta = (y_teacher.detach() - h_in.detach()).reshape(B * L, -1)
             if allow_commit is not None:
+                assert allow_commit.shape[:2] == h_in.shape[:2], "allow_commit must be (B,L)"
                 # only update for allowed positions
                 mask = allow_commit.reshape(B * L)
                 if mask.any():
