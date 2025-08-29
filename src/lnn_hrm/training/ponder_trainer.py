@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from typing import Dict, Optional
+from ..telemetry.logger import TelemetryLogger
+from ..telemetry.trace import trace_hash
 
 
 class PonderTrainer:
@@ -12,16 +14,18 @@ class PonderTrainer:
     Loss: L = CE(y, labels) + λ · ponder_metric
     """
 
-    def __init__(self, model: nn.Module, vocab_size: int, lambda_ponder: float = 0.01):
+    def __init__(self, model: nn.Module, vocab_size: int, lambda_ponder: float = 0.01, logger: Optional[TelemetryLogger] = None, seed: Optional[int] = None):
         self.model = model
         self.vocab_size = vocab_size
         self.lambda_ponder = float(lambda_ponder)
         self.opt = None
+        self.logger = logger
+        self.seed = seed
 
     def set_optimizer(self, opt: torch.optim.Optimizer):
         self.opt = opt
 
-    def step(self, input_ids: torch.Tensor, labels: torch.Tensor) -> Dict[str, float]:
+    def step(self, input_ids: torch.Tensor, labels: torch.Tensor, step: int = 0) -> Dict[str, float]:
         assert self.opt is not None, "Call set_optimizer before training."
         self.model.train()
         self.opt.zero_grad()
@@ -41,9 +45,14 @@ class PonderTrainer:
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 1.0)
         self.opt.step()
-        return {
+        metrics = {
             "loss": float(loss.detach().item()),
             "ce": float(ce.detach().item()),
             "ponder": float(ponder.detach().item()),
         }
-
+        if self.logger is not None:
+            # include telemetry + trace hash
+            fields = {**telem, **metrics}
+            fields['trace_hash'] = trace_hash(input_ids, times=times, seed=self.seed)
+            self.logger.log(step=step, **fields)
+        return metrics
