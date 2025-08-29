@@ -25,14 +25,14 @@ class PonderTrainer:
     def set_optimizer(self, opt: torch.optim.Optimizer):
         self.opt = opt
 
-    def step(self, input_ids: torch.Tensor, labels: torch.Tensor, step: int = 0) -> Dict[str, float]:
+    def step(self, input_ids: torch.Tensor, labels: torch.Tensor, step: int = 0, mod_5ht: torch.Tensor | None = None) -> Dict[str, float]:
         assert self.opt is not None, "Call set_optimizer before training."
         self.model.train()
         self.opt.zero_grad()
         B, L = labels.shape
         # use token positions as times
         times = torch.arange(L, device=labels.device).unsqueeze(0).expand(B, -1)
-        outputs, telem = self.model(input_ids.float(), times=times)
+        outputs, telem = self.model(input_ids.float(), times=times, mod_5ht=mod_5ht)
         logits = outputs  # assume model outputs logits or features mapped to vocab elsewhere
         if logits.size(-1) != self.vocab_size:
             # project to vocab for demo purposes

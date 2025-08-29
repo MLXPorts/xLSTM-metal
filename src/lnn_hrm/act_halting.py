@@ -18,14 +18,14 @@ class ACTHaltingHead(nn.Module):
         self.proj = nn.Linear(d_model, 1)
         self.threshold = float(threshold)
 
-    def forward(self, h: torch.Tensor):
+    def forward(self, h: torch.Tensor, threshold: float | None = None):
         # h: (B, L, D)
         logits = self.proj(h).squeeze(-1)
         probs = torch.sigmoid(logits)
-        mask = probs > self.threshold
+        th = float(self.threshold if threshold is None else threshold)
+        mask = probs > th
         stats = {
             "act_prob_mean": float(probs.mean().item()),
             "act_open_rate": float(mask.float().mean().item()),
         }
         return probs, mask, stats
-

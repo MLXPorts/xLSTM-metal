@@ -11,11 +11,13 @@ class CubeGatedBlock(nn.Module):
     compute a confidence-weighted gate α, and blend with a teacher output if provided.
     """
 
-    def __init__(self, d_in: int, d_key: int = None, d_val: int = None, fuse_phase_keys: bool = True):
+    def __init__(self, d_in: int, d_key: int = None, d_val: int = None, fuse_phase_keys: bool = True, k_5ht: float = 0.5, gain_floor: float = 0.3):
         super().__init__()
         d_key = d_key or d_in
         d_val = d_val or d_in
         self.fuse_phase_keys = fuse_phase_keys
+        self.k_5ht = float(k_5ht)
+        self.gain_floor = float(gain_floor)
         self.key_proj = nn.Linear(d_in, d_key)
         # Optional phase fusion: map [key || phase] -> key_dim
         self.phase_proj = nn.Linear(d_key + 8, d_key)
@@ -33,8 +35,16 @@ class CubeGatedBlock(nn.Module):
         train: bool = False,
         allow_commit: torch.Tensor | None = None,
         times: torch.Tensor | None = None,
+        mod_5ht: torch.Tensor | None = None,
     ):
         B, L, D = h_in.shape
+        gain = None
+        if mod_5ht is not None:
+            g = mod_5ht
+            if g.dim() == 2:
+                g = g.unsqueeze(-1)
+            # divisive gain: higher 5-HT -> lower gain
+            gain = torch.exp(-self.k_5ht * g).clamp(self.gain_floor, 1.0)
         # Base keys
         keys = self.key_proj(h_in)
         if self.fuse_phase_keys and times is not None:
@@ -71,6 +81,10 @@ class CubeGatedBlock(nn.Module):
         conf = conf.view(B, L, 1)
         feats = torch.cat([self.ln_in(h_in), self.ln_pred(pred), conf], dim=-1)
         alpha = torch.sigmoid(self.alpha_head(feats)).clamp(0, 1)
+        if gain is not None:
+            # reduce influence under high 5-HT: scale residual and α
+            pred = pred * gain
+            alpha = alpha * gain
         y_resid = h_in + pred
         if y_teacher is None:
             y_out = (1 - alpha) * h_in + alpha * y_resid

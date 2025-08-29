@@ -15,3 +15,15 @@
 - `CubeGatedBlock(dim, cube, hidden=256)`
   - Residual mix of features with retrieved memory; returns telemetry.
 
+## Origins at a Glance
+- HRMXLSTM wrapper → Invariants (Preserve→Gate, Z5, Budget) mapped at 22 §10–11; provenance map 32.
+- MemoryCube/CubeGatedBlock → Preserve→Gate + remainder/phase keys (22 §10); bio comb mapping (23).
+- Scheduler → base‑5 carry policy (22; mermaid sketch); tests ensure boundary‑only updates.
+- ACTHaltingHead/PonderTrainer → budget discipline with halting analogue (05; 22 §11).
+- Telemetry (energy/logger/trace) → stability and determinism (06; 22 §11; Research Journal 24).
+
+## Neuromodulator Inputs (Prototype)
+- `HRMXLSTM(...).forward(x, times, mod_5ht=None)`
+  - `mod_5ht` is a per‑token scalar in [0,∞): higher → divisive gain on residual influence and slightly higher halting threshold.
+  - Telemetry adds `mod_5ht_mean`, `gain_5ht_mean`.
+- Roadmap: `mod_ach`, `mod_da`, `mod_ne` with small bounded transforms (gain/sharpening, f0 bias, SNR), aligned to “Neuromodulator CPU and Timescales” in the origin paper.

@@ -5,6 +5,7 @@ from xlstm_official_full.blocks.slstm.block import sLSTMBlockConfig
 from src.lnn_hrm.xlstm_hrm import HRMXLSTM
 from src.lnn_hrm.training.ponder_trainer import PonderTrainer
 from src.lnn_hrm.telemetry.logger import TelemetryLogger
+from src.lnn_hrm.preflight import assert_mps, assert_ray
 
 
 def make_batch(B=2, L=16, V=64, device='cpu'):
@@ -18,7 +19,9 @@ def make_batch(B=2, L=16, V=64, device='cpu'):
 
 
 def main():
-    dev = torch.device('mps' if torch.backends.mps.is_available() else 'cpu')
+    # Preflight: MPS + Ray required (no native fallback)
+    assert_mps(); assert_ray()
+    dev = torch.device('mps')
     V = 64; D = 32
     slcfg = sLSTMBlockConfig(); slcfg.slstm.embedding_dim = D; slcfg.slstm.dropout = 0.0
     cfg = xLSTMBlockStackConfig(num_blocks=2, embedding_dim=D, dropout=0.0, slstm_block=slcfg, slstm_at="all")

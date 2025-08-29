@@ -32,10 +32,16 @@ This one-pager is the minimal state needed to resume work after a context reset.
   - 23_bio_rall_hcn_mapping.md — Rall/HCN mapping → invariants
   - 05_act_halting.md — token‑level ACT head + segment policy
   - 06_stability_safety.md — energy & Z5 discipline notes
+  - 24_research_journal.md — run logs, telemetry snapshots, repro commands
+  - 32_ontology_provenance_map.md — origins, derivations, and evidence map
+  - 33_dendritic_comb_probe.md — Rall 3/2 comb filter probe (lab)
+  - refs/citation_sea.md — curated bibliography across domains
+  - 40_ukm_origin_paper.md — draft paper: frequency-domain storage + spike keys
 
 - Quick Rebuild Steps
   1) Load `HRMXLSTM` with an xLSTM config; run one batch; confirm telemetry prints
   2) For transformer demo, use `examples/transformer_lnn_example.py` (optional)
+  3) Preflight: Apple MPS + Ray are required; run `scripts/mps_smoke.sh`
 
 - TODO (next stitches)
   - Add ponder loss hook and trainer aggregation of telemetry
