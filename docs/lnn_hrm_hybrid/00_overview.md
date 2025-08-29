@@ -20,3 +20,8 @@ Additional references (formal + bio mapping):
 
 - 22_fractal_diffusion_formalism.md — full formal model over ℚ with proofs
 - 23_bio_rall_hcn_mapping.md — dendritic/Rall/HCN mapping to engineering invariants
+
+
+Seed + history:
+- CONTEXT_SEED.md — one‑pager to rapidly reload context
+- CHANGELOG.md — high‑level changes (pairs with commits)
