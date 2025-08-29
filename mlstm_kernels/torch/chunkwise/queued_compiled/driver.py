@@ -66,6 +66,14 @@ def _process_head_band(
                     return False
             ctx = _Null()
         with ctx:
+            # CfC-hybrid experimental override
+            cfc_on = os.environ.get("XLSTM_CFC_HYBRID", "0") == "1"
+            cfc_dt = float(os.environ.get("XLSTM_CFC_DT", "0.01"))
+            cfc_alpha = float(os.environ.get("XLSTM_CFC_ALPHA", "1.0"))
+            cfc_act = os.environ.get("XLSTM_CFC_ACT", "sigmoid")
+            h_cfc = None
+            if cfc_on:
+                h_cfc = torch.zeros((B, he - hs, DHHV), device=q.device, dtype=q.dtype)
             for t in range(pos, pos + seg):
                 if monitor is not None:
                     monitor.check()
@@ -81,6 +89,17 @@ def _process_head_band(
                         eps=eps,
                         dtype_state=torch.float32,
                     )
+                if cfc_on:
+                    ff = torch.sigmoid(H) if cfc_act == "sigmoid" else (1.7159 * torch.tanh(0.666 * H))
+                    try:
+                        i_t = i[:, hs:he, t : t + 1]
+                        f_t = f[:, hs:he, t : t + 1]
+                        lam = torch.sigmoid(cfc_alpha * (i_t + f_t)).squeeze(-1)
+                    except Exception:
+                        lam = torch.zeros_like(h_cfc)
+                    denom = 1.0 + cfc_dt * lam
+                    h_cfc = (h_cfc + cfc_dt * ff) / denom
+                    H = h_cfc
                 # write output slice
                 h_out_ref[:, hs:he, t] = H
                 steps_processed += 1

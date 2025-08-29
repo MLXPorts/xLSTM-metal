@@ -135,6 +135,12 @@ def main():
     ap.add_argument("--mem-action", type=str, default=None, help="Comma actions on soft limit: warn,empty_cache (default warn,empty_cache)")
     ap.add_argument("--min-chunk", type=int, default=None, help="Minimum chunk size when shrinking (default 8)")
     ap.add_argument("--no-mem-shrink", action="store_true", help="Disable chunk-size shrinking on soft limit")
+    # CfC logit calibrator (experimental; default off)
+    ap.add_argument("--cfc-calibrate", type=str, default="off", choices=["off","sigmoid","lecun_tanh"], help="Apply CfC-based per-step logit calibration")
+    ap.add_argument("--cfc-hidden", type=int, default=32, help="CfC calibrator hidden size")
+    ap.add_argument("--cfc-backbone", type=int, default=64, help="CfC calibrator backbone units")
+    ap.add_argument("--cfc-mode", type=str, default="default", choices=["default","no_gate","pure"], help="CfC core mode")
+    ap.add_argument("--cfc-topk", type=int, default=0, help="If >0, apply sparse bias over top-K tokens from CfC hidden")
     # Ray / Dashboard controls
     ap.add_argument("--ray-dashboard", action="store_true", help="Start a local Ray head with dashboard enabled (http://127.0.0.1:8265)")
     ap.add_argument("--ray-dashboard-port", type=int, default=8265, help="Ray dashboard port (default 8265)")
@@ -301,12 +307,33 @@ def main():
         next_tok = torch.argmax(logits[:, -1:, :], dim=-1)
         gen[:, 0:1] = next_tok
 
+        # Optional CfC calibrator state
+        cfc_state = None
+
         # Decode steps
         decode_time = 0.0
         cum = 0.0
         for i in range(1, max_len):
             td0 = time.time()
             logits, state = model(next_tok, state)
+            # Experimental CfC logit calibration (per-step)
+            if args.cfc_calibrate != "off":
+                try:
+                    from mlstm_kernels.torch.experiments.cfc_logit_calibrator import CfCLogitCalibrator
+                    if not hasattr(_greedy_gen_timed, "_cfc_inst"):
+                        _greedy_gen_timed._cfc_inst = CfCLogitCalibrator(
+                            vocab_size=logits.size(-1),
+                            hidden=args.cfc_hidden,
+                            backbone_units=args.cfc_backbone,
+                            backbone_layers=1,
+                            mode=args.cfc_mode,
+                            activation=("lecun_tanh" if args.cfc_calibrate=="lecun_tanh" else "lecun_tanh"),
+                            topk_bias=max(0, int(args.cfc_topk)),
+                        ).to(device)
+                    calibrator = _greedy_gen_timed._cfc_inst
+                    logits, cfc_state = calibrator(logits, cfc_state, token_ids=next_tok.squeeze(1))
+                except Exception as e:
+                    pass
             td1 = time.time()
             dt = td1 - td0
             decode_time += dt
