@@ -32,11 +32,10 @@ Memory watchdog (unified memory safety)
 - `XLSTM_MEM_SOFT_PCT` / `XLSTM_MEM_HARD_PCT`: soft/hard process-RSS thresholds as fraction of total RAM (defaults 0.85 / 0.92).
 - `XLSTM_MEM_SOFT_MB` / `XLSTM_MEM_HARD_MB`: absolute MB thresholds (override pct if set).
 - `XLSTM_MEM_POLL_MS` (default 200): sampling period.
-- Action on soft threshold: warns, empties MPS cache, halves `chunk_size` (down to `XLSTM_MIN_CHUNK`, default 8).
+- Action on soft threshold: warns and empties MPS cache.
 - On hard threshold: aborts cleanly with a helpful error.
 - `XLSTM_MEM_ACTION`: soft-limit actions list (e.g., `warn` or `warn,empty_cache`).
-- `XLSTM_MIN_CHUNK`: clamp lower bound for chunk shrinking (default 8).
-- `XLSTM_SHRINK_ON_SOFT=0` disables chunk shrinking entirely.
+  (Runtime chunk-size shrinking has been removed to preserve canonical behavior.)
 - Optional logs: `TORCH_LOGS=+dynamo` and `TORCHDYNAMO_VERBOSE=1` for compile debugging.
 
 Notes on Chunkwise Prefill
@@ -46,7 +45,7 @@ Notes on Chunkwise Prefill
 Pseudo‑Kernel Fusion (torch.compile)
 - We use `torch.compile` to treat the xLSTM step as a fused “pseudo‑kernel”. Per‑timestep math (gates; (C,N,M) update; readout) is composed inside the compiled region to reduce launches and memory traffic.
 - Inner tiling (`T_inner`): instead of a scalar one‑step compile, we unroll a small block of steps (e.g., 4 or 8) to enlarge fusion windows. Drivers loop over these blocks to cover the logical `chunk_size` without changing semantics.
-- Canon semantics: logical `chunk_size` remains fixed; time order is strict; (C,N,M) flows exactly across sub‑tiles and chunk boundaries. Runtime chunk shrinking is non‑canonical and should remain off unless used as an OOM escape hatch on UMA.
+- Canon semantics: logical `chunk_size` remains fixed; time order is strict; (C,N,M) flows exactly across sub‑tiles and chunk boundaries. Runtime chunk shrinking has been removed to preserve canonical behavior.
 - See also: PYTORCH_MPS_FUSION_NOTES.md for deeper design notes.
 
 Ray lifecycle (local vs daemon)
@@ -75,11 +74,10 @@ High‑Memory Aggressive Profile (256 GB UMA)
 - Environment:
   - `XLSTM_MEM_ACTION=warn`
   - `XLSTM_MEM_SOFT_MB=215000` (≈215 GB), `XLSTM_MEM_HARD_MB=235000` (≈235 GB)
-  - `XLSTM_SHRINK_ON_SOFT=0`
   - Set `--chunk-size 64` or higher; keep `--heads-per-band 4` (try 2 as well).
 - Example run:
   - `PYTHONPATH=. PYTORCH_ENABLE_MPS_FALLBACK=0 \
      python scripts/run_local_xlstm_mps.py --model_path /path/to/xlstm_7b_model \
        --chunkwise-backend ray_compiled_steps --chunk-size 64 --heads-per-band 4 \
        --prompt "…" --max_new_tokens 32 \
-       --mem-soft-mb 215000 --mem-hard-mb 235000 --mem-action warn --no-mem-shrink`
+       --mem-soft-mb 215000 --mem-hard-mb 235000 --mem-action warn`

@@ -25,7 +25,7 @@ This document is for human operators and automation agents working on this repo.
 - `scripts/run_local_xlstm_mps.py`: main entry for local inference
   - Backends: `--chunkwise-backend {ray_compiled_steps,queued_compiled_steps,native_compiled_autograd}`
   - Tuning: `--chunk-size`, `--heads-per-band`, `--workers` (queued)
-  - Memory watchdog/telemetry: `--mem-log`, `--mem-every`, `--mem-soft-pct|--mem-hard-pct`, `--mem-soft-mb|--mem-hard-mb`, `--mem-action`, `--min-chunk`, `--no-mem-shrink`
+  - Memory watchdog/telemetry: `--mem-log`, `--mem-every`, `--mem-soft-pct|--mem-hard-pct`, `--mem-soft-mb|--mem-hard-mb`, `--mem-action`
   - Ray/Dashboard: `--ray-dashboard`, `--ray-dashboard-port`, `--ray-local-mode {0,1}`, `--ray-keep-alive`
 - `scripts/optimize_mps.py`: random/GA sweeps for prefill/decode throughput (writes `runs/mps_opt/<run>/`)
 - `scripts/xltop.py`: terminal monitor with TUI and machine‑friendly modes
@@ -44,7 +44,7 @@ This document is for human operators and automation agents working on this repo.
 - Defaults (tuned for safety; override for high‑capacity UMA):
   - Soft 85%, hard 92% of RAM; poll 200 ms; soft actions: `warn,empty_cache`.
 - Aggressive high‑memory profile (256 GB UMA):
-  - `XLSTM_MEM_ACTION=warn`, `XLSTM_SHRINK_ON_SOFT=0`, and absolute caps like `XLSTM_MEM_SOFT_MB=215000`, `XLSTM_MEM_HARD_MB=235000`.
+  - `XLSTM_MEM_ACTION=warn` and absolute caps like `XLSTM_MEM_SOFT_MB=215000`, `XLSTM_MEM_HARD_MB=235000`.
 
 ## Ray Lifecycle & Dashboard
 - Local‑mode by default: `XLSTM_RAY_LOCAL_MODE=1` keeps execution in‑process (no daemons).
@@ -59,7 +59,7 @@ This document is for human operators and automation agents working on this repo.
   - `XLSTM_CHUNKWISE_BACKEND={ray_compiled_steps|queued_compiled_steps|native_compiled_autograd}`
   - `XLSTM_MPS_WORKERS` (queued), `XLSTM_MPS_HEADS_PER_BAND`, `XLSTM_MPS_STREAMS` (optional)
 - Memory:
-  - `XLSTM_MEM_WATCHDOG=1`, `XLSTM_MEM_POLL_MS`, `XLSTM_MEM_SOFT_PCT|HARD_PCT`, `XLSTM_MEM_SOFT_MB|HARD_MB`, `XLSTM_MIN_CHUNK`, `XLSTM_SHRINK_ON_SOFT`, `XLSTM_MEM_ACTION`
+  - `XLSTM_MEM_WATCHDOG=1`, `XLSTM_MEM_POLL_MS`, `XLSTM_MEM_SOFT_PCT|HARD_PCT`, `XLSTM_MEM_SOFT_MB|HARD_MB`, `XLSTM_MEM_ACTION`
 - Ray:
   - `XLSTM_RAY_LOCAL_MODE=1`, `XLSTM_RAY_DASHBOARD=1`, `XLSTM_RAY_DASHBOARD_PORT=8265`, `XLSTM_RAY_AUTOSHUTDOWN=1`
 - PyTorch/MPS: `PYTORCH_ENABLE_MPS_FALLBACK=0`
@@ -71,7 +71,7 @@ This document is for human operators and automation agents working on this repo.
   3) In another terminal: `conda run -n base python scripts/xltop.py --no-curses --json-stream --poll 1.0` (or full TUI)
   4) Cleanup when done: `conda run -n base ray stop --force`
 - High‑throughput local run (no dashboard, in‑process Ray):
-  - `conda run -n base python scripts/run_local_xlstm_mps.py --model_path ./xlstm_7b_model --chunk-size 64 --heads-per-band 4 --mem-action warn --no-mem-shrink --mem-soft-mb 215000 --mem-hard-mb 235000`
+  - `conda run -n base python scripts/run_local_xlstm_mps.py --model_path ./xlstm_7b_model --chunk-size 64 --heads-per-band 4 --mem-action warn --mem-soft-mb 215000 --mem-hard-mb 235000`
 - Parameter sweep
   - `conda run -n base python scripts/optimize_mps.py --backend ray --mode random --trials 40` → inspect `runs/mps_opt/<run>/summary.csv`
 
@@ -93,7 +93,7 @@ This document is for human operators and automation agents working on this repo.
 - Always run Python through conda base: `conda run -n base python …`. Avoid `python3` from the system.
 - Set `PYTHONPATH=.` when invoking scripts from repo root so imports resolve.
 - For structured telemetry, prefer `xltop --json-stream` and parse NDJSON events.
-- To minimize interference, use warn‑only watchdog (`XLSTM_MEM_ACTION=warn`) and disable shrinking (`XLSTM_SHRINK_ON_SOFT=0`) unless asked to optimize for fit.
+- To minimize interference, use warn‑only watchdog (`XLSTM_MEM_ACTION=warn`). Runtime chunk-size shrinking has been removed to preserve canonical behavior.
 
 ### Local Policy Hooks
 - Install pre-commit hooks once: `pip install pre-commit && pre-commit install`.

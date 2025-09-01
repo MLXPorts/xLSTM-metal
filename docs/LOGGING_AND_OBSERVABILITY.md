@@ -22,8 +22,8 @@ Runner stats (per‑step decode)
 Memory telemetry
 - Global CSV: scripts/run_local_xlstm_mps.py --mem-log mem.csv [--mem-every 200]
   - Columns: ts,rss_mb,avail_mb,total_mb,mps_alloc_mb,mps_reserved_mb
-  - Works with drivers’ watchdog that dynamically shrinks chunk_size and aborts on hard limit.
-  - Control soft actions and shrink: `--mem-action warn` to disable cache clears, `--no-mem-shrink` to keep chunk size fixed, `--min-chunk` to bound shrink.
+  - Works with drivers’ watchdog that warns/empties cache on soft limit and aborts on hard limit.
+  - Control soft actions: use `--mem-action warn` to disable cache clears if desired.
 
 Ray Dashboard (optional)
 - Start with: `--ray-dashboard [--ray-dashboard-port 8265] [--ray-keep-alive]`.

@@ -133,6 +133,27 @@ class HeadBandWorker:
             H_out[:, :, t - s_start] = H
         return H_out, C, N, M
 
+    def mem_stats(self) -> Tuple[float, float | None, float | None]:
+        """Return (rss_mb, mps_alloc_mb, mps_reserved_mb) for this worker process.
+        In local_mode=1, this reports the driver's process stats.
+        """
+        rss_mb = 0.0
+        try:
+            try:
+                import psutil  # type: ignore
+                rss_mb = float(psutil.Process().memory_info().rss) / (1024 * 1024)
+            except Exception:
+                rss_mb = 0.0
+            a = r = None
+            try:
+                a = float(torch.mps.current_allocated_memory()) / (1024 * 1024)  # type: ignore[attr-defined]
+                r = float(torch.mps.current_reserved_memory()) / (1024 * 1024)  # type: ignore[attr-defined]
+            except Exception:
+                a = r = None
+            return rss_mb, a, r
+        except Exception:
+            return rss_mb, None, None
+
 
 def mlstm_chunkwise__ray_compiled_steps(
     q: torch.Tensor,  # (B, NH, S, DHQK)
@@ -177,10 +198,33 @@ def mlstm_chunkwise__ray_compiled_steps(
         he = min(NH, hs + heads_per_band)
         bands.append((hs, he))
 
-    # Create actors
+    # Create actors (propagate critical env vars when multi-process)
     actors = []
+    # Prepare per-actor runtime env to enforce GPU-only and quiet tokenizers
+    _actor_runtime_env = {
+        "env_vars": {
+            k: v
+            for k, v in os.environ.items()
+            if k in (
+                "PYTORCH_ENABLE_MPS_FALLBACK",
+                "TOKENIZERS_PARALLELISM",
+                "XLSTM_MEM_WATCHDOG",
+                "XLSTM_MEM_POLL_MS",
+                "XLSTM_MEM_SOFT_PCT",
+                "XLSTM_MEM_HARD_PCT",
+                "XLSTM_MEM_SOFT_MB",
+                "XLSTM_MEM_HARD_MB",
+                "XLSTM_MEM_ACTION",
+            )
+        }
+    }
     for hs, he in bands:
-        actor = HeadBandWorker.remote(q, k, v, i, f, hs, he, eps)  # type: ignore[union-attr]
+        try:
+            actor = HeadBandWorker.options(runtime_env=_actor_runtime_env).remote(  # type: ignore[union-attr]
+                q, k, v, i, f, hs, he, eps
+            )
+        except Exception:
+            actor = HeadBandWorker.remote(q, k, v, i, f, hs, he, eps)  # type: ignore[union-attr]
         actors.append((hs, he, actor))
 
     # Initial per-band states
@@ -193,32 +237,20 @@ def mlstm_chunkwise__ray_compiled_steps(
                 c_initial[:, hs:he], n_initial[:, hs:he], m_initial[:, hs:he]
             )
 
-    # Memory watchdog and dynamic chunk-size shrink
-    min_chunk = int(os.environ.get("XLSTM_MIN_CHUNK", "8"))
-    shrink_on_soft = os.environ.get("XLSTM_SHRINK_ON_SOFT", "1") != "0"
-    chunk_ref = [max(min_chunk, int(chunk_size))]
+    # Memory watchdog (no runtime chunk-size changes to preserve canonical behavior)
     monitor: MemoryMonitor | None = None
     if os.environ.get("XLSTM_MEM_WATCHDOG", "1") == "1":
-        def _on_soft(_st):
-            if not shrink_on_soft:
-                return
-            cur = int(chunk_ref[0])
-            if cur > min_chunk:
-                new = max(min_chunk, cur // 2)
-                if new < cur:
-                    print(f"[xLSTM][mem] Shrinking chunk_size {cur} -> {new}", flush=True)
-                    chunk_ref[0] = new
-
-        monitor = MemoryMonitor(on_soft=_on_soft).start()
+        monitor = MemoryMonitor().start()
 
     # Dispatch incrementally: at most one inflight chunk per actor, reschedule on completion.
     pending: list[tuple[int, int, int, int, object]] = []
     next_start: dict[tuple[int, int], int] = {(hs, he): 0 for hs, he, _ in actors}
     # Seed one task per actor
+    CHUNK = max(1, int(chunk_size))
     for hs, he, actor in actors:
         s = next_start[(hs, he)]
         if s < S:
-            e = min(s + int(chunk_ref[0]), S)
+            e = min(s + CHUNK, S)
             C0, N0, M0 = band_states[(hs, he)] if band_states[(hs, he)] is not None else (None, None, None)
             ref = actor.run.remote(C0, N0, M0, s, e)  # type: ignore[attr-defined]
             pending.append((hs, he, s, e, ref))
@@ -248,7 +280,7 @@ def mlstm_chunkwise__ray_compiled_steps(
             if s2 < S:
                 if monitor is not None:
                     monitor.check()
-                e2 = min(s2 + int(chunk_ref[0]), S)
+                e2 = min(s2 + CHUNK, S)
                 C0, N0, M0 = (Cb, Nb, Mb)  # continue from last state
                 ref2 = [act for hss, hee, act in actors if hss == hs and hee == he][0].run.remote(C0, N0, M0, s2, e2)  # type: ignore[attr-defined]
                 refs.append(ref2)
@@ -257,8 +289,32 @@ def mlstm_chunkwise__ray_compiled_steps(
     except MemoryPressureAbort as e:
         if monitor is not None:
             monitor.stop()
+        # Ensure all actors are terminated to free GPU memory even on abort
+        try:
+            for _, _, actor in actors:
+                try:
+                    ray.get(actor.__ray_terminate__.remote())  # type: ignore[attr-defined]
+                except Exception:
+                    try:
+                        ray.kill(actor, no_restart=True)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         raise RuntimeError(f"Aborted due to unified memory pressure: {e}")
     finally:
+        # Always terminate actors we created to free GPU memory, regardless of Ray lifecycle
+        try:
+            for _, _, actor in actors:
+                try:
+                    ray.get(actor.__ray_terminate__.remote())  # type: ignore[attr-defined]
+                except Exception:
+                    try:
+                        ray.kill(actor, no_restart=True)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
         # Auto-shutdown Ray if we started it here (opt-out via env)
         if _ray_started_here and os.environ.get("XLSTM_RAY_AUTOSHUTDOWN", "1") == "1":
             try:
@@ -277,33 +333,8 @@ def mlstm_chunkwise__ray_compiled_steps(
             Mf[:, hs:he] = Mb
         if monitor is not None:
             monitor.stop()
-        # If keeping dashboard alive, terminate actors to free GPU mem
-        if os.environ.get("XLSTM_RAY_AUTOSHUTDOWN", "1") != "1":
-            try:
-                for _, _, actor in actors:
-                    try:
-                        ray.get(actor.__ray_terminate__.remote())  # type: ignore[attr-defined]
-                    except Exception:
-                        try:
-                            ray.kill(actor, no_restart=True)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
         return h_out, (Cf, Nf, Mf)
     else:
         if monitor is not None:
             monitor.stop()
-        if os.environ.get("XLSTM_RAY_AUTOSHUTDOWN", "1") != "1":
-            try:
-                for _, _, actor in actors:
-                    try:
-                        ray.get(actor.__ray_terminate__.remote())  # type: ignore[attr-defined]
-                    except Exception:
-                        try:
-                            ray.kill(actor, no_restart=True)
-                        except Exception:
-                            pass
-            except Exception:
-                pass
         return h_out

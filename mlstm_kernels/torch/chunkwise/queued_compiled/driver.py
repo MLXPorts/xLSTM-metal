@@ -157,28 +157,10 @@ def mlstm_chunkwise__queued_compiled_steps(
     heads_per_band = max(1, min(NH, heads_per_band))
     num_workers = max(1, num_workers)
 
-    # Memory watchdog with dynamic chunk-size shrinking
-    min_chunk = int(os.environ.get("XLSTM_MIN_CHUNK", "8"))
-    shrink_on_soft = os.environ.get("XLSTM_SHRINK_ON_SOFT", "1") != "0"
-    chunk_ref = [max(min_chunk, int(chunk_size))]
+    # Memory watchdog (no runtime chunk-size changes to preserve canonical behavior)
     monitor: MemoryMonitor | None = None
     if os.environ.get("XLSTM_MEM_WATCHDOG", "1") == "1":
-        def _on_soft(_st):
-            if not shrink_on_soft:
-                return
-            # halve chunk size down to min_chunk
-            cur = int(chunk_ref[0])
-            if cur > min_chunk:
-                new = max(min_chunk, cur // 2)
-                if new < cur:
-                    print(f"[xLSTM][mem] Shrinking chunk_size {cur} -> {new}", flush=True)
-                    chunk_ref[0] = new
-
-        def _on_hard(_st):
-            # nothing extra; raising is handled by monitor thread
-            return None
-
-        monitor = MemoryMonitor(on_soft=_on_soft, on_hard=_on_hard).start()
+        monitor = MemoryMonitor().start()
 
     # Optional micro autoscale: adjust heads_per_band based on a small probe
     if autoscale and NH >= 4:

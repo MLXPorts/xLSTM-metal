@@ -33,18 +33,18 @@ Key Tunables
 Fusion & Inner Tiling (design)
 - Pseudo‑kernel fusion: we rely on `torch.compile` to fuse per‑timestep ops into a single step kernel.
 - Inner tiling (`T_inner`): compile an unrolled block of steps (e.g., 4 or 8) to increase fusion windows; the driver loops blocks to cover the logical `chunk_size`.
-- Canon mode: keep `chunk_size` fixed; maintain strict time order; use fp32 for (C,N,M) state. Disable runtime shrink unless you explicitly need an OOM escape hatch.
+- Canon mode: keep `chunk_size` fixed; maintain strict time order; use fp32 for (C,N,M) state. Runtime shrink is removed to preserve canonical behavior.
 - Compile‑probe (planned): auto‑choose a safe `T_inner` at compile time if the Metal compiler signals argument/graph limits.
 - See also: `docs/PYTORCH_MPS_FUSION_NOTES.md`.
 
 Memory Watchdog
-- Enable by default; configure via envs. Soft threshold triggers `torch.mps.empty_cache()` and halves `chunk_size` down to `XLSTM_MIN_CHUNK` (default 8).
+- Enabled by default; configure via envs. Soft threshold triggers `torch.mps.empty_cache()`; no runtime `chunk_size` changes are made.
 - Hard threshold aborts to prevent unified memory exhaustion.
-- Key envs: `XLSTM_MEM_SOFT_PCT`, `XLSTM_MEM_HARD_PCT`, `XLSTM_MEM_SOFT_MB`, `XLSTM_MEM_HARD_MB`, `XLSTM_MEM_POLL_MS`, `XLSTM_MIN_CHUNK`, `XLSTM_MEM_ACTION`, `XLSTM_SHRINK_ON_SOFT`.
+- Key envs: `XLSTM_MEM_SOFT_PCT`, `XLSTM_MEM_HARD_PCT`, `XLSTM_MEM_SOFT_MB`, `XLSTM_MEM_HARD_MB`, `XLSTM_MEM_POLL_MS`, `XLSTM_MEM_ACTION`.
 
 CLI flags (local runner)
 - `--mem-log`, `--mem-every`, `--mem-soft-pct`, `--mem-hard-pct`, `--mem-soft-mb`, `--mem-hard-mb`
-- `--mem-action`, `--min-chunk`, `--no-mem-shrink` to control soft actions and shrinking.
+- `--mem-action` to control soft actions (warn,empty_cache).
 
 Effects on Inference
 - Prefill throughput (tok/s) responds most to chunk_size, heads_per_band, and workers.

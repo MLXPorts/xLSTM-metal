@@ -133,8 +133,6 @@ def main():
     ap.add_argument("--mem-soft-mb", type=float, default=None, help="Soft memory threshold in MB (overrides pct)")
     ap.add_argument("--mem-hard-mb", type=float, default=None, help="Hard memory threshold in MB (overrides pct)")
     ap.add_argument("--mem-action", type=str, default=None, help="Comma actions on soft limit: warn,empty_cache (default warn,empty_cache)")
-    ap.add_argument("--min-chunk", type=int, default=None, help="Minimum chunk size when shrinking (default 8)")
-    ap.add_argument("--no-mem-shrink", action="store_true", help="Disable chunk-size shrinking on soft limit")
     # CfC logit calibrator (experimental; default off)
     ap.add_argument("--cfc-calibrate", type=str, default="off", choices=["off","sigmoid","lecun_tanh"], help="Apply CfC-based per-step logit calibration")
     ap.add_argument("--cfc-hidden", type=int, default=32, help="CfC calibrator hidden size")
@@ -147,6 +145,46 @@ def main():
     ap.add_argument("--ray-local-mode", type=int, default=None, choices=[0,1], help="Set Ray local_mode explicitly (1=in-process, 0=multiprocess)")
     ap.add_argument("--ray-keep-alive", action="store_true", help="Keep Ray head running after run (dashboard stays up)")
     args = ap.parse_args()
+
+    # Apply runtime defaults if present (non-intrusive):
+    # - configs/runtime_defaults.json can specify friendly defaults so humans don’t need long CLI flags
+    # - Precedence: CLI > --config file > runtime_defaults.json
+    def _apply_runtime_defaults(args_obj):
+        try:
+            from pathlib import Path as _Path
+            import json as _json
+            dflt = _Path("configs/runtime_defaults.json")
+            if not dflt.exists():
+                return
+            cfg = _json.loads(dflt.read_text())
+            # Only apply when not already specified by CLI / config
+            def set_if_none(attr, key):
+                if getattr(args_obj, attr, None) is None and key in cfg:
+                    setattr(args_obj, attr, cfg[key])
+            # Runner knobs
+            set_if_none("chunk_size", "chunk_size")
+            set_if_none("heads_per_band", "heads_per_band")
+            set_if_none("workers", "workers")
+            set_if_none("streams", "streams")
+            set_if_none("chunkwise_backend", "chunkwise_backend")
+            set_if_none("ray_local_mode", "ray_local_mode")
+            if getattr(args_obj, "ray_dashboard", False) is False and cfg.get("ray_dashboard"):
+                args_obj.ray_dashboard = bool(cfg.get("ray_dashboard"))
+            # Memory watchdog defaults (env-based)
+            os.environ.setdefault("XLSTM_MEM_WATCHDOG", "1")
+            for k_cfg, k_env in [
+                ("mem_poll_ms", "XLSTM_MEM_POLL_MS"),
+                ("mem_soft_pct", "XLSTM_MEM_SOFT_PCT"),
+                ("mem_hard_pct", "XLSTM_MEM_HARD_PCT"),
+                ("mem_soft_mb", "XLSTM_MEM_SOFT_MB"),
+                ("mem_hard_mb", "XLSTM_MEM_HARD_MB"),
+                ("mem_action", "XLSTM_MEM_ACTION"),
+            ]:
+                if k_cfg in cfg and os.environ.get(k_env) is None:
+                    os.environ[k_env] = str(cfg[k_cfg])
+        except Exception:
+            # Never break runs due to config
+            pass
 
     # Load JSON config (if provided) to override args
     if args.config:
@@ -167,6 +205,9 @@ def main():
         for k_src, k_dst in overrides.items():
             if k_src in cfg and getattr(args, k_dst if k_dst != "max_new_tokens" else "max_new_tokens", None) is not None:
                 setattr(args, k_dst if k_dst != "max_new_tokens" else "max_new_tokens", cfg[k_src])
+
+    # Finally, gently apply runtime defaults for anything still unspecified
+    _apply_runtime_defaults(args)
 
     model_dir = Path(args.model_path)
     assert model_dir.is_dir(), f"Not a directory: {model_dir}"
@@ -256,10 +297,7 @@ def main():
         os.environ["XLSTM_MEM_POLL_MS"] = str(max(50, args.mem_every))
     if args.mem_action is not None:
         os.environ["XLSTM_MEM_ACTION"] = args.mem_action
-    if args.min_chunk is not None:
-        os.environ["XLSTM_MIN_CHUNK"] = str(int(args.min_chunk))
-    if args.no_mem_shrink:
-        os.environ["XLSTM_SHRINK_ON_SOFT"] = "0"
+    # Runtime chunk shrinking is not supported; chunk size remains fixed during a run.
     # Enable watchdog by default when logging is requested
     if args.mem_log:
         os.environ.setdefault("XLSTM_MEM_WATCHDOG", "1")

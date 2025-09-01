@@ -211,4 +211,3 @@ class MemoryMonitor:
         exc = getattr(self, "_exc", None)
         if exc is not None:
             raise MemoryPressureAbort("Aborted due to memory pressure (watchdog)")
-
