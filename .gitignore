@@ -1,70 +1,25 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# PyTorch
-*.pth
-*.pt
-checkpoints/
-logs/
-
-# Model files (too large for git)
-*.safetensors
-model*/
-xlstm_7b_model/
-model_cache/
-
-# Jupyter Notebook
-.ipynb_checkpoints
-
-# Environment
+# Local secrets and environment files
 .env
-.venv
-env/
-venv/
+.env.*
+.secrets/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# Large downloaded model artifacts (kept outside repo)
+UKMTransformer/lab/gpt5/data/
+UKMTransformer/lab/gpt5/outputs/
 
-# OS
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Editor/OS
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+.idea/
+.vscode/
+.pytest_cache/
 
-# Temporary files
-*.tmp
-*.log
-*.cache
-
-# Benchmarking results
-benchmark_results.json
-*.benchmark
-# External reference implementations (not tracked)
-mlx_implementation/
-pytorch_implementation/
+# Quarantined artifacts (temporary)
+quarantine/
+model_cache/
+xlstm_7b_model/
