@@ -51,6 +51,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from mlstm_kernels.torch.monitoring.memory import snapshot, MemoryMonitor
+import signal as _signal
 
 
 def fmt_mb(x: Optional[float]) -> str:
@@ -195,6 +196,35 @@ class State:
     log_path: Optional[str] = None
     mem_logger: Optional[MemoryMonitor] = None
     show_ray: bool = True
+    stats_path: Optional[str] = None
+    stats_inst: Optional[float] = None
+    stats_avg: Optional[float] = None
+
+
+def read_stats_csv_tail(path: str) -> tuple[Optional[float], Optional[float]]:
+    try:
+        p = Path(path)
+        if not p.exists():
+            return None, None
+        # Read last ~4KB
+        with p.open('rb') as f:
+            try:
+                f.seek(-4096, 2)
+            except Exception:
+                f.seek(0)
+            tail = f.read().decode(errors='ignore').splitlines()
+        # Find last non-header data line
+        for ln in reversed(tail):
+            if not ln or ln.startswith('step'):
+                continue
+            parts = ln.split(',')
+            if len(parts) >= 5:
+                inst = float(parts[3]) if parts[3] else None
+                avg = float(parts[4]) if parts[4] else None
+                return inst, avg
+        return None, None
+    except Exception:
+        return None, None
 
 
 def draw_screen(stdscr, st: State):
@@ -228,6 +258,13 @@ def draw_screen(stdscr, st: State):
         stdscr.addnstr(i, 0, f"  {pid:>7}  {rss:8.1f}  {name}".ljust(w), w)
 
     row = 13
+    # Stats (tokens/sec) if provided
+    if st.stats_path:
+        st.stats_inst, st.stats_avg = read_stats_csv_tail(st.stats_path)
+        if st.stats_inst is not None or st.stats_avg is not None:
+            row_line = f"Decode tok/s: inst={st.stats_inst or 0:.2f} avg={st.stats_avg or 0:.2f}"
+            stdscr.addnstr(row, 0, row_line.ljust(w), w)
+            row += 1
     if st.show_ray:
         stdscr.addnstr(row, 0, "Ray status:".ljust(w), w)
         row += 1
@@ -238,7 +275,7 @@ def draw_screen(stdscr, st: State):
             row += 1
 
     # Footer / Controls
-    help1 = "q quit  p pause  s set-interval  l log CSV  C clear-mps-cache  r ray-status  k ray-stop  K kill-pid  h help"
+    help1 = "q quit  p pause  s set-interval  l log CSV  D set-stats  C clear-mps-cache  E empty-cache-PID  G graceful-stop-PID  r ray-status  k ray-stop  K kill-pid  h help"
     stdscr.addnstr(h - 3, 0, (help1[: w - 1]).ljust(w), w)
     if st.last_msg:
         stdscr.addnstr(h - 2, 0, st.last_msg[: w - 1].ljust(w), w)
@@ -296,6 +333,44 @@ def curses_main(stdscr, st: State):
                 st.log_path = None
         elif key == "C":
             st.last_msg = clear_mps_cache()
+        elif key == "D":
+            st.last_msg = "set stats CSV path"
+            curses.echo()
+            stdscr.addstr(1, 0, "stats csv: ")
+            try:
+                val = stdscr.getstr(1, 11).decode().strip()
+                st.stats_path = val or None
+                st.last_msg = f"stats set to {st.stats_path}"
+            except Exception:
+                st.last_msg = "invalid stats path"
+            finally:
+                curses.noecho()
+        elif key == "E":
+            st.last_msg = "Send SIGUSR1 (empty_cache) to PID:"
+            curses.echo()
+            stdscr.addstr(1, 0, "PID:    ")
+            try:
+                val = stdscr.getstr(1, 5).decode().strip()
+                pid = int(val)
+                os.kill(pid, _signal.SIGUSR1)
+                st.last_msg = f"SIGUSR1 sent to {pid}"
+            except Exception as e:
+                st.last_msg = f"SIGUSR1 error: {e}"
+            finally:
+                curses.noecho()
+        elif key == "G":
+            st.last_msg = "Send SIGTERM (graceful stop) to PID:"
+            curses.echo()
+            stdscr.addstr(1, 0, "PID:    ")
+            try:
+                val = stdscr.getstr(1, 5).decode().strip()
+                pid = int(val)
+                os.kill(pid, _signal.SIGTERM)
+                st.last_msg = f"SIGTERM sent to {pid}"
+            except Exception as e:
+                st.last_msg = f"SIGTERM error: {e}"
+            finally:
+                curses.noecho()
         elif key == "r":
             st.last_msg = "refreshed ray status"
             draw_screen(stdscr, st)
@@ -317,12 +392,19 @@ def curses_main(stdscr, st: State):
             st.last_msg = "q quit | p pause | s set interval | l log CSV | C clear MPS cache | r ray status | k ray stop | K kill pid"
 
 
+_CLI_STATS_PATH: Optional[str] = None
+
+
 def print_once():
     s = snapshot()
     rec_gb = get_recommended_mps_gb()
     print("xltop snapshot")
     print(f"  rss_mb={s.rss_mb:.1f} avail_mb={s.avail_mb} total_mb={s.total_mb}")
     print(f"  mps_alloc_mb={s.mps_alloc_mb} mps_reserved_mb={s.mps_reserved_mb} recommended_gb={rec_gb}")
+    if _CLI_STATS_PATH:
+        inst, avg = read_stats_csv_tail(_CLI_STATS_PATH)
+        if inst is not None or avg is not None:
+            print(f"  decode_tok_s: inst={inst or 0:.2f} avg={avg or 0:.2f}")
     print("Top processes:")
     for pid, name, rss in get_top_processes():
         print(f"  {pid:>7}  {rss:8.1f}  {name}")
@@ -381,7 +463,11 @@ def main():
     ap.add_argument("--json", action="store_true", help="Emit a single JSON snapshot and exit")
     ap.add_argument("--json-stream", action="store_true", help="Emit NDJSON snapshots at --poll interval; use --count to limit")
     ap.add_argument("--stdin-commands", action="store_true", help="Read simple commands from stdin (kill <pid>, ray stop, empty_cache, interval <sec>)")
+    ap.add_argument("--stats-path", type=str, default=None, help="Optional decode stats CSV (from runner --stats-log) to display tok/s")
     args = ap.parse_args()
+
+    global _CLI_STATS_PATH
+    _CLI_STATS_PATH = args.stats_path
 
     if args.once:
         print_once()
@@ -412,6 +498,7 @@ def main():
         return
 
     st = State()
+    st.stats_path = args.stats_path
 
     # Optional stdin control loop for non-interactive agents
     if args.stdin_commands:

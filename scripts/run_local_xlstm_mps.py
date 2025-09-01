@@ -10,6 +10,7 @@ import argparse
 import os
 import json
 from pathlib import Path
+import signal
 
 import torch
 from safetensors import safe_open
@@ -17,6 +18,9 @@ from transformers import AutoTokenizer
 import torch.nn.functional as F
 
 from xlstm_official_full.xlstm_large.model import xLSTMLarge, xLSTMLargeConfig
+
+# Global abort flag to allow SIGTERM-triggered graceful stop during decode
+_ABORT_FLAG = {"stop": False}
 from mlstm_kernels.torch.monitoring.memory import MemoryMonitor
 from mlstm_kernels.torch.monitoring.ray_metrics import make_gauges
 
@@ -352,6 +356,8 @@ def main():
         decode_time = 0.0
         cum = 0.0
         for i in range(1, max_len):
+            if _ABORT_FLAG["stop"]:
+                break
             td0 = time.time()
             logits, state = model(next_tok, state)
             # Experimental CfC logit calibration (per-step)
@@ -409,5 +415,23 @@ def main():
     print(f"Throughput: prefill={prefill_tps:.1f} tok/s, decode={dec_tps:.1f} tok/s")
 
 
+    # Install lightweight signal handlers for operational control
+    def _sigusr1_handler(signum, frame):
+        try:
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()  # type: ignore[attr-defined]
+                print("[runner] SIGUSR1: torch.mps.empty_cache(): ok", flush=True)
+        except Exception:
+            print("[runner] SIGUSR1: empty_cache failed", flush=True)
+
+    def _sigterm_handler(signum, frame):
+        _ABORT_FLAG["stop"] = True
+        print("[runner] SIGTERM: graceful stop requested", flush=True)
+
+    try:
+        signal.signal(signal.SIGUSR1, _sigusr1_handler)  # type: ignore[attr-defined]
+        signal.signal(signal.SIGTERM, _sigterm_handler)
+    except Exception:
+        pass
 if __name__ == "__main__":
     main()
