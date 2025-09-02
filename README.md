@@ -4,21 +4,60 @@ Start Here: see AGENTS.md for tools and workflows. If you’re using Claude, rea
 
 A comprehensive collection of xLSTM (Extended LSTM) implementations with varying optimization levels, from basic mathematical prototypes to production-ready systems.
 
+## Getting Started
+
+- Python: use conda env `base` (Python 3.12). Prefer `conda run -n base ...` for all commands.
+- Env: run from repo root with `PYTHONPATH=.` and enforce GPU‑only `PYTORCH_ENABLE_MPS_FALLBACK=0`.
+- Quick run:
+  ```bash
+  PYTORCH_ENABLE_MPS_FALLBACK=0 PYTHONPATH=. \
+  conda run -n base python scripts/run_local_xlstm_mps.py \
+    --model_path ./xlstm_7b_model \
+    --prompt "The capital of France is" \
+    --max_new_tokens 32 \
+    --chunk-size 64 --heads-per-band 4
+  ```
+- Monitor: `conda run -n base python scripts/xltop.py` (TUI) or `--no-curses --json-stream --poll 1.0`.
+- Dashboard (optional): add `--ray-dashboard --ray-keep-alive`, then open http://127.0.0.1:8265 and later `ray stop --force`.
+- Policy hook (optional, recommended):
+  ```bash
+  conda run -n base pip install pre-commit
+  pre-commit install
+  ```
+  Enforces staged‑file checks: no mocks in prod, discourages "simplified/toy/placeholder" wording, `ray.shutdown()` when `ray.init()` is used, and large‑file guard outside allowed dirs.
+
 ## Overview
 
 This repository contains multiple xLSTM implementations progressing from research prototypes to optimized production systems. The implementations maintain mathematical fidelity to the original xLSTM paper while adding practical enhancements for real-world usage.
 
-## Current MPS Backends and Chunkwise Architecture (2025-08)
+## Current MPS Backends and Chunkwise Architecture (2025-09)
 
 On Apple Silicon, inference runs with compiled MPS backends rather than handwritten Metal shaders:
 - Step kernel `metal`: `torch.compile`d function executing on MPS with stabilized float32 math.
 - Sequence kernel `native_sequence__metal`: decode by looping the compiled step.
 - Chunkwise (prefill) backends:
   - `chunkwise--queued_compiled_steps`: CPU thread pool queues many small step kernels; all math on GPU.
-  - `chunkwise--ray_compiled_steps`: Ray actors (local_mode) coordinate compiled steps.
+  - `chunkwise--ray_compiled_steps`: Ray actors (local_mode) coordinate compiled steps; optional asyncio actors and beta Ray Compiled Graphs.
   - `chunkwise--native_compiled_autograd`: compiled chunkwise comparator.
 
 Unique scheduling: heads are split into bands and sequences into small chunks (default 32). The coordinator enqueues many tiny compiled step kernels to MPS; per‑band order is preserved while overlapping work across bands/chunks.
+
+## Features
+
+- Compiled MPS: `step_kernel="metal"`, `sequence_kernel="native_sequence__metal"` for fast GPU inference on Apple Silicon.
+- Chunkwise backends: `ray_compiled_steps`, `queued_compiled_steps`, `native_compiled_autograd` with identical model outputs.
+- Head-banding: splits heads into bands; schedules per-band, per-chunk work to maximize overlap.
+- Decode loop: compiled step kernel in a tight token loop for stable throughput.
+- Memory watchdog: unified RSS + `torch.mps` alloc/reserved sampling, soft actions and hard abort; CSV logging.
+- Ray integration: local-mode by default; optional dashboard; auto-shutdown; per-actor runtime env to enforce GPU-only.
+- xltop monitor: curses TUI, polling mode, JSON/NDJSON stream, and stdin control (kill, ray stop, empty_cache, interval, quit).
+- Optimizer sweeps: random/GA search for prefill/decode throughput; artifacts in `runs/mps_opt/<run>`; plotting helper.
+- Runner CLI: `scripts/run_local_xlstm_mps.py` loads local HF-style checkpoints and exposes tuning + memory flags.
+- Telemetry/metrics: stats CSV for decode tok/s; Ray gauges (prefill tok/s, memory) for observability.
+- Experimental CfC: optional CfC-based logit calibrator with modes and top-k sparse bias.
+- Experimental var-quant: variable-quantization experiment with Ray sharding and optional compiled graphs.
+- Safety & cleanup: GPU-only default (`PYTORCH_ENABLE_MPS_FALLBACK=0`), auto Ray cleanup, `ray stop --force` fallback.
+
 
 Quick start (local HF checkpoint, conda base):
 ```bash
@@ -79,6 +118,15 @@ Tip: Prefer the Ray backend (default) with `XLSTM_RAY_LOCAL_MODE=1`; queued rema
 
 Monitoring: use `scripts/xltop.py` (TUI) or `--mem-log` on the runner; enable the Ray dashboard with `--ray-dashboard`.
 
+## CLI & Tools
+
+- `scripts/run_local_xlstm_mps.py`: main local inference entrypoint for HF-style checkpoints.
+- `scripts/optimize_mps.py`: GA/random sweeps; writes `runs/mps_opt/<run>/` with JSONL/CSV and summaries.
+- `scripts/xltop.py`: terminal monitor with curses UI, polling mode, and JSON/NDJSON output; stdin commands for agents.
+- Ray CLI: `ray status`, `ray list actors`, `ray memory`, `ray stop --force` (dashboard mode).
+- Plotting: `scripts/plot_opt_results.py` visualizes sweep outcomes.
+- Experiments: `scripts/experiments/variable_quantization_ray.py` for var-quant sharded throughput.
+
 Further docs (Apple/MPS)
 - `docs/APPLE_MPS_GUIDE.md` — platform guide and knobs
 - `docs/PYTORCH_MPS_INFERENCE_ARCHITECTURE.md` — how our compiled MPS inference works
@@ -88,6 +136,27 @@ Further docs (Apple/MPS)
 - `docs/STATE_EXPANSION_PRECISION.md` — limb‑precision (bf16×L) for stable recurrent state
 - `docs/EMBEDDING_DISAMBIGUATION_NOTES.md` — handling “homonyms” and ambiguity via observables
 - `docs/RESEARCH_NOTES.md` — consolidated research notes, evidence, and decisions
+
+## Ray Lifecycle & Safety
+
+- Local mode by default: `XLSTM_RAY_LOCAL_MODE=1` runs tasks/actors in-process (no daemons).
+- Dashboard mode: add `--ray-dashboard [--ray-dashboard-port 8265]` to start a local head; use `--ray-keep-alive` to keep it up.
+- Auto-shutdown: `XLSTM_RAY_AUTOSHUTDOWN=1` by default; actors are terminated and Ray is shut down on exit.
+- Cleanup: if anything remains, run `ray stop --force`; xltop can `K` kill PIDs.
+
+## Environment Variables (key)
+
+- Backends: `XLSTM_CHUNKWISE_BACKEND={ray_compiled_steps|queued_compiled_steps|native_compiled_autograd}`.
+- Scheduling: `XLSTM_MPS_HEADS_PER_BAND`, optional `XLSTM_MPS_STREAMS`; queued workers via `XLSTM_MPS_WORKERS`.
+- Memory: `XLSTM_MEM_WATCHDOG=1`, `XLSTM_MEM_POLL_MS`, `XLSTM_MEM_SOFT_PCT|HARD_PCT`, `XLSTM_MEM_SOFT_MB|HARD_MB`, `XLSTM_MEM_ACTION`.
+- Ray: `XLSTM_RAY_LOCAL_MODE`, `XLSTM_RAY_DASHBOARD=1`, `XLSTM_RAY_DASHBOARD_PORT`, `XLSTM_RAY_AUTOSHUTDOWN`.
+- PyTorch/MPS: `PYTORCH_ENABLE_MPS_FALLBACK=0` for GPU-only.
+
+See `AGENTS.md` for detailed operational guidance.
+
+## Release Notes
+
+See `CHANGELOG.md` for a commit-derived history of features and fixes.
 
 ## Implementation Status
 
