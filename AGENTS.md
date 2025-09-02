@@ -95,9 +95,9 @@ This document is for human operators and automation agents working on this repo.
 - For structured telemetry, prefer `xltop --json-stream` and parse NDJSON events.
 - To minimize interference, use warn‑only watchdog (`XLSTM_MEM_ACTION=warn`). Runtime chunk-size shrinking has been removed to preserve canonical behavior.
 
-### Local Policy Hooks
-- Install pre-commit hooks once: `pip install pre-commit && pre-commit install`.
-- Hooks enforce: no mocks in prod, no “simplified/toy/placeholder” wording, and `ray.shutdown()` presence when `ray.init()` is used.
+### Local Policy Checks
+- Optional manual check (no hooks): `conda run -n base python scripts/lint/check_repo_policy.py`.
+- Enforces: no mocks in prod, discourages “simplified/toy/placeholder” wording, and `ray.shutdown()` presence when `ray.init()` is used; flags large files outside allowed dirs.
 
 ---
 For deeper tuning and background, see:

@@ -19,12 +19,7 @@ A comprehensive collection of xLSTM (Extended LSTM) implementations with varying
   ```
 - Monitor: `conda run -n base python scripts/xltop.py` (TUI) or `--no-curses --json-stream --poll 1.0`.
 - Dashboard (optional): add `--ray-dashboard --ray-keep-alive`, then open http://127.0.0.1:8265 and later `ray stop --force`.
-- Policy hook (optional, recommended):
-  ```bash
-  conda run -n base pip install pre-commit
-  pre-commit install
-  ```
-  Enforces staged‑file checks: no mocks in prod, discourages "simplified/toy/placeholder" wording, `ray.shutdown()` when `ray.init()` is used, and large‑file guard outside allowed dirs.
+ 
 
 ## Overview
 

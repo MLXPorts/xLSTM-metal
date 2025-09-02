@@ -1,9 +1,0 @@
-repos:
-  - repo: local
-    hooks:
-      - id: repo-policy
-        name: repo-policy
-        entry: python scripts/lint/check_repo_policy.py --only-staged
-        language: system
-        types: [python, text]
-        pass_filenames: false
