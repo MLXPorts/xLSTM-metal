@@ -9,6 +9,9 @@ Tools
 - `download_pretrained.py`: Convenience script for common checkpoints.
 - `load_pretrained.py`: Local loader helpers.
 
+Hugging Face
+- xLSTM‑7B model card (NX‑AI): https://huggingface.co/NX-AI/xLSTM-7b
+
 Why
 - Keep model acquisition separate from runtime codepaths.
 - Standardize directory layouts expected by the runners and optimizer.
