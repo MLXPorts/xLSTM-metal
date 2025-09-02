@@ -1,15 +1,34 @@
 import os
+import time
 from typing import Tuple
 
 import torch
 
 try:
     import ray
+    try:
+        from ray import method as _ray_method  # concurrency group decorator (Ray >=1.12)
+    except Exception:
+        def _ray_method(*args, **kwargs):  # type: ignore
+            def _inner(f):
+                return f
+            return _inner
 except Exception as _e:
     ray = None  # type: ignore
+    def _ray_method(*args, **kwargs):  # type: ignore
+        def _inner(f):
+            return f
+        return _inner
 
 from ...recurrent.metal.compiled import mlstm_recurrent_step__metal
 from ...monitoring.memory import MemoryMonitor, MemoryPressureAbort
+from ...monitoring.ray_metrics import make_gauges
+
+# Optional Ray Compiled Graph (beta) support
+try:
+    from ray.dag import InputNode as _RayInputNode  # Ray >= 2.32
+except Exception:
+    _RayInputNode = None  # type: ignore
 
 
 def _ensure_ray() -> bool:
@@ -155,6 +174,100 @@ class HeadBandWorker:
             return rss_mb, None, None
 
 
+# Optional asyncio-based actor with concurrency groups for fine-grained control.
+try:
+    _CG = {"compute": 1, "ctrl": 8}
+    _actor_remote_kwargs = dict(num_cpus=1, max_restarts=0, max_task_retries=0, concurrency_groups=_CG)  # type: ignore[arg-type]
+except Exception:
+    _actor_remote_kwargs = dict(num_cpus=1, max_restarts=0, max_task_retries=0)
+
+
+@ray.remote(**_actor_remote_kwargs)  # type: ignore[misc]
+class HeadBandWorkerAsync:
+    def __init__(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        hs: int,
+        he: int,
+        eps: float,
+    ):
+        self.q = q
+        self.k = k
+        self.v = v
+        self.i = i
+        self.f = f
+        self.hs = hs
+        self.he = he
+        self.eps = eps
+
+    @_ray_method(concurrency_group="compute")  # type: ignore[misc]
+    async def run(
+        self,
+        c_state: torch.Tensor | None,
+        n_state: torch.Tensor | None,
+        m_state: torch.Tensor | None,
+        s_start: int,
+        s_end: int,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        hs, he = self.hs, self.he
+        B, NH, S, DHQK = self.q.shape
+        DHHV = self.v.shape[-1]
+        C = (
+            c_state
+            if c_state is not None
+            else torch.zeros((B, he - hs, DHQK, DHHV), device=self.q.device, dtype=torch.float32)
+        )
+        N = (
+            n_state
+            if n_state is not None
+            else torch.zeros((B, he - hs, DHQK), device=self.q.device, dtype=torch.float32)
+        )
+        M = (
+            m_state
+            if m_state is not None
+            else torch.zeros((B, he - hs, 1), device=self.q.device, dtype=torch.float32)
+        )
+        H_out = torch.empty((B, he - hs, s_end - s_start, DHHV), device=self.q.device, dtype=self.q.dtype)
+        for t in range(s_start, s_end):
+            H, (C, N, M) = mlstm_recurrent_step__metal(
+                q=self.q[:, hs:he, t],
+                k=self.k[:, hs:he, t],
+                v=self.v[:, hs:he, t],
+                i=self.i[:, hs:he, t : t + 1],
+                f=self.f[:, hs:he, t : t + 1],
+                c=C,
+                n=N,
+                m=M,
+                eps=self.eps,
+                dtype_state=torch.float32,
+            )
+            H_out[:, :, t - s_start] = H
+        return H_out, C, N, M
+
+    @_ray_method(concurrency_group="ctrl")  # type: ignore[misc]
+    async def mem_stats(self) -> Tuple[float, float | None, float | None]:
+        rss_mb = 0.0
+        try:
+            try:
+                import psutil  # type: ignore
+                rss_mb = float(psutil.Process().memory_info().rss) / (1024 * 1024)
+            except Exception:
+                rss_mb = 0.0
+            a = r = None
+            try:
+                a = float(torch.mps.current_allocated_memory()) / (1024 * 1024)  # type: ignore[attr-defined]
+                r = float(torch.mps.current_reserved_memory()) / (1024 * 1024)  # type: ignore[attr-defined]
+            except Exception:
+                a = r = None
+            return rss_mb, a, r
+        except Exception:
+            return rss_mb, None, None
+
+
 def mlstm_chunkwise__ray_compiled_steps(
     q: torch.Tensor,  # (B, NH, S, DHQK)
     k: torch.Tensor,  # (B, NH, S, DHQK)
@@ -216,16 +329,31 @@ def mlstm_chunkwise__ray_compiled_steps(
                 "XLSTM_MEM_HARD_MB",
                 "XLSTM_MEM_ACTION",
             )
-        }
+        },
     }
+    # Optional Nsight profiling: pass through if requested
+    nsight_prof = os.environ.get("XLSTM_RAY_NSIGHT")
+    if nsight_prof:
+        try:
+            _actor_runtime_env["nsight"] = nsight_prof  # type: ignore[index]
+        except Exception:
+            pass
+    use_async = os.environ.get("XLSTM_RAY_ASYNC", "0") == "1"
+    ActorClass = HeadBandWorkerAsync if use_async else HeadBandWorker
+    # Optionally prebuild Ray Compiled Graphs (beta) per actor for the steady-state chunk size
+    use_async = os.environ.get("XLSTM_RAY_ASYNC", "0") == "1"
+    use_cgraph = os.environ.get("XLSTM_RAY_COMPILED_GRAPH", "0") == "1" and _RayInputNode is not None
+    ActorClass = HeadBandWorkerAsync if use_async else HeadBandWorker
+    compiled_graphs: dict[tuple[int, int], object] = {}
     for hs, he in bands:
         try:
-            actor = HeadBandWorker.options(runtime_env=_actor_runtime_env).remote(  # type: ignore[union-attr]
+            actor = ActorClass.options(runtime_env=_actor_runtime_env).remote(  # type: ignore[union-attr]
                 q, k, v, i, f, hs, he, eps
             )
         except Exception:
-            actor = HeadBandWorker.remote(q, k, v, i, f, hs, he, eps)  # type: ignore[union-attr]
+            actor = ActorClass.remote(q, k, v, i, f, hs, he, eps)  # type: ignore[union-attr]
         actors.append((hs, he, actor))
+        # Build compiled graph for actor.run with fixed segment length (CHUNK) after we know CHUNK below
 
     # Initial per-band states
     band_states: dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor, torch.Tensor] | None] = {}
@@ -244,18 +372,43 @@ def mlstm_chunkwise__ray_compiled_steps(
 
     # Dispatch incrementally: at most one inflight chunk per actor, reschedule on completion.
     pending: list[tuple[int, int, int, int, object]] = []
+    submit_times: dict[object, tuple[float, int]] = {}
+    gauges = make_gauges()
     next_start: dict[tuple[int, int], int] = {(hs, he): 0 for hs, he, _ in actors}
     # Seed one task per actor
     CHUNK = max(1, int(chunk_size))
+    # Initialize compiled graphs once CHUNK is known
+    if use_cgraph:
+        try:
+            for hs, he, actor in actors:
+                # Build a small binding DAG: actor.run(c_state, n_state, m_state, s_start, s_end)
+                with _RayInputNode() as inp:  # type: ignore[misc]
+                    dag = actor.run.bind(inp[0], inp[1], inp[2], inp[3], inp[4])  # type: ignore[attr-defined]
+                compiled = dag.experimental_compile()  # type: ignore[attr-defined]
+                compiled_graphs[(hs, he)] = compiled
+        except Exception:
+            compiled_graphs.clear()
+            use_cgraph = False
     for hs, he, actor in actors:
         s = next_start[(hs, he)]
         if s < S:
             e = min(s + CHUNK, S)
             C0, N0, M0 = band_states[(hs, he)] if band_states[(hs, he)] is not None else (None, None, None)
-            ref = actor.run.remote(C0, N0, M0, s, e)  # type: ignore[attr-defined]
+            # Use compiled graph if enabled and segment length equals CHUNK
+            if use_cgraph and (e - s) == CHUNK and (hs, he) in compiled_graphs:
+                try:
+                    ref = compiled_graphs[(hs, he)].execute((C0, N0, M0, s, e))  # type: ignore[attr-defined]
+                except Exception:
+                    ref = actor.run.remote(C0, N0, M0, s, e)  # fallback
+            else:
+                ref = actor.run.remote(C0, N0, M0, s, e)  # type: ignore[attr-defined]
             pending.append((hs, he, s, e, ref))
             band_states[(hs, he)] = None
             next_start[(hs, he)] = e
+            try:
+                submit_times[ref] = (time.time(), e - s)
+            except Exception:
+                pass
 
     # Gather results as they complete; resubmit next chunk for that band
     last_states: dict[tuple[int, int], tuple[torch.Tensor, torch.Tensor, torch.Tensor]] = {}
@@ -272,6 +425,15 @@ def mlstm_chunkwise__ray_compiled_steps(
             Hband, Cb, Nb, Mb = ray.get(done[0])  # type: ignore[union-attr]
             h_out[:, hs:he, s:e] = Hband
             last_states[(hs, he)] = (Cb, Nb, Mb)
+            # update prefill tok/s gauge based on wall time for this chunk
+            try:
+                t0, seg = submit_times.pop(done[0], (None, None))  # type: ignore[index]
+                if t0 is not None and seg is not None:
+                    dt = time.time() - t0
+                    if dt > 0:
+                        gauges.get("tok_s_prefill", None).set(float(seg) / dt)  # type: ignore[union-attr]
+            except Exception:
+                pass
             # remove this ref/meta
             refs.pop(idx)
             metas.pop(idx)
@@ -282,10 +444,21 @@ def mlstm_chunkwise__ray_compiled_steps(
                     monitor.check()
                 e2 = min(s2 + CHUNK, S)
                 C0, N0, M0 = (Cb, Nb, Mb)  # continue from last state
-                ref2 = [act for hss, hee, act in actors if hss == hs and hee == he][0].run.remote(C0, N0, M0, s2, e2)  # type: ignore[attr-defined]
+                actor2 = [act for hss, hee, act in actors if hss == hs and hee == he][0]
+                if use_cgraph and (e2 - s2) == CHUNK and (hs, he) in compiled_graphs:
+                    try:
+                        ref2 = compiled_graphs[(hs, he)].execute((C0, N0, M0, s2, e2))  # type: ignore[attr-defined]
+                    except Exception:
+                        ref2 = actor2.run.remote(C0, N0, M0, s2, e2)  # fallback
+                else:
+                    ref2 = actor2.run.remote(C0, N0, M0, s2, e2)  # type: ignore[attr-defined]
                 refs.append(ref2)
                 metas.append((hs, he, s2, e2))
                 next_start[(hs, he)] = e2
+                try:
+                    submit_times[ref2] = (time.time(), e2 - s2)
+                except Exception:
+                    pass
     except MemoryPressureAbort as e:
         if monitor is not None:
             monitor.stop()

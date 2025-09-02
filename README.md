@@ -20,10 +20,15 @@ On Apple Silicon, inference runs with compiled MPS backends rather than handwrit
 
 Unique scheduling: heads are split into bands and sequences into small chunks (default 32). The coordinator enqueues many tiny compiled step kernels to MPS; per‑band order is preserved while overlapping work across bands/chunks.
 
-Quick start (local HF checkpoint):
+Quick start (local HF checkpoint, conda base):
 ```bash
 PYTORCH_ENABLE_MPS_FALLBACK=0 PYTHONPATH=. \
-python scripts/runners/xlstm_quick.py --prompt "The capital of France is" --new 20
+conda run -n base python scripts/run_local_xlstm_mps.py \
+  --model_path ./xlstm_7b_model \
+  --prompt "The capital of France is" \
+  --max_new_tokens 32 \
+  --chunkwise-backend ray_compiled_steps \
+  --chunk-size 64 --heads-per-band 4
 ```
 
 Tuning knobs (MPS): `chunk_size`, `heads_per_band`, `workers`, optional `streams`. See `docs/TUNING_GUIDE.md`.

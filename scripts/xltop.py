@@ -227,6 +227,54 @@ def read_stats_csv_tail(path: str) -> tuple[Optional[float], Optional[float]]:
         return None, None
 
 
+def read_stats_series(path: str, max_points: int = 24) -> list[float]:
+    try:
+        p = Path(path)
+        if not p.exists():
+            return []
+        with p.open('rb') as f:
+            try:
+                f.seek(-8192, 2)
+            except Exception:
+                f.seek(0)
+            tail = f.read().decode(errors='ignore').splitlines()
+        vals: list[float] = []
+        for ln in tail:
+            if not ln or ln.startswith('step'):
+                continue
+            parts = ln.split(',')
+            if len(parts) >= 5 and parts[3]:
+                try:
+                    vals.append(float(parts[3]))
+                except Exception:
+                    continue
+        return vals[-max_points:]
+    except Exception:
+        return []
+
+
+def render_sparkline(vals: list[float], width: int = 40) -> str:
+    if not vals:
+        return ""
+    blocks = "▁▂▃▄▅▆▇█"
+    mmin, mmax = min(vals), max(vals)
+    if mmax <= mmin:
+        return blocks[0] * min(len(vals), width)
+    # resample to width
+    n = len(vals)
+    if n > width:
+        step = n / width
+        xs = [vals[int(i * step)] for i in range(width)]
+    else:
+        xs = vals
+    out = []
+    for v in xs:
+        idx = int((v - mmin) / (mmax - mmin) * (len(blocks) - 1))
+        idx = max(0, min(idx, len(blocks) - 1))
+        out.append(blocks[idx])
+    return ''.join(out)
+
+
 def draw_screen(stdscr, st: State):
     stdscr.erase()
     h, w = stdscr.getmaxyx()
@@ -264,6 +312,11 @@ def draw_screen(stdscr, st: State):
         if st.stats_inst is not None or st.stats_avg is not None:
             row_line = f"Decode tok/s: inst={st.stats_inst or 0:.2f} avg={st.stats_avg or 0:.2f}"
             stdscr.addnstr(row, 0, row_line.ljust(w), w)
+            row += 1
+        series = read_stats_series(st.stats_path)
+        if series:
+            spark = render_sparkline(series, width=min(48, max(16, w - 20)))
+            stdscr.addnstr(row, 0, f"tok/s sparkline: {spark}"[: w - 1], w)
             row += 1
     if st.show_ray:
         stdscr.addnstr(row, 0, "Ray status:".ljust(w), w)
