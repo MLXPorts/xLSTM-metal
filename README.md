@@ -8,6 +8,8 @@ A comprehensive collection of xLSTM (Extended LSTM) implementations with varying
 
 - Python: use conda env `base` (Python 3.12). Prefer `conda run -n base ...` for all commands.
 - Env: run from repo root with `PYTHONPATH=.` and enforce GPU‑only `PYTORCH_ENABLE_MPS_FALLBACK=0`.
+- Weights: download xLSTM‑7B from Hugging Face (NX‑AI/xLSTM‑7b) and place under `./xlstm_7b_model` or pass `--model_path`.
+- Hugging Face model card: https://huggingface.co/NX-AI/xLSTM-7b
 - Quick run:
   ```bash
   PYTORCH_ENABLE_MPS_FALLBACK=0 PYTHONPATH=. \
@@ -152,6 +154,16 @@ See `AGENTS.md` for detailed operational guidance.
 ## Release Notes
 
 See `CHANGELOG.md` for a commit-derived history of features and fixes.
+
+## Credits & Attribution
+
+This work is inspired by and builds upon the xLSTM research and open‑source implementations by NX‑AI and collaborators. This repository is an independent port to PyTorch with Metal (MPS) and additional tooling; the upstream authors and NX‑AI were not involved in this port.
+
+- Upstream xLSTM: https://github.com/NX-AI/xlstm
+- Papers: xLSTM (arXiv:2405.04517), xLSTM‑7B (arXiv:2503.13427)
+- Port/MPS + Ray integration: Sydney Bach (The Solace Project) — https://github.com/SolaceHarmony | Project: https://github.com/SolaceHarmony/xLSTM-Metal
+
+See `CREDITS.md` for full attribution and citation details.
 
 ## Implementation Status
 

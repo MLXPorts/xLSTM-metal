@@ -1,0 +1,71 @@
+cff-version: 1.2.0
+message: >-
+  If you use this repository, please cite the original xLSTM papers by NX‑AI
+  and collaborators.
+title: xLSTM (upstream references for attribution)
+type: software
+authors:
+  - family-names: Beck
+    given-names: Maximilian
+  - family-names: Pöppel
+    given-names: Korbinian
+  - family-names: Spanring
+    given-names: Markus
+  - family-names: Auer
+    given-names: Andreas
+  - family-names: Prudnikova
+    given-names: Oleksandra
+  - family-names: Kopp
+    given-names: Michael
+  - family-names: Klambauer
+    given-names: Günter
+  - family-names: Brandstetter
+    given-names: Johannes
+  - family-names: Hochreiter
+    given-names: Sepp
+references:
+  - type: article
+    title: xLSTM — Extended Long Short‑Term Memory
+    authors:
+      - family-names: Beck
+        given-names: Maximilian
+      - family-names: Pöppel
+        given-names: Korbinian
+      - family-names: Spanring
+        given-names: Markus
+      - family-names: Auer
+        given-names: Andreas
+      - family-names: Prudnikova
+        given-names: Oleksandra
+      - family-names: Kopp
+        given-names: Michael
+      - family-names: Klambauer
+        given-names: Günter
+      - family-names: Brandstetter
+        given-names: Johannes
+      - family-names: Hochreiter
+        given-names: Sepp
+    repository-code: https://github.com/NX-AI/xlstm
+    notes: arXiv:2405.04517
+  - type: article
+    title: xLSTM‑7B — A Recurrent LLM for Fast and Efficient Inference
+    authors:
+      - family-names: Beck
+        given-names: Maximilian
+      - family-names: Pöppel
+        given-names: Korbinian
+      - family-names: Lippe
+        given-names: Phillip
+      - family-names: Kurle
+        given-names: Richard
+      - family-names: Blies
+        given-names: Patrick M.
+      - family-names: Klambauer
+        given-names: Günter
+      - family-names: Böck
+        given-names: Sebastian
+      - family-names: Hochreiter
+        given-names: Sepp
+    repository-code: https://github.com/NX-AI/xlstm
+    notes: arXiv:2503.13427
+
