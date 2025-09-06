@@ -24,4 +24,4 @@ Additional references (formal + bio mapping):
 
 Seed + history:
 - CONTEXT_SEED.md — one‑pager to rapidly reload context
-- CHANGELOG.md — high‑level changes (pairs with commits)
+- docs/CHANGELOG.md — high‑level changes (pairs with commits)

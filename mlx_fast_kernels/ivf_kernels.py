@@ -1,15 +1,27 @@
 """
-ivf_kernels.py - Metal kernels for IVF list scan + top-k selection
+Metal kernels for IVF list scan + top‑k selection (MLX JIT).
 
-Implements a fused L2 distance + top-k kernel for one query against a set
-of database vectors (typically the concatenation of selected IVF lists).
+Implements fused L2 + top‑k (single query and batched variants) and a device
+merge for partial top‑k lists to produce final results.
 
-Notes
-- Designed for small k (<= 32). Uses per-thread local top-k and a final
-  threadgroup reduction to produce the final top-k distances and ids.
-- Single-threadgroup kernel: threads stride across rows with step=tpb.
-  This simplifies reduction. For very large lists, consider chunking and
-  a two-pass merge on host or a second kernel.
+Design
+- Small k (≤ 32): each thread keeps a local top‑k (unsorted buffer) and tracks
+  the current worst element; at the end, threads write candidates into a
+  threadgroup array, and a single thread performs a simple selection to pick
+  the final top‑k. This avoids global memory traffic until the very end.
+- Single‑threadgroup kernel: threads stride across rows `i = tid, tid+tpb, …`.
+  This simplifies the reduction and keeps barriers local to the group. For
+  very large lists, the chunked variants allow two‑pass merges on host or a
+  final device merge across partial top‑k lists.
+
+Tunables
+- Threads per threadgroup `tpb` is chosen so `tpb * k ≤ 1024` and aligned to
+  32 for coalescing; override via env `IVF_TPB`.
+
+Synchronization
+- Threadgroup arrays collect per‑thread candidates; `threadgroup_barrier` is
+  used before the final selection to guarantee all candidate stores are
+  visible. No divergent control flow skips barriers.
 """
 
 from __future__ import annotations
@@ -255,12 +267,25 @@ def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optio
     kk = int(min(k, 32))
     shape = mx.array([m, d, kk], dtype=mx.uint32)
     if tpb is None:
-        override = os.environ.get("IVF_TPB")
-        if override:
+        # Runtime config first
+        try:
+            from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+        except Exception:
+            _get_runtime_config = None
+        if _get_runtime_config is not None:
             try:
-                tpb = int(override)
+                rc = _get_runtime_config()
+                if rc.get("ivf_tpb") is not None:
+                    tpb = int(rc.get("ivf_tpb"))
             except Exception:
                 tpb = None
+        if tpb is None:
+            override = os.environ.get("IVF_TPB")
+            if override:
+                try:
+                    tpb = int(override)
+                except Exception:
+                    tpb = None
     if tpb is None:
         limit = max(1, 1024 // max(1, kk))
         base = (limit // 32) * 32
@@ -290,12 +315,24 @@ def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb:
     kk = int(min(k, 32))
     shape = mx.array([m, d, kk, b], dtype=mx.uint32)
     if tpb is None:
-        override = os.environ.get("IVF_TPB")
-        if override:
+        try:
+            from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+        except Exception:
+            _get_runtime_config = None
+        if _get_runtime_config is not None:
             try:
-                tpb = int(override)
+                rc = _get_runtime_config()
+                if rc.get("ivf_tpb") is not None:
+                    tpb = int(rc.get("ivf_tpb"))
             except Exception:
                 tpb = None
+        if tpb is None:
+            override = os.environ.get("IVF_TPB")
+            if override:
+                try:
+                    tpb = int(override)
+                except Exception:
+                    tpb = None
     if tpb is None:
         limit = max(1, 1024 // max(1, kk))
         base = (limit // 32) * 32
@@ -388,4 +425,3 @@ __all__ = [
     "ivf_list_topk_l2_chunked_device_merge",
     "device_topk_merge",
 ]
-

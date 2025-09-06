@@ -2,13 +2,16 @@
 """
 MLX orthogonality helpers (left/right orthonormality + completion).
 
-Implements a pure-MLX two-pass Modified Gram–Schmidt (MGS) QR factorization
+Implements a pure‑MLX two‑pass Modified Gram–Schmidt (MGS) QR factorization
 to build orthonormal columns, utilities for orthonormal rows, and completion of
-semi-orthonormal bases to a full orthonormal set.
+semi‑orthonormal bases to a full orthonormal set.
 
 Notes
-- Uses row-major indexing and MX array ops; loops are over columns/rows only.
-- Two-pass MGS improves numerical stability over one-pass.
+- Uses row‑major indexing and MX array ops; loops are over columns/rows only.
+- Two‑pass MGS improves numerical stability over one‑pass and is often enough
+  for basis construction without resorting to Householder.
+- For larger panels or stricter numerics, pair with MLX Metal kernels in
+  `mlx_fast_kernels.qr_kernels` for `c = Qᵀ v` and vector updates.
 """
 
 from __future__ import annotations
@@ -96,4 +99,3 @@ __all__ = [
     "orthonormal_rows",
     "complete_basis",
 ]
-

@@ -129,10 +129,10 @@ Successfully downloaded official xLSTM-7B model:
 ## Analysis Documentation
 
 Created comprehensive technical analysis:
-- **Implementation_Fidelity_Analysis.md**: Detailed comparison with official implementation
-- **xLSTM_Architecture_Study.md**: Mathematical foundations and equations
-- **xLSTM_vs_LFM2_Comparison.md**: Architectural comparison with Liquid Foundation Models
-- **xLSTM_Parallelism_Analysis.md**: Processing and parallelization strategies
+- **docs/Implementation_Fidelity_Analysis.md**: Detailed comparison with official implementation
+- **docs/xLSTM_Architecture_Study.md**: Mathematical foundations and equations
+- **docs/xLSTM_vs_LFM2_Comparison.md**: Architectural comparison with Liquid Foundation Models
+- **docs/xLSTM_Parallelism_Analysis.md**: Processing and parallelization strategies
 
 ## Testing and Validation
 

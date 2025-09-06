@@ -1,6 +1,6 @@
 # xLSTM Implementation Suite
 
-Start Here: see AGENTS.md for tools and workflows. If you’re using Claude, read CLAUDE.md for strict do/don’t rules.
+Start Here: see docs/AGENTS.md for tools and workflows. If you’re using Claude, read docs/CLAUDE.md for strict do/don’t rules.
 
 A comprehensive collection of xLSTM (Extended LSTM) implementations with varying optimization levels, from basic mathematical prototypes to production-ready systems.
 
@@ -100,6 +100,10 @@ Further MLX docs
 - `docs/MLX_API_REFERENCE.md` — public MLX APIs in this repo
 - `docs/MLX_METAL_SHADER_INTEGRATION.md` — using/porting .metal shaders with MLX
 - `docs/mlx_reference/` — ported MLX/Metal how-tos (Streams, Kernel Guide, etc.)
+- `docs/MLX_RUNTIME_CONFIG.md` — programmatic configuration (no envs)
+- `docs/MLX_BENCHMARKS.md` — how to run production-like MLX benches
+- `docs/MLX_TESTING.md` — focused MLX/xLSTM test commands and criteria
+- `docs/MLX_KERNEL_PATTERNS.md` — kernel cheat sheet (barriers, tiles, loads)
 
 ## Optimization Harness
 
@@ -181,11 +185,11 @@ Further docs (Apple/MPS)
 - Ray: `XLSTM_RAY_LOCAL_MODE`, `XLSTM_RAY_DASHBOARD=1`, `XLSTM_RAY_DASHBOARD_PORT`, `XLSTM_RAY_AUTOSHUTDOWN`.
 - PyTorch/MPS: `PYTORCH_ENABLE_MPS_FALLBACK=0` for GPU-only.
 
-See `AGENTS.md` for detailed operational guidance.
+See `docs/AGENTS.md` for detailed operational guidance.
 
 ## Release Notes
 
-See `CHANGELOG.md` for a commit-derived history of features and fixes.
+See `docs/CHANGELOG.md` for a commit-derived history of features and fixes.
 
 ## Credits & Attribution
 
@@ -195,7 +199,7 @@ This work is inspired by and builds upon the xLSTM research and open‑source im
 - Papers: xLSTM (arXiv:2405.04517), xLSTM‑7B (arXiv:2503.13427)
 - Port/MPS + Ray integration: Sydney Bach (The Solace Project) — https://github.com/SolaceHarmony | Project: https://github.com/SolaceHarmony/xLSTM-Metal
 
-See `CREDITS.md` for full attribution and citation details.
+See `docs/CREDITS.md` for full attribution and citation details.
 
 ## Implementation Status
 
@@ -203,12 +207,12 @@ See `CREDITS.md` for full attribution and citation details.
 
 | Implementation | Status | Performance | Features |
 |----------------|--------|-------------|----------|
-| `xlstm_pytorch_enhanced.py` | ✅ Stable | 730 tok/s | Production-ready, comprehensive config |
-| `xlstm_pytorch.py` | ✅ Stable | ~400 tok/s | Base implementation |
-| `xlstm_mlx.py` | ✅ Stable | ~300 tok/s | Apple Silicon MLX backend |
-| `xlstm_metal_optimized.py` | ⚠️ Beta | TBD | MPS optimization, torch.compile |
-| `xlstm_chunked_parallel.py` | ⚠️ Beta | TBD | Chunk-based parallelization |
-| `xlstm_streaming_inference.py` | ⚠️ Beta | TBD | Real-time streaming |
+| `implementations/pytorch/xlstm_pytorch_enhanced.py` | ✅ Stable | 730 tok/s | Production-ready, comprehensive config |
+| `implementations/pytorch/xlstm_pytorch.py` | ✅ Stable | ~400 tok/s | Base implementation |
+| `implementations/mlx/xlstm_mlx.py` | ✅ Stable | ~300 tok/s | Apple Silicon MLX backend |
+| `implementations/metal/xlstm_metal_optimized.py` | ⚠️ Beta | TBD | MPS optimization, torch.compile |
+| `implementations/pytorch/xlstm_chunked_parallel.py` | ⚠️ Beta | TBD | Chunk-based parallelization |
+| `implementations/pytorch/xlstm_streaming_inference.py` | ⚠️ Beta | TBD | Real-time streaming |
 
 ### Testing and Utilities
 
@@ -337,6 +341,11 @@ This implementation is provided for educational and research purposes.
 - `prompts/` – long-context prompt snippets
 - `examples/` – example apps and demos
 - `tests/` – test suite and harnesses
+
+Production vs experiments
+- Production code lives under `scripts/`, `mlx_fast_kernels/`, `mlstm_kernels/`, `tools/`, `docs/`, `configs/`, and `tests/`.
+- Legacy import shims exist at repo root (e.g., `xlstm_mlx.py`) and re-export from `implementations/...` to avoid breaking older calls.
+- Experiments and demos are archived under `research_archive/`. See `docs/REPO_HYGIENE.md` for details.
 # xLSTM on Apple Silicon
 
 **PYTHON NOTE (READ ME FIRST): python3 is trash - it's the MacOS python which I can't upgrade. python is the 3.12 version from conda.**

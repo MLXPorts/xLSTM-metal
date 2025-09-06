@@ -40,13 +40,18 @@ flowchart LR
 ## Kernel Strategy (Metal)
 
 - Tiled kernels created by `mx.fast.metal_kernel` with body‑only Metal source + header.
-- 2D grid mapping avoids runtime integer division/mod in hot loops.
-- Shared memory tiles + coalesced loads + `fma` inner loops.
-- `threadgroup_barrier` guarded around tile phases; avoid oversynchronization.
+- 2D grid mapping (grid = threads; threadgroup = tile) avoids runtime integer division/mod in hot loops and follows MLX dispatch semantics.
+- Shared memory tiles + coalesced loads + `fma` inner loops; cooperative unique‑writer loads remove write‑write races.
+- Barriers: exactly two per K‑tile (after loads, after accumulation) with `mem_threadgroup`; every thread participates.
+- Optional toggles:
+  - `XLSTM_GEMM_PAD=1` — +1 padding on second tile dimension to reduce bank conflicts.
+  - `XLSTM_GEMM_ALIGN_EXECW=1` — align square tile size to device `threadExecutionWidth` if allowed.
+  - `XLSTM_GEMM_DB=1` — double‑buffer tiles (ping‑pong) to prefetch next tile while computing the current one.
 - Tile sizes are hardware‑aware:
   - Defaults: M3 → AV(32×8), AT_B(8×32); others: 16×16.
   - Env overrides: `XLSTM_GEMM_TILE_AV="TMxT"`, `XLSTM_GEMM_TILE_ATB="TNxTK"`.
   - Runtime API: `set_gemm_tiles(av="32x8", atb="8x32")`.
+  - Device tuning: optional JSON (`configs/mlx_hardware_params.json`) selects defaults per device.
 
 ## MLX vs Ray (PyTorch MPS) — When to Use What
 
@@ -87,4 +92,3 @@ Rule of thumb:
 - MLX Streams patterns: see `tools/mlx_streams.py`.
 - Metal tiling patterns: `mlx_fast_kernels/gemm_kernels.py`.
 - PyTorch+MPS design: `docs/PYTORCH_MPS_INFERENCE_ARCHITECTURE.md`.
-

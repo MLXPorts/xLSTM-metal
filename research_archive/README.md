@@ -11,8 +11,18 @@ Contents
   tiled two‑kernel path (`gemm_av`, `gemm_at_b`).
 - `GEMM_TILING_ATTEMPTS.md` — notes on early tiling attempts (grid semantics,
   non‑square tile loading, and addressing) and why they were replaced.
+- `pytorch_metal_kernels_demo.py` — PyTorch + Metal experiment showing how a
+  custom Metal kernel could be bridged into PyTorch. Educational; not used by
+  production backends.
+
+Legacy import shims (moved here if unused)
+- See `research_archive/legacy_shims/README.md` for a list of archived shims
+  and preferred `implementations/...` imports.
 
 Guidelines
 - Use the production implementations under `mlx_fast_kernels/` for speed.
 - Treat archive items as educational references or benchmarks, not as active
   building blocks.
+
+Moved from root
+- `pytorch_metal_kernels_demo.py` (formerly `pytorch_metal_kernels.py`)

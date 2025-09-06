@@ -94,8 +94,8 @@ Determinism and RNG
 - RNG ops honor the `stream` argument. Keep RNG on a stable stream mapping for reproducibility.
 - If RNG values cross streams, MLX still orders the dependency; just avoid reshuffling streams mid‑run if you care about exact repeatability.
 
-Swift parity
-- Swift mirrors Python semantics (StreamOrDevice parameter). Use the same patterns: explicit streams, scoped defaults, minimal synchronization.
+Note
+- This repository does not include an MLX Swift implementation. All examples and APIs here refer to MLX Python.
 
 Checklist
 - Define a small, fixed set of streams per device.
@@ -114,4 +114,3 @@ Common pitfalls
 References
 - MLX Streams (Python): usage, devices and streams, `mx.synchronize`
 - MLX‑Data: buffers, streams, and samples
-- MLX Swift: devices and streams API

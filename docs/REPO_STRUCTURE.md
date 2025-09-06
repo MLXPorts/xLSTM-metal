@@ -27,6 +27,13 @@ Repository Structure (High-level)
 - `implementations/`
   - `pytorch/`, `metal/`, `mlx/`: organized legacy/reference implementations (top‑level import shims preserved).
 
+- `research_archive/`
+  - Archived experiments, notes, and demos; not wired into production runners.
+
+Notes
+- Root-level `xlstm_*.py` files are legacy shims that re-export from `implementations/...` to avoid breaking older imports.
+- See `docs/REPO_HYGIENE.md` for a production vs experiments overview.
+
 - `tools/`
   - `test_metal_parity.py`: mLSTM parity checks.
   - `test_slstm_parity.py`: sLSTM parity checks.

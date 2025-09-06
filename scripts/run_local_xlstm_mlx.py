@@ -91,7 +91,26 @@ def main():
 
     # Tokenizer
     ap.add_argument("--hf-tokenizer", type=str, default=None, help="Optional HF tokenizer name (e.g., gpt2)")
+    # Runtime config (no envs)
+    ap.add_argument("--gemm-pad", type=int, default=None)
+    ap.add_argument("--gemm-align-execw", type=int, default=None)
+    ap.add_argument("--gemm-double-buffer", type=int, default=None)
+    ap.add_argument("--qr-dot-mode", type=str, default=None, choices=["auto","simd","simple"]) 
+    # Benchmarking / stats
+    ap.add_argument("--stats-log", type=str, default=None, help="Optional CSV file to log per-step decode timing (step,elapsed_s,tok_s)")
+    ap.add_argument("--stats-every", type=int, default=1, help="Log every N decode steps (default 1)")
     args = ap.parse_args()
+
+    # Apply runtime config
+    try:
+        from tools.mlx_runtime import configure_gemm, configure_qr
+        configure_gemm(pad=bool(args.gemm_pad) if args.gemm_pad is not None else None,
+                       align_execw=bool(args.gemm_align_execw) if args.gemm_align_execw is not None else None,
+                       double_buffer=bool(args.gemm_double_buffer) if args.gemm_double_buffer is not None else None)
+        if args.qr_dot_mode is not None:
+            configure_qr(dot_mode=args.qr_dot_mode)
+    except Exception:
+        pass
 
     # Resolve prompt
     prompt = args.prompt
@@ -139,6 +158,8 @@ def main():
         use_streams = False
 
     # Prefill on compute stream
+    import time, csv
+    t_prefill_start = time.time()
     if use_streams:
         with mx.stream(s_gpu):
             logits, state = model(input_ids, return_hidden=True)
@@ -146,10 +167,22 @@ def main():
     else:
         logits, state = model(input_ids, return_hidden=True)
         last_logits = logits[:, -1, :]
+    t_prefill = time.time() - t_prefill_start
 
     # Decode
     out_ids = list(ids)
-    for _ in range(int(args.max_new_tokens)):
+    # Stats setup
+    stats_path = args.stats_log
+    stats_every = max(1, int(args.stats_every))
+    csv_f = None; csv_w = None
+    if stats_path:
+        csv_f = open(stats_path, "w", newline="")
+        csv_w = csv.writer(csv_f)
+        csv_w.writerow(["step", "elapsed_s", "tok_s"])  # header
+
+    t_decode_start = time.time()
+    for step in range(1, int(args.max_new_tokens) + 1):
+        t_step_start = time.time()
         if use_streams:
             with mx.stream(s_gpu):
                 next_id = softmax_sample(last_logits[0], args.temperature, args.top_k)
@@ -163,11 +196,22 @@ def main():
             step_in = mx.array([[int(next_id)]], dtype=mx.int32)
             logits, state = model(step_in, hidden_states=state, return_hidden=True)
             last_logits = logits[:, -1, :]
+        # Per-step timing (host-side sync via sampling)
+        if (step % stats_every) == 0 and (csv_w is not None):
+            elapsed = time.time() - t_step_start
+            tok_s = 1.0 / max(1e-9, elapsed)
+            csv_w.writerow([step, f"{elapsed:.6f}", f"{tok_s:.2f}"])
 
     # Decode and print
     # Synchronize compute stream before host decode
     if use_streams:
         mx.synchronize(s_gpu)
+
+    t_decode = time.time() - t_decode_start
+    total_new = int(args.max_new_tokens)
+    overall_tok_s = (total_new / max(1e-9, t_decode)) if total_new > 0 else 0.0
+    if csv_f is not None:
+        csv_f.flush(); csv_f.close()
 
     if args.hf_tokenizer:
         try:
@@ -177,6 +221,12 @@ def main():
     else:
         text = tok.decode(out_ids)
     print(text)
+    # Print benchmark summary
+    print("\n--- Benchmark Summary (MLX) ---")
+    print(f"Prefill time: {t_prefill*1000:.1f} ms")
+    print(f"Decode tokens: {total_new}")
+    print(f"Decode time: {t_decode:.3f} s")
+    print(f"Decode throughput: {overall_tok_s:.1f} tok/s")
 
 
 if __name__ == "__main__":

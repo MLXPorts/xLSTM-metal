@@ -1,21 +1,31 @@
 """
-Metal kernels (MLX JIT) for QR helpers
+Metal kernels (MLX JIT) for QR helpers.
 
 Kernels
-- `qr_col_dot`: c = Qᵀ v (column‑parallel dot, simple per-thread loop)
-- `qr_col_dot_simd`: c = Qᵀ v (one simdgroup per column; intra-warp reduction)
-- `qr_update_vec`: v_out = v_in − Q c (row‑parallel update, fma)
+- `qr_col_dot`: c = Qᵀ v (per‑thread column loop; simple and correct)
+- `qr_col_dot_simd`: c = Qᵀ v (one simdgroup per column; intra‑warp reduction)
+- `qr_update_vec`: v_out = v_in − Q c (row‑parallel update using `fma`)
 
 Contract and Design
-- MLX `fast.metal_kernel` requires body‑only source; we place includes in `header`.
-- Shapes are passed via a small `shape=[m,k]` buffer to avoid recompilation per call.
-- Launch sizes are explicit; we pick multiples of the Apple execution width (32).
+- Body‑only Metal sources; MLX autogenerates the [[kernel]] signature based on
+  input/output names. Includes go in `header`.
+- Shapes (`m`, `k`) are passed via a small `shape` buffer (uint32) to avoid
+  recompilation across calls.
+- Launch sizes are explicit. For the SIMD variant, we use one warp (32) per
+  column and a shared temporary to reduce partial sums; for the baseline we
+  launch 1D over columns.
 
-Optimization Notes
-- `qr_col_dot`: good baseline; one thread per column walks the rows.
-- `qr_col_dot_simd`: each simdgroup (warp) accumulates one column using strided
-  row walks and a shared reduction; improves throughput when `m` is large.
-- `qr_update_vec` uses `fma` accumulation; kernel is 1D over rows.
+Synchronization
+- The SIMD kernel writes one partial sum per lane then uses a threadgroup
+  barrier to ensure visibility before a single lane performs a small shared
+  reduction. This keeps synchronization scoped and avoids cross‑warp hazards.
+- Barriers use `mem_threadgroup` to fence shared memory; all threads reach the
+  barrier and no divergent returns occur around it.
+
+Mode selection and tuning
+- Heuristic: use the SIMD mode when `m` is large (m ≥ 512), else the simple
+  per‑thread loop often suffices. Override via env `QR_DOT_MODE=simple|simd` or
+  device‑aware default from `tools.mlx_tuning.qr_dot_mode_default()`.
 """
 
 from __future__ import annotations
@@ -23,6 +33,10 @@ from __future__ import annotations
 from typing import Tuple
 import os
 import mlx.core as mx
+try:
+    from tools.mlx_tuning import qr_dot_mode_default as _qr_mode_default
+except Exception:
+    _qr_mode_default = None
 
 _HEADER = """#include <metal_stdlib>\nusing namespace metal;\n"""
 
@@ -38,7 +52,7 @@ _COL_DOT_SRC = r"""
     out[gid] = acc;
 """
 
-// One simdgroup (warp) computes one column dot; stride by lane across rows
+# One simdgroup (warp) computes one column dot; stride by lane across rows
 _COL_DOT_SIMD_SRC = r"""
     const uint WARP = 32u; // Apple execution width
 
@@ -124,6 +138,23 @@ def project_coeffs(Q: mx.array, v: mx.array) -> mx.array:
     m, k = int(Q.shape[0]), int(Q.shape[1])
     shape = mx.array([m, k], dtype=mx.uint32)
     mode = (os.environ.get("QR_DOT_MODE") or "auto").lower()
+    # Runtime config takes precedence if provided
+    try:
+        from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+    except Exception:
+        _get_runtime_config = None
+    if _get_runtime_config is not None:
+        try:
+            rc = _get_runtime_config()
+            if rc.get("qr_dot_mode") is not None:
+                mode = str(rc.get("qr_dot_mode")).lower()
+        except Exception:
+            pass
+    if mode == "auto" and _qr_mode_default is not None:
+        try:
+            mode = _qr_mode_default()
+        except Exception:
+            pass
     use_simd = (mode == "simd") or (mode == "auto" and m >= 512)
 
     if use_simd:
@@ -192,4 +223,3 @@ __all__ = [
     "project_coeffs",
     "update_vector",
 ]
-

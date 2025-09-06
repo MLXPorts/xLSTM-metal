@@ -33,6 +33,11 @@ RE_RAY_INIT = re.compile(r"ray\.init\(")
 RE_RAY_SHUTDOWN = re.compile(r"ray\.shutdown\(")
 RE_NEAR_COPY_NAME = re.compile(r"(_copy|_new|_alt|_tmp|copy|backup)\.[a-zA-Z0-9]+$")
 
+# Disallow Swift or Xcode artifacts in this repo
+SWIFT_BAD_EXT = ".swift"
+DISALLOWED_MAC_PROJ_SUFFIXES = (".xcodeproj", ".xcworkspace")
+DISALLOWED_MAC_FILES = {"Package.swift"}
+
 
 def is_in_dirs(path: Path, names) -> bool:
     parts = set(path.parts)
@@ -76,6 +81,13 @@ def policy_check(paths: list[Path], soft_enforce: bool) -> int:
 
     for p in paths:
         rel = p.relative_to(ROOT).as_posix()
+        # hard disallow: Swift / Xcode artifacts
+        if p.suffix == SWIFT_BAD_EXT:
+            errors.append(f"SWIFT_FILE: {rel} should not be present in this repo")
+        if any(rel.endswith(sfx) for sfx in DISALLOWED_MAC_PROJ_SUFFIXES):
+            errors.append(f"XCODE_ARTIFACT: {rel} should not be present in this repo")
+        if p.name in DISALLOWED_MAC_FILES:
+            errors.append(f"SWIFT_PACKAGE: {rel} should not be present in this repo")
         # large file gate
         try:
             if p.is_file():

@@ -8,4 +8,3 @@ Project Authors and Maintainers
 Acknowledgements
 
 - This project builds upon research and open‑source work by NX‑AI and collaborators on xLSTM. See `CREDITS.md` for upstream authorship and citations.
-

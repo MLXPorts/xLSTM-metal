@@ -1,17 +1,17 @@
 """
-SVD subspace power-iteration kernels (baseline)
+SVD subspace power-iteration Z-step implementations (MLX + Metal).
 
-This module provides a simple, correct baseline kernel to compute:
-    Z = Aᵀ (A V)
-for a block of vectors V. It is intentionally naive (nested loops) and
-serves as a contrast to the tiled two-kernel approach in `gemm_kernels.py`.
+Two variants are exposed:
+- `power_iter_step_tiled(A, V)`: production path that computes Z = Aᵀ (A V)
+  via two tiled GEMMs (A@V, then Aᵀ@B) using the kernels in
+  `mlx_fast_kernels.gemm_kernels`. This avoids runtime divides/mods in hot
+  loops, reuses data via threadgroup tiles, and honors MLX dispatch semantics.
+- `power_iter_step(A, V)`: alias to the tiled path for clarity.
 
 Notes
-- The baseline uses a 1D launch over `n*k` and maps indices via `/` and `%` by
-  a runtime `k`. This is pedagogical; the optimized path avoids such divides by
-  using a 2D grid and shared-memory tiles.
-- For real workloads, prefer the tiled approach (A@V then Aᵀ@B) exposed in
-  `mlx_fast_kernels/gemm_kernels.py`.
+- A naive 1D kernel (Z = Aᵀ (A V)) is preserved in `research_archive` for
+  teaching and reference; it uses nested loops and `/`/`%` to derive indices.
+  The tiled path here should be used for real workloads.
 """
 
 from __future__ import annotations

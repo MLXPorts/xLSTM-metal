@@ -334,6 +334,8 @@ class xLSTM(nn.Module):
                 self.blocks.append(sLSTMBlock(inp_dim, head_dim, head_num, s_factor, ker_size))
         
         self.head = nn.Linear(inp_dim, vocab_size)
+        # Fast head toggle (runtime-configurable)
+        self.use_fast_head = True
     
     def init_hidden(self, batch_size):
         """Initialize hidden states for all blocks"""
@@ -376,7 +378,17 @@ class xLSTM(nn.Module):
         # Stack outputs and compute logits
         output = mx.stack(outputs, axis=1)
         # Compute logits; optional fast head matmul using MLX Metal kernels
-        use_fast_head = os.environ.get("XLSTM_MLX_FAST_HEAD", "0") == "1"
+        # Order of precedence: self.use_fast_head (if explicitly set) > runtime config > env fallback
+        use_fast_head = None
+        try:
+            from tools.mlx_runtime import get_runtime_config as _get_runtime_config  # type: ignore
+            rc = _get_runtime_config()
+            if rc.get("fast_head") is not None:
+                use_fast_head = bool(rc.get("fast_head"))
+        except Exception:
+            pass
+        if use_fast_head is None:
+            use_fast_head = self.use_fast_head if self.use_fast_head is not None else (os.environ.get("XLSTM_MLX_FAST_HEAD", "1") == "1")
         if use_fast_head:
             try:
                 from mlx_fast_kernels.gemm_kernels import gemm_av
@@ -394,6 +406,14 @@ class xLSTM(nn.Module):
                 logits = self.head(output)
         else:
             logits = self.head(output)
+
+    def set_fast_head(self, enabled: bool) -> None:
+        """Enable/disable fast head projection (tiled GEMM) for inference.
+
+        This does not change weights; it only switches the final projection
+        implementation. For training with autograd, prefer `enabled=False`.
+        """
+        self.use_fast_head = bool(enabled)
         
         if return_hidden:
             return logits, hidden_states

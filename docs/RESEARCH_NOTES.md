@@ -8,7 +8,7 @@ Purpose
 
 Scope (what this file covers)
 - Canon semantics vs. implementation details (fusion, tiling, safety guards).
-- Metal/Swift experiments we’re borrowing patterns from.
+- External Metal experiments we’re borrowing patterns from.
 - Two new research directions we prototyped (documented, quarantined): CfC‑style head and Dendritic Comb Codec (DCC).
 - ANE deployment notes and export path.
 
@@ -23,7 +23,7 @@ What we validated (evidence)
 - Ray hygiene: lingering daemons can pin UMA; auto‑shutdown in the driver + `ray stop --force` restores memory when needed; dashboard is opt‑in and safe (actors terminated before keep‑alive head).
 - Telemetry ring (device→host): cheap to add in compiled step at tile boundaries; gives counters (e.g., NaN/clamps) without round‑trips. This mirrors a Metal log buffer pattern.
 
-Metal/Swift inspirations (what we borrow, not literal code)
+External Metal inspirations (what we borrow, not literal code)
 - MetalCoroutinesTest/NeuromorphicKernel.metal shows:
   - Tiled recurrent multiply (threadgroup buffers) → we let Inductor do this when it can.
   - Exponential gates with a running normalizer n (subtract‑n variant); candidate sigmoid; CfC hidden update: `h_new = (h + Δt·(o·sigmoid(c_new)))/(1 + Δt·λ)`.
@@ -78,4 +78,3 @@ Appendix: status tags (for readers)
 - Core: compiled MPS step+sequence; chunkwise schedulers; watchdog; Ray auto‑shutdown; xltop.
 - Edge: inner tiling (doc’d); device telemetry ring (doc’d); sanitizer (planned flag); compile‑probe (planned).
 - Experimental: CfC head; DCC tensorized; ANE export path; limb‑precision state.
-

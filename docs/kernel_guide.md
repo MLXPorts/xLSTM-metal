@@ -55,8 +55,8 @@ soft_cap_kernel = mx.fast.metal_kernel(
 - Uses `.mm` (Objective-C++) files, NOT `.metal` files
 - Metal shader code is embedded as string literals
 
-### Key Differences from Swift/iOS:
-| Aspect | Swift/iOS Projects | PyTorch MPS |
+### Key Differences vs iOS app projects:
+| Aspect | iOS app projects | PyTorch MPS |
 |--------|-------------------|-------------|
 | File Extension | `.metal` | `.mm` (Objective-C++) |
 | Shader Code | Separate files | String literals in C++ |
