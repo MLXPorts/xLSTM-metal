@@ -21,14 +21,13 @@ Commit digest
 - 03290e1 Merge pull request #12 (feature/cfc‑hybrid)
 - 6c7b6d0 Journal: add guide, index, first entries; journal helpers (render_summary)
 - 63d2d4e Packaging: add pyproject.toml; make tools.{telem,harvest} importable; expose console scripts
-- ff18c40 Checkpoint: docs + telemetry + HRM updates (casual)
-- 48aecad HRM+/docs: add research journal, provenance; probes + tests; MPS smoke
+- ff18c40 Checkpoint: docs + telemetry updates (casual)
+- 48aecad Docs: add research journal, provenance; probes + tests
 - 4106858 Telemetry: add trace_hash + TelemetryLogger; integrate into trainer/demo
-- fea7887 Tighten bolts: shape/assert guards; GPU‑aware tests; HRMXLSTM flags
+- fea7887 Tighten bolts: shape/assert guards; GPU‑aware tests
 - 48daaa1 Phase‑key fusion for MemoryCube keys; ponder trainer; wire times
 - 918ed98 Docs: add CONTEXT_SEED and CHANGELOG; link from overview
-- 509c6b1 HRM+: align with xLSTM; wrapper adding boundary‑commit cube gating + ACT telemetry; demo
-- f729fff HRM+: add Z5 boundary‑commit scheduler; ACT halting telemetry; energy/carry audits; integrate with TransformerLNN; docs
+  (former HRM-related notes removed)
 - 57bb3b9 feature(cfc‑hybrid): CfC‑hybrid override in chunkwise drivers (queued/ray)
 - ac200c7 feature(cfc‑hybrid): top‑k sparse bias option in CfC calibrator; CLI `--cfc-topk`
 - 247969c feature(cfc‑hybrid): add CfC logit calibrator (experimental) and CLI flags

@@ -47,8 +47,8 @@ New experiments (quarantined; not in default path)
   - Tiny vector [0.0, 0.05, 0.21, −0.35, 0.65] encoded into clear residue+excess; decode matched inputs within fp32.
 - Status: documented in docs/EXPERIMENT_DCC_BIO.md; a weight‑slice probe and boundary probe are ready to add next.
 
-UKM notes (rhythms and packets)
-- ukm_non_commutative: 40‑periodic closure (LCM(5,8)); suggests rhythm‑aware inspection windows (e.g., checkpoint every 40 steps) without affecting fused math.
+Notes (rhythms and packets)
+- non_commutative observation: 40‑periodic closure (LCM(5,8)); suggests rhythm‑aware inspection windows (e.g., checkpoint every 40 steps) without affecting fused math.
 - core.py: normalization → encode carries → perfect reconstruction → de‑normalize; optional 40‑bit packet to tag events.
 
 ANE deployment (deployment track, not dev loop)

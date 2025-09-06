@@ -5,12 +5,12 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "xlstm-metal"
 version = "0.2.0"
-description = "xLSTM + HRM layer (MPS-first), probes, telemetry, and docs"
+description = "xLSTM on Apple (MPS/MLX), probes, telemetry, and docs"
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [{ name = "SolaceHarmony" }]
 license = { text = "Proprietary" }
-keywords = ["xLSTM", "HRM", "liquid neural networks", "MPS", "Apple", "telemetry"]
+keywords = ["xLSTM", "MPS", "MLX", "Apple", "telemetry"]
 classifiers = [
   "Programming Language :: Python :: 3",
   "License :: Other/Proprietary License",
@@ -33,8 +33,8 @@ telemetry = [
 ]
 
 [project.scripts]
-hrm-telem-aggregate = "tools.telem.aggregate:main"
-hrm-harvest-mdgrep = "tools.harvest.md_grep:main"
+telem-aggregate = "tools.telem.aggregate:main"
+harvest-mdgrep = "tools.harvest.md_grep:main"
 
 [tool.setuptools]
 include-package-data = true
@@ -44,6 +44,5 @@ where = [".", "src"]
 include = [
   "xlstm_official_full*",
   "xlstm_impl*",
-  "lnn_hrm*",
   "tools*",
 ]

@@ -8,7 +8,7 @@ Reads CSV logs (glob) and emits:
 - report.md: markdown summary embedding images
 
 Usage:
-  python -m tools.telem.aggregate --glob 'runs/*/*.csv' --out docs/lnn_hrm_hybrid/_telem \
+  python -m tools.telem.aggregate --glob 'runs/*/*.csv' --out docs/_telem \
       --metrics alpha_mean,conf_mean,act_prob_mean,act_open_rate,energy_pre_gate,energy_post_gate,loss,ce,ponder
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ from typing import Dict, List, Tuple
 def parse_args() -> argparse.Namespace:
     ap = argparse.ArgumentParser(description="Aggregate telemetry CSV logs and emit summary + sparkline SVGs")
     ap.add_argument("--glob", default="runs/*/*.csv", help="Glob of CSV files")
-    ap.add_argument("--out", default="docs/lnn_hrm_hybrid/_telem", help="Output directory")
+    ap.add_argument("--out", default="docs/_telem", help="Output directory")
     ap.add_argument("--metrics", default="", help="Comma-separated metrics to include; default: auto-detect numeric fields")
     ap.add_argument("--ewma", type=float, default=0.2, help="EWMA alpha for smoothing (0..1)")
     ap.add_argument("--limit", type=int, default=400, help="Limit to last N points per metric (0 = all)")
@@ -157,4 +157,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
