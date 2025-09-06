@@ -69,6 +69,38 @@ conda run -n base python scripts/run_local_xlstm_mps.py \
 
 Tuning knobs (MPS): `chunk_size`, `heads_per_band`, `workers`, optional `streams`. See `docs/TUNING_GUIDE.md`.
 
+## MLX (No Ray) — Experimental
+
+Run a pure‑MLX xLSTM without Ray using Apple GPU. This path uses our MLX implementation and vendored tiled Metal GEMM kernels for the final projection (enable via `XLSTM_MLX_FAST_HEAD=1`).
+
+Example (byte‑level tokenizer, small model):
+```bash
+PYTHONPATH=. conda run -n base python scripts/run_local_xlstm_mlx.py \
+  --prompt "The capital of France is" \
+  --max_new_tokens 32 \
+  --layers 6 --model-dim 512 --head-dim 64 --heads 8 --vocab-size 256
+```
+
+Optional (Hugging Face tokenizer):
+```bash
+PYTHONPATH=. conda run -n base python scripts/run_local_xlstm_mlx.py \
+  --prompt "Hello" --hf-tokenizer gpt2 --vocab-size 50257 --max_new_tokens 16
+```
+
+Notes
+- File: `implementations/mlx/xlstm_mlx.py` (model) and `mlx_fast_kernels/gemm_kernels.py` (tiled GEMM via `mx.fast.metal_kernel`).
+- Env: `XLSTM_MLX_FAST_HEAD=1` uses the tiled kernel for the final head matmul.
+- This path is independent of PyTorch/Ray backends; no dashboard or Ray lifecycle applies.
+
+Further MLX docs
+- `docs/MLX_IMPLEMENTATION_GUIDE.md` — overview, streams, kernels, comparison with Ray
+- `docs/MLX_INFERENCE_ARCHITECTURE.md` — MLX execution diagrams and flow
+- `docs/MLX_TUNING_GUIDE.md` — tiles, streams, sampling tips
+- `docs/MLX_VS_RAY.md` — side-by-side contrast and usage guidance
+- `docs/MLX_API_REFERENCE.md` — public MLX APIs in this repo
+- `docs/MLX_METAL_SHADER_INTEGRATION.md` — using/porting .metal shaders with MLX
+- `docs/mlx_reference/` — ported MLX/Metal how-tos (Streams, Kernel Guide, etc.)
+
 ## Optimization Harness
 
 Automated parameter search lives in `scripts/optimize_mps.py`.

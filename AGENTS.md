@@ -35,6 +35,8 @@ This document is for human operators and automation agents working on this repo.
   - NDJSON stream: `conda run -n base python scripts/xltop.py --json-stream --poll 0.7 --count 10`
   - Stdin control (for agents): `--stdin-commands` then send lines: `kill <pid>`, `ray stop`, `empty_cache`, `interval <sec>`, `quit`
 - Ray CLI (installed in `base`): `ray status`, `ray list actors`, `ray memory`, `ray stop --force`
+ - MLX (no Ray): `scripts/run_local_xlstm_mlx.py` — pure MLX path using GPU
+   - Enable tiled Metal GEMM for final head: `XLSTM_MLX_FAST_HEAD=1`
 
 ## Memory Watchdog & Telemetry
 - Module: `mlstm_kernels/torch/monitoring/memory.py`

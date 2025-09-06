@@ -1,9 +1,19 @@
 #!/usr/bin/env python
 """
-xLSTM implementation for MLX (Apple Silicon GPU acceleration)
-Based on Beck et al. (2024) - "xLSTM: Extended Long Short-Term Memory"
+xLSTM implementation for MLX (Apple Silicon GPU)
+
+Overview
+- Single-process, GPU-accelerated xLSTM using MLX arrays and ops.
+- Optional tiled Metal GEMM for the final projection head (enable via
+  `XLSTM_MLX_FAST_HEAD=1`) from `mlx_fast_kernels.gemm_kernels`.
+- Designed to run prefill and decode on a dedicated MLX GPU stream.
+
+References
+- Beck et al. (2024): xLSTM: Extended Long Short-Term Memory.
+- MLX Streams: see `tools/mlx_streams.py` and `docs/MLX_IMPLEMENTATION_GUIDE.md`.
 """
 
+import os
 import mlx.core as mx
 import mlx.nn as nn
 from typing import Tuple, Optional, List
@@ -11,7 +21,12 @@ import numpy as np
 
 
 class CausalConv1d(nn.Module):
-    """Causal 1D convolution layer for MLX"""
+    """Causal 1D convolution layer for MLX.
+
+    - Input shape: (B, L, C) or (B, C)
+    - Preserves causality by trimming the padded future region.
+    - Use small kernels (e.g., 3–5) for local context mixing.
+    """
     def __init__(self, in_channels, out_channels, kernel_size, dilation=1):
         super().__init__()
         self.kernel_size = kernel_size
@@ -52,7 +67,11 @@ def block_diag(*matrices):
 
 
 class BlockLinear(nn.Module):
-    """Block diagonal linear layer for MLX"""
+    """Block diagonal linear layer for MLX.
+
+    Useful for per-head projections with shared code paths. Internally constructs
+    a block-diagonal weight matrix from small per-head blocks.
+    """
     def __init__(self, block_specs, bias=False):
         super().__init__()
         self.block_specs = block_specs
@@ -101,7 +120,12 @@ def enlarge_as(x, target):
 
 
 class sLSTMBlock(nn.Module):
-    """Scalar LSTM block with exponential gating and state normalization"""
+    """Scalar LSTM block with exponential gating and state normalization.
+
+    Implements the sLSTM variant from xLSTM with grouped normalization and an
+    optional causal conv pre-activation path. Hidden state layout matches
+    (num_heads * head_dim).
+    """
     def __init__(self, inp_dim, head_dim, head_num, p_factor=4/3, ker_size=4):
         super().__init__()
         self.inp_dim = inp_dim
@@ -174,7 +198,12 @@ class sLSTMBlock(nn.Module):
 
 
 class mLSTMBlock(nn.Module):
-    """Matrix LSTM block with covariance update rule"""
+    """Matrix LSTM block with covariance update rule.
+
+    Maintains a per-head covariance-like state updated with exponential gates.
+    Projects inputs via left/right paths and mixes with a causal conv for local
+    smoothing before computing q/k/v and gating.
+    """
     def __init__(self, inp_dim, head_dim, head_num, p_factor=2, ker_size=4):
         super().__init__()
         self.inp_dim = inp_dim
@@ -263,7 +292,13 @@ class mLSTMBlock(nn.Module):
 
 
 class xLSTM(nn.Module):
-    """xLSTM model combining sLSTM and mLSTM blocks"""
+    """xLSTM model combining sLSTM and mLSTM blocks.
+
+    - Embedding → alternating mLSTM/sLSTM blocks → output projection.
+    - `signature=(m,s)` cycles block types across `num_layers`.
+    - Call with `return_hidden=True` to obtain final per-block states for
+      streaming decode.
+    """
     def __init__(
         self,
         vocab_size: int,
@@ -340,7 +375,25 @@ class xLSTM(nn.Module):
         
         # Stack outputs and compute logits
         output = mx.stack(outputs, axis=1)
-        logits = self.head(output)
+        # Compute logits; optional fast head matmul using MLX Metal kernels
+        use_fast_head = os.environ.get("XLSTM_MLX_FAST_HEAD", "0") == "1"
+        if use_fast_head:
+            try:
+                from mlx_fast_kernels.gemm_kernels import gemm_av
+                # Flatten (B, T, D) -> (B*T, D) and use W^T for (D, V)
+                bt, d = int(output.shape[0] * output.shape[1]), int(output.shape[2])
+                v = int(self.vocab_size)
+                A = output.reshape(bt, d).astype(mx.float32)
+                Wt = mx.transpose(self.head.weight.astype(mx.float32))  # (D, V)
+                logits2d = gemm_av(A, Wt)  # (B*T, V)
+                if getattr(self.head, "bias", None) is not None:
+                    logits2d = logits2d + self.head.bias.astype(logits2d.dtype)
+                logits = logits2d.reshape(output.shape[0], output.shape[1], v)
+            except Exception:
+                # Fallback to standard linear on any error
+                logits = self.head(output)
+        else:
+            logits = self.head(output)
         
         if return_hidden:
             return logits, hidden_states
