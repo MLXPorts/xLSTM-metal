@@ -89,62 +89,51 @@ def _select_tile_atb() -> Tuple[int, int, int]:
     return 16, 16, 16
 
 
-def _format_av_source(TM: int, T: int) -> str:
+def _format_av_source_square(T: int) -> str:
     from string import Template
     tpl = Template(r"""
-    // Threadgroup-tiled GEMM: C = A * B, here C=B, A=A, B=V
+    // Square thread-tiled GEMM: C = A * V
     // Shapes via shape buffer: [m, n, k]
-    const uint TM = $TM; // tile size along m (rows of A / rows of C)
-    const uint TN = $T;  // tile size along n (shared dimension)
-    const uint TK = $T;  // tile size along k (cols of V / cols of C)
+    const uint T = $T;  // tile size along m, n, k
 
-    threadgroup float Asub[TM][TN];
-    threadgroup float Vsub[TN][TK];
+    threadgroup float Asub[T][T];
+    threadgroup float Vsub[T][T];
 
     int m = int(shape[0]);
     int n = int(shape[1]);
     int k = int(shape[2]);
 
-    uint local_x = thread_position_in_threadgroup.x; // 0..TK-1 -> col in tile
-    uint local_y = thread_position_in_threadgroup.y; // 0..TM-1 -> row in tile
+    uint tx = thread_position_in_threadgroup.x; // 0..T-1 (local col)
+    uint ty = thread_position_in_threadgroup.y; // 0..T-1 (local row)
 
-    int block_x = int(threadgroup_position_in_grid.x); // tile col index
-    int block_y = int(threadgroup_position_in_grid.y); // tile row index
-
-    int row = block_y * int(TM) + int(local_y); // output row in [0,m)
-    int col = block_x * int(TK) + int(local_x); // output col in [0,k)
+    // Global output coordinates
+    int col = int(thread_position_in_grid.x);
+    int row = int(thread_position_in_grid.y);
 
     float acc = 0.0f;
 
-    // Iterate over tiles of the shared dimension n
-    int ntiles = (n + int(TN) - 1) / int(TN);
+    int ntiles = (n + int(T) - 1) / int(T);
     for (int t = 0; t < ntiles; ++t) {
-        // Global col in A / row in V tile
-        int a_col = t * int(TN) + int(local_x); // reuse local_x for Asub column load
-        int v_row = t * int(TN) + int(local_y); // reuse local_y for Vsub row load
-
-        // Load Asub[rowTile, p] and Vsub[p, colTile]
+        int a_col = t * int(T) + int(tx);
         float a_val = 0.0f;
         if (row < m && a_col < n) {
-            a_val = A[row * n + a_col];
+            a_val = A[row * n + a_col]; // A[row, a_col]
         }
-        Asub[local_y][local_x] = a_val;
+        Asub[ty][tx] = a_val;
 
+        int v_row = t * int(T) + int(ty);
         float v_val = 0.0f;
         if (v_row < n && col < k) {
-            v_val = V[v_row * k + col];
+            v_val = V[v_row * k + col]; // V[v_row, col]
         }
-        Vsub[local_y][local_x] = v_val;
+        Vsub[ty][tx] = v_val;
 
-        // Barrier required: tile data is shared across multiple SIMD groups
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        // Accumulate over TN
-        for (uint p = 0; p < TN; ++p) {
-            acc = fma(Asub[local_y][p], Vsub[p][local_x], acc);
+        for (uint p = 0; p < T; ++p) {
+            acc = fma(Asub[ty][p], Vsub[p][tx], acc);
         }
 
-        // Barrier required before loading the next tile iteration
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 
@@ -152,61 +141,57 @@ def _format_av_source(TM: int, T: int) -> str:
         C[row * k + col] = acc;
     }
 """)
-    return tpl.substitute(TM=TM, T=T)
+    return tpl.substitute(T=T)
 
 
-def _format_at_b_source(TN: int, TI: int, TK: int) -> str:
+def _format_at_b_source_square(T: int) -> str:
     from string import Template
     tpl = Template(r"""
     // Threadgroup-tiled GEMM for Z = A^T * B
     // Shapes: A (m,n), B (m,k), Z (n,k), shape=[m,n,k]
-    const uint TN = $TN; // tile size along n (rows of Z)
-    const uint TI = $TI; // tile size along m (shared dimension)
-    const uint TK = $TK; // tile size along k (cols of Z)
+    const uint T = $T; // square tile size
 
-    threadgroup float Atile[TI][TN]; // A^T tile: [i in m][n in n]
-    threadgroup float Btile[TI][TK];
+    threadgroup float Atile[T][T]; // tile of A over (i, n)
+    threadgroup float Btile[T][T]; // tile of B over (i, k)
 
     int m = int(shape[0]);
     int n = int(shape[1]);
     int k = int(shape[2]);
 
-    uint local_x = thread_position_in_threadgroup.x; // 0..TK-1 -> col in tile
-    uint local_y = thread_position_in_threadgroup.y; // 0..TN-1 -> row in tile
+    uint tx = thread_position_in_threadgroup.x; // 0..T-1 local col
+    uint ty = thread_position_in_threadgroup.y; // 0..T-1 local row
 
-    int block_x = int(threadgroup_position_in_grid.x); // tile col index in k
-    int block_y = int(threadgroup_position_in_grid.y); // tile row index in n
-
-    int rowN = block_y * int(TN) + int(local_y); // output row in n
-    int colK = block_x * int(TK) + int(local_x); // output col in k
+    // Global output coordinates (n, k)
+    int colK = int(thread_position_in_grid.x);
+    int rowN = int(thread_position_in_grid.y);
 
     float acc = 0.0f;
 
-    int itiles = (m + int(TI) - 1) / int(TI); // walk shared dimension m
+    int itiles = (m + int(T) - 1) / int(T); // walk shared dimension m
     for (int t = 0; t < itiles; ++t) {
-        int i = t * int(TI) + int(local_y); // row in m for loads
-
-        // Load tiles
+        int i0 = t * int(T);
+        // Load a tile from A along i (columns of A) and rowN (rows of A^T)
+        int ai = i0 + int(tx);
         float a_val = 0.0f;
-        if (i < m && rowN < n) {
-            // A^T[rowN, i] = A[i, rowN]
-            a_val = A[i * n + rowN];
+        if (ai < m && rowN < n) {
+            a_val = A[ai * n + rowN]; // A[i, rowN]
         }
-        Atile[local_y][local_x] = a_val; // reuse local_x as n-index within tile
+        Atile[ty][tx] = a_val;
 
+        // Load a tile from B along i (rows) and colK (cols)
+        int bi = i0 + int(ty);
         float b_val = 0.0f;
-        int i2 = t * int(TI) + int(local_y); // same i for B load
-        if (i2 < m && colK < k) {
-            b_val = B[i2 * k + colK];
+        if (bi < m && colK < k) {
+            b_val = B[bi * k + colK]; // B[i, colK]
         }
-        Btile[local_y][local_x] = b_val;
+        Btile[ty][tx] = b_val;
 
         // Barrier required: tiles are consumed by multiple SIMD groups
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        // Accumulate over TI
-        for (uint p = 0; p < TI; ++p) {
-            acc = fma(Atile[p][local_y], Btile[p][local_x], acc);
+        // Accumulate over T (shared dimension)
+        for (uint p = 0; p < T; ++p) {
+            acc = fma(Atile[ty][p], Btile[p][tx], acc);
         }
 
         // Barrier before next iteration's loads
@@ -217,7 +202,7 @@ def _format_at_b_source(TN: int, TI: int, TK: int) -> str:
         Z[rowN * k + colK] = acc;
     }
 """)
-    return tpl.substitute(TN=TN, TI=TI, TK=TK)
+    return tpl.substitute(T=T)
 
 
 _KERNEL_AV = None
@@ -231,13 +216,14 @@ def _build_av_kernel():
     global _TILES_AV
     if _TILES_AV is None:
         _TILES_AV = _select_tile_av()
-    TM, T = _TILES_AV
+    TM, Tsel = _TILES_AV
+    T = int(min(TM, Tsel))
     return mx.fast.metal_kernel(
         name="gemm_av_tiled",
         input_names=["A", "V", "shape"],
         output_names=["C"],
         header=_HEADER,
-        source=_format_av_source(TM, T),
+        source=_format_av_source_square(T),
         ensure_row_contiguous=True,
     )
 
@@ -248,14 +234,16 @@ def _build_at_b_kernel():
     if _TILES_ATB is None:
         _TILES_ATB = _select_tile_atb()
     TN, TI, TK = _TILES_ATB
+    T = int(min(TN, TI, TK))
     return mx.fast.metal_kernel(
         name="gemm_at_b_tiled",
         input_names=["A", "B", "shape"],
         output_names=["Z"],
         header=_HEADER,
-        source=_format_at_b_source(TN, TI, TK),
+        source=_format_at_b_source_square(T),
         ensure_row_contiguous=True,
     )
+
 
 
 def set_gemm_tiles(av: str | Tuple[int, int] | None = None,
@@ -298,13 +286,18 @@ def gemm_av(A: mx.array, V: mx.array) -> mx.array:
 
     m, n = int(A.shape[0]), int(A.shape[1])
     k = int(V.shape[1])
+    # Shape check: A (m,n) @ V (n,k)
+    if int(V.shape[0]) != n:
+        raise ValueError(f"gemm_av: incompatible shapes A{tuple(A.shape)} and V{tuple(V.shape)}")
     shape = mx.array([m, n, k], dtype=mx.uint32)
 
-    TM, T = _TILES_AV or _select_tile_av()
-    grid_x = (k + T - 1) // T
-    grid_y = (m + TM - 1) // TM
-    grid = (grid_x, grid_y, 1)
-    threadgroup = (T, TM, 1)
+    TM, Tsel = _TILES_AV or _select_tile_av()
+    T = int(min(TM, Tsel))
+    # MLX `grid` is threads, not threadgroups. Launch one thread per output element.
+    gx = ((k + T - 1) // T) * T
+    gy = ((m + T - 1) // T) * T
+    grid = (gx, gy, 1)
+    threadgroup = (T, T, 1)
 
     (B,) = _KERNEL_AV(
         inputs=[A, V, shape],
@@ -324,13 +317,17 @@ def gemm_at_b(A: mx.array, B: mx.array) -> mx.array:
 
     m, n = int(A.shape[0]), int(A.shape[1])
     k = int(B.shape[1])
+    # Shape check: (A.T) (n,m) @ B (m,k)
+    if int(B.shape[0]) != m:
+        raise ValueError(f"gemm_at_b: incompatible shapes A{tuple(A.shape)} and B{tuple(B.shape)}")
     shape = mx.array([m, n, k], dtype=mx.uint32)
 
     TN, TI, TK = _TILES_ATB or _select_tile_atb()
-    grid_x = (k + TK - 1) // TK
-    grid_y = (n + TN - 1) // TN
-    grid = (grid_x, grid_y, 1)
-    threadgroup = (TK, TN, 1)
+    T = int(min(TN, TI, TK))
+    gx = ((k + T - 1) // T) * T
+    gy = ((n + T - 1) // T) * T
+    grid = (gx, gy, 1)
+    threadgroup = (T, T, 1)
 
     (Z,) = _KERNEL_AT_B(
         inputs=[A, B, shape],
@@ -340,4 +337,3 @@ def gemm_at_b(A: mx.array, B: mx.array) -> mx.array:
         threadgroup=threadgroup,
     )
     return Z
-

@@ -180,6 +180,6 @@ def main():
 
 
 if __name__ == "__main__":
-    # Encourage MLX GPU and fast head path, but do not force
+    # Enable fast tiled GEMM head by default (validated)
     os.environ.setdefault("XLSTM_MLX_FAST_HEAD", "1")
     main()
