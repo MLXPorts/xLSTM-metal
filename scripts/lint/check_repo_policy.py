@@ -14,6 +14,8 @@ ALLOW_LARGE = os.environ.get("XLSTM_POLICY_ALLOW_LARGE_FILES", "0") == "1"
 OVERRIDE = os.environ.get("XLSTM_POLICY_OVERRIDE", "0") == "1"
 
 SKIP_DIRS = {".git", ".venv", "venv", "__pycache__", "build", "dist", ".mypy_cache", ".pytest_cache"}
+# Directories where large binary artifacts may live; we do not enforce hardlink policy here
+ALLOW_LINK_DIRS = {"model_cache", "runs", "outputs", "quarantine", "xlstm_7b_model"}
 TEST_DIR_HINTS = {"tests", "test", "examples", "example", "demos", "demo"}
 
 RE_MOCK_IMPORT = re.compile(r"\b(unittest\.mock|from\s+unittest\s+import\s+mock|import\s+mock)\b")
@@ -81,6 +83,13 @@ def policy_check(paths: list[Path], soft_enforce: bool) -> int:
 
     for p in paths:
         rel = p.relative_to(ROOT).as_posix()
+        # Disallow symlinks anywhere in the repo (except under ALLOW_LINK_DIRS)
+        # Note: all_repo_files includes both files and dirs; symlinks can be either
+        if p.is_symlink():
+            # Exempt allowed link dirs
+            top = rel.split("/", 1)[0]
+            if top not in ALLOW_LINK_DIRS:
+                errors.append(f"SYMLINK: {rel} is a symbolic link; commit regular files only")
         # hard disallow: Swift / Xcode artifacts
         if p.suffix == SWIFT_BAD_EXT:
             errors.append(f"SWIFT_FILE: {rel} should not be present in this repo")
@@ -101,6 +110,16 @@ def policy_check(paths: list[Path], soft_enforce: bool) -> int:
         # name anti-patterns
         if RE_NEAR_COPY_NAME.search(p.name):
             errors.append(f"NEAR_COPY_NAME: suspicious filename '{rel}' (avoid *_copy/_new/_alt)")
+
+        # Hardlink check for regular files
+        try:
+            st = p.lstat()
+            if st.st_nlink > 1 and p.is_file():
+                top = rel.split("/", 1)[0]
+                if top not in ALLOW_LINK_DIRS:
+                    errors.append(f"HARDLINK: {rel} has link count {st.st_nlink}; duplicate with a real copy")
+        except Exception:
+            pass
 
         if not should_scan_text(p):
             continue

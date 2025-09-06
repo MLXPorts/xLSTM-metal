@@ -38,3 +38,4 @@ Conventions
 - Prefer programmatic runtime config over environment variables (see `docs/MLX_RUNTIME_CONFIG.md`).
 - Keep new experiments under `lab/` or `research_archive/` with a brief README and do not wire them into production runners unless promoted.
 - No Swift port: this repository does not contain an MLX Swift implementation. Any mentions of Swift in docs are historical/contextual and have been clarified.
+- No symlinks/hardlinks: repository content must be regular files/directories. The policy check `scripts/lint/check_repo_policy.py` errors on symlinks and hardlinks (except under large artifact caches like `model_cache/`, `runs/`, `outputs/`, `quarantine/`, `xlstm_7b_model/`).
