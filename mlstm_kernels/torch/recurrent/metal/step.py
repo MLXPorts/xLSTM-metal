@@ -14,6 +14,12 @@ def _find_backend_source(max_up: int = 6) -> Path | None:
         legacy = (root / "../../../.." / "mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
         if legacy.exists():
             return legacy
+        arc = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/pytorch_ext/mlstm_metal_backend.mm").resolve()
+        if arc.exists():
+            return arc
+        arc2 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
+        if arc2.exists():
+            return arc2
         root = root.parent
     return None
 
@@ -82,6 +88,14 @@ def mlstm_recurrent_step__metal_fw(
         legacy = (root / "../../../.." / "mlstm_metal_kernels/mlstm_kernels.metal").resolve()
         if legacy.exists():
             src = legacy.read_text()
+            break
+        arc = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal").resolve()
+        if arc.exists():
+            src = arc.read_text()
+            break
+        arc2 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_kernels.metal").resolve()
+        if arc2.exists():
+            src = arc2.read_text()
             break
         root = root.parent
     if src is None:

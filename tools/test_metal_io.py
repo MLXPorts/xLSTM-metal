@@ -23,6 +23,9 @@ def read_shader() -> str:
         met = (root / "kernels/metal/shaders/mlstm_kernels.metal").resolve()
         if met.exists():
             return met.read_text()
+        arc = (root / "research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal").resolve()
+        if arc.exists():
+            return arc.read_text()
         root = root.parent
     raise FileNotFoundError("mlstm_kernels.metal not found")
 
@@ -57,4 +60,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

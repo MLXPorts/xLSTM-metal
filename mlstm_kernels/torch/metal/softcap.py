@@ -22,6 +22,13 @@ def _find_backend_source(max_up: int = 6) -> Optional[Path]:
         candidate_legacy = (root / "../../../.." / "mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
         if candidate_legacy.exists():
             return candidate_legacy
+        # Archived prototypes location
+        candidate_arc = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/pytorch_ext/mlstm_metal_backend.mm").resolve()
+        if candidate_arc.exists():
+            return candidate_arc
+        candidate_arc2 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
+        if candidate_arc2.exists():
+            return candidate_arc2
         root = root.parent
     return None
 
@@ -50,6 +57,12 @@ def _read_shader_source() -> str:
         legacy = (root / "../../../.." / "mlstm_metal_kernels/mlstm_kernels.metal").resolve()
         if legacy.exists():
             return legacy.read_text()
+        arc = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal").resolve()
+        if arc.exists():
+            return arc.read_text()
+        arc2 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_kernels.metal").resolve()
+        if arc2.exists():
+            return arc2.read_text()
         root = root.parent
     raise FileNotFoundError("mlstm_kernels.metal not found")
 

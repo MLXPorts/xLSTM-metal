@@ -93,6 +93,10 @@ def main() -> int:
         "pytorch_ext/setup.py",
     ]
     metal_present, metal_missing = check_files(metal_base, metal_expected)
+    # Fallback to archived prototypes if not present in kernels/metal
+    if metal_missing:
+        metal_base = ROOT / "research_archive/metal_prototypes/kernels_metal"
+        metal_present, metal_missing = check_files(metal_base, metal_expected)
     report.append(f"[metal-kernels] base={metal_base}")
     report.append(f"  present: {len(metal_present)}")
     if metal_missing:

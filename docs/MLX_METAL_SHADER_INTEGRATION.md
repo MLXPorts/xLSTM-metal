@@ -4,11 +4,11 @@ This note explains how to leverage existing `.metal` kernels in this repo with M
 
 ## What We Have
 
-- Native Metal shader file in this repo:
-  - `kernels/metal/shaders/mlstm_kernels.metal`
+- Native Metal shader file in this repo (archived prototype location):
+  - `research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal`
     - `soft_cap_kernel`, `memcpy_kernel`, `mlstm_step_full_kernel`
 - A PyTorch Objective‑C++ bridge that compiles and launches those shaders:
-  - `kernels/metal/pytorch_ext/mlstm_metal_backend.mm`
+  - `research_archive/metal_prototypes/kernels_metal/pytorch_ext/mlstm_metal_backend.mm`
 
 ## Two Ways to Use Metal
 
@@ -78,4 +78,3 @@ Recommendation: keep the PyTorch bridge path for this complex kernel in the PyTo
 
 - Tiled GEMM (working): `mlx_fast_kernels/gemm_kernels.py`
 - Ported MLX docs: `docs/mlx_reference/Kernel-Guide.md`, `.../Comprehensive-MLX-Metal-Guide.md`, `.../Streams-Guide.md`, and `.../Spot-Tests.md`
-
