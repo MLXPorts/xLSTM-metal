@@ -63,6 +63,9 @@ def all_repo_files() -> list[Path]:
                 continue
             if any(part in SKIP_DIRS for part in p.parts):
                 continue
+            # Flag nested git repos (no submodules allowed)
+            if p.name == ".git" and p.parent != ROOT:
+                files.append(p)
             continue
         rel = p.relative_to(ROOT)
         if rel.parts and rel.parts[0] in SKIP_DIRS:
@@ -90,6 +93,9 @@ def policy_check(paths: list[Path], soft_enforce: bool) -> int:
             top = rel.split("/", 1)[0]
             if top not in ALLOW_LINK_DIRS:
                 errors.append(f"SYMLINK: {rel} is a symbolic link; commit regular files only")
+        # Nested .git directories are not allowed (no submodules)
+        if p.name == ".git" and p.is_dir() and p.resolve() != (ROOT / ".git").resolve():
+            errors.append(f"NESTED_GIT: {rel} nested .git directory detected; submodules are not allowed")
         # hard disallow: Swift / Xcode artifacts
         if p.suffix == SWIFT_BAD_EXT:
             errors.append(f"SWIFT_FILE: {rel} should not be present in this repo")

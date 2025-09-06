@@ -39,3 +39,4 @@ Conventions
 - Keep new experiments under `lab/` or `research_archive/` with a brief README and do not wire them into production runners unless promoted.
 - No Swift port: this repository does not contain an MLX Swift implementation. Any mentions of Swift in docs are historical/contextual and have been clarified.
 - No symlinks/hardlinks: repository content must be regular files/directories. The policy check `scripts/lint/check_repo_policy.py` errors on symlinks and hardlinks (except under large artifact caches like `model_cache/`, `runs/`, `outputs/`, `quarantine/`, `xlstm_7b_model/`).
+- No submodules: nested Git repositories are not allowed. If you need to vendor code, include it as regular files (no nested `.git`). The policy check flags nested `.git` directories.
