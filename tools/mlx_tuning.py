@@ -74,6 +74,14 @@ def tiles_for_gemm() -> Tuple[Optional[str], Optional[str]]:
 
 
 def qr_dot_mode_default() -> str:
+    """Returns the default QR dot mode for the current device.
+
+    This function returns the default QR dot mode for the current device, which is
+    used to optimize the performance of the QR kernels.
+
+    Returns:
+        The default QR dot mode for the current device.
+    """
     params = _load_params()
     backend, name = device_key()
     devs = params.get(backend, {})

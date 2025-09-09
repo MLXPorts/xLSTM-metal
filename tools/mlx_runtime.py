@@ -62,6 +62,7 @@ def configure_model(*, fast_head: Optional[bool] = None) -> None:
 
 
 def reset_runtime_config() -> None:
+    """Resets the runtime configuration to its default values."""
     for k in list(_CONFIG.keys()):
         _CONFIG[k] = None
 

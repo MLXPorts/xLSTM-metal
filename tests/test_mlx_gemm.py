@@ -16,6 +16,7 @@ def _check_once(m, n, k, tm, t):
 
 
 def test_gemm_parity_multi():
+    """Tests the GEMM kernels with multiple configurations."""
     shapes = [(64,128,32), (33,29,31), (128,96,80)]
     tiles = [(16,16), (32,8), (8,32)]
     for m,n,k in shapes:

@@ -20,7 +20,17 @@ import math
 
 @dataclass(frozen=True)
 class TuringConfig:
-    """Configuration for computation cascade system"""
+    """Configuration for the Turing cascade system.
+
+    Attributes:
+        depth (int): The maximum recursion depth.
+        max_steps (int): The maximum number of computation steps.
+        eps_numer (int): The numerator of the halt threshold.
+        eps_denom (int): The denominator of the halt threshold.
+        scale_factors (Tuple[Fraction, ...]): The scale factors for the diffusion.
+        pi_numer (int): The numerator of the pi approximation.
+        pi_denom (int): The denominator of the pi approximation.
+    """
     depth: int = 4                    # Maximum recursion depth
     max_steps: int = 100              # Maximum computation steps
     eps_numer: int = 1                # Halt threshold numerator
@@ -58,9 +68,14 @@ class TuringConfig:
 
 @dataclass(frozen=True)
 class TapeSymbol:
-    """
-    Enhanced finite tape symbol with complete reversibility information.
-    Represents one cell on the Turing machine tape with full reconstruction data.
+    """A symbol on the Turing machine tape.
+
+    Attributes:
+        value (Fraction): The value of the symbol.
+        quotient (int): The quotient from the previous division.
+        divisor (Fraction): The divisor used to generate this symbol.
+        active (bool): Whether the symbol is active.
+        step (int): The computation step at which this symbol was created.
     """
     value: Fraction       # Current value (remainder)
     quotient: int         # Exact quotient for perfect reversibility
@@ -82,7 +97,14 @@ class TapeSymbol:
 
 @dataclass(frozen=True) 
 class TapeState:
-    """Complete state of the Turing machine tape with energy ledger"""
+    """The state of the Turing machine tape.
+
+    Attributes:
+        symbols (Tuple[TapeSymbol, ...]): The symbols on the tape.
+        head_position (int): The position of the tape head.
+        total_steps (int): The total number of computation steps.
+        energy_dump (Fraction): The energy lost to gating.
+    """
     symbols: Tuple[TapeSymbol, ...]
     head_position: int
     total_steps: int
@@ -99,18 +121,32 @@ class TapeState:
         return active_energy + self.energy_dump
 
 def head_marker_offset(pos: int) -> int:
-    """Calculate character offset for head position marker"""
+    """Calculates the character offset for the head position marker.
+
+    Args:
+        pos (int): The position of the tape head.
+
+    Returns:
+        The character offset for the head position marker.
+    """
     return pos * 25  # Approximate spacing for display
 
 # =================== REVERSIBLE GATE OPERATIONS ===================
 
 def reversible_heaviside_gate(symbol: TapeSymbol, threshold: Fraction, energy_dump: Fraction) -> Tuple[TapeSymbol, Fraction]:
-    """
-    Reversible Heaviside gate that tags rather than zeros.
-    Returns updated symbol and new energy dump total.
-    
-    Traditional gate: H_θ(z) = z if |z| ≥ θ else 0  (irreversible)
-    Reversible gate: H_θ(z) = (z, |z| ≥ θ)          (bijective)
+    """A reversible Heaviside gate that tags rather than zeros.
+
+    This function implements a reversible Heaviside gate that tags a symbol as
+    inactive rather than zeroing it out. This allows for perfect reversibility
+    of the computation.
+
+    Args:
+        symbol (TapeSymbol): The input symbol.
+        threshold (Fraction): The threshold for the gate.
+        energy_dump (Fraction): The current energy dump.
+
+    Returns:
+        A tuple containing the updated symbol and the new energy dump.
     """
     active = symbol.active and abs(symbol.value) >= threshold
     

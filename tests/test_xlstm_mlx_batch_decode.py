@@ -4,6 +4,7 @@ from implementations.mlx.xlstm_mlx import create_xlstm_model
 
 
 def test_batch_decode_shapes():
+    """Tests the shapes of the outputs of the batch decoding function."""
     mx.random.seed(0)
     model = create_xlstm_model(vocab_size=2048, num_layers=3, signature=(1,1), inp_dim=256, head_dim=64, head_num=4, dropout=0.0)
     B, T = 3, 50

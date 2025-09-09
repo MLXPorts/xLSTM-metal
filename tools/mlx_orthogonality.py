@@ -71,9 +71,16 @@ def orthonormal_rows(X: mx.array) -> mx.array:
 
 
 def complete_basis(Q: mx.array) -> mx.array:
-    """Complete Q (m×r, columns orthonormal) to an m×m orthonormal basis.
+    """Completes a semi-orthonormal basis to a full orthonormal basis.
 
-    Appends k = m - r new orthonormal columns using two-pass MGS projections.
+    This function takes a matrix Q with orthonormal columns and appends new
+    orthonormal columns to it to form a full orthonormal basis.
+
+    Args:
+        Q (mx.array): A matrix with orthonormal columns.
+
+    Returns:
+        A full orthonormal basis.
     """
     m, r = int(Q.shape[0]), int(Q.shape[1])
     k = m - r

@@ -5,6 +5,7 @@ from mlx_fast_kernels.qr_kernels import project_coeffs, update_vector
 
 
 def test_qr_project_and_update():
+    """Tests the QR projection and update kernels."""
     mx.random.seed(1)
     m, k = 128, 16
     Q = mx.random.normal(shape=(m, k), dtype=mx.float32)

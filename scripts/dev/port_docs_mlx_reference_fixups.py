@@ -31,6 +31,7 @@ def fix_file(p: pathlib.Path) -> None:
     p.write_text(txt, encoding="utf-8")
 
 def main() -> None:
+    """The main function of the script."""
     for p in sorted(DOCS.glob("*")):
         if not p.is_file():
             continue

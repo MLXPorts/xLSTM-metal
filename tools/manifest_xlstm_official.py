@@ -8,6 +8,18 @@ import sys
 from pathlib import Path
 
 def main(base: str = "xlstm_official") -> int:
+    """Prints a manifest of the upstream xLSTM mirror directory.
+
+    This function prints a manifest of the upstream xLSTM mirror directory to
+    stdout. The manifest is a sorted list of relative paths.
+
+    Args:
+        base (str, optional): The base directory of the xLSTM mirror. Defaults
+            to "xlstm_official".
+
+    Returns:
+        0 on success, 1 on failure.
+    """
     root = Path(base)
     if not root.exists():
         print(f"error: {root} not found", file=sys.stderr)

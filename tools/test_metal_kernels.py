@@ -13,6 +13,14 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 def main() -> int:
+    """Runs a self-test of the Metal kernels.
+
+    This function runs a self-test of the Metal kernels to validate that they
+    can be JIT-compiled and executed on the MPS backend.
+
+    Returns:
+        0 on success, 1 on failure.
+    """
     if not torch.backends.mps.is_available():
         print("MPS not available; this test requires an Apple GPU.")
         return 1

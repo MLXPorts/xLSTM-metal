@@ -18,6 +18,16 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 def check_files(base: Path, rels: list[str]) -> tuple[list[str], list[str]]:
+    """Checks for the presence of files relative to a base path.
+
+    Args:
+        base (Path): The base path to check against.
+        rels (list[str]): A list of relative paths to check.
+
+    Returns:
+        A tuple containing two lists: the first with the present files and the
+        second with the missing files.
+    """
     present, missing = [], []
     for rel in rels:
         p = base / rel
@@ -28,6 +38,16 @@ def check_files(base: Path, rels: list[str]) -> tuple[list[str], list[str]]:
     return present, missing
 
 def main() -> int:
+    """Validates the project layout and prints a report.
+
+    This function checks for the presence of critical files and directories in
+    the project, including the upstream xLSTM files, the local implementation,
+    and the Metal kernels. It prints a report to stdout and returns an exit
+    code indicating success or failure.
+
+    Returns:
+        0 if the validation is successful, 1 otherwise.
+    """
     ok = True
     report = []
 

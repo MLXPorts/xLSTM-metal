@@ -20,6 +20,7 @@ def grep_with_context(path: Path, patterns, before: int, after: int, ignore_case
 
 
 def main():
+    """The main function of the script."""
     ap = argparse.ArgumentParser(description='Markdown grep with context and line numbers')
     ap.add_argument('file', type=str)
     ap.add_argument('-e', '--expr', action='append', required=True, help='regex to search (repeatable)')

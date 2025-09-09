@@ -20,6 +20,7 @@ def _host_topk_l2(Q, X, ids, k):
 
 
 def test_ivf_topk_small():
+    """Tests the IVF top-k kernel with a small dataset."""
     mx.random.seed(3)
     m, d, k = 200, 32, 8
     Q = mx.random.normal(shape=(d,), dtype=mx.float32)

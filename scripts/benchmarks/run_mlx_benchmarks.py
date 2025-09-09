@@ -130,6 +130,7 @@ def maybe_make_charts(outdir: Path, csv_path: Path):
 
 
 def main():
+    """The main function of the script."""
     ap = argparse.ArgumentParser()
     ap.add_argument("--profiles", nargs="+", default=["medium"], help="Profiles to run (small, medium, large)")
     ap.add_argument("--seq-len", type=int, default=2048)

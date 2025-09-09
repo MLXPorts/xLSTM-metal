@@ -1,5 +1,5 @@
 
-from __future__ import annotations
+"""An experiment for exploring variable quantization with Ray."""
 
 import argparse, json, os, time
 from dataclasses import dataclass
@@ -23,6 +23,7 @@ except Exception:
 
 @dataclass
 class Config:
+    """Configuration for the variable quantization experiment."""
     size: int
     dtype: str
     num_shards: int
@@ -38,6 +39,14 @@ class Config:
 
 
 def load_config(path: str) -> Config:
+    """Loads the configuration for the variable quantization experiment from a JSON file.
+
+    Args:
+        path (str): The path to the JSON configuration file.
+
+    Returns:
+        A Config object.
+    """
     cfg = json.loads(Path(path).read_text())
     return Config(
         size=int(cfg.get("size", 11000000)),
@@ -56,6 +65,7 @@ def load_config(path: str) -> Config:
 
 
 def _make_runtime_env() -> dict:
+    """Creates a Ray runtime environment from the current environment variables."""
     env = {
         k: v
         for k, v in os.environ.items()
@@ -74,20 +84,17 @@ def _make_runtime_env() -> dict:
 
 
 class _NoopGauge:
+    """A no-op gauge for when Ray is not installed."""
     def set(self, *a, **k):
         return None
 
 
 def _make_gauges(prefix: str = "varquant"):
-    if Gauge is None:
-        return {"blocks_sec": _NoopGauge(), "rss_mb": _NoopGauge()}
-    return {
-        "blocks_sec": Gauge(f"{prefix}_blocks_sec", "Blocks per second (quantize)"),
-        "rss_mb": Gauge(f"{prefix}_rss_mb", "RSS memory in MB"),
-    }
+    """Creates a dictionary of Ray gauges for monitoring the experiment."""
 
 
 def _rss_mb() -> float:
+    """Returns the resident set size (RSS) of the current process in megabytes."""
     try:
         import psutil  # type: ignore
         return float(psutil.Process().memory_info().rss) / (1024 * 1024)
@@ -96,6 +103,17 @@ def _rss_mb() -> float:
 
 
 def _quantize_block(block: np.ndarray, bits: int, method: str) -> np.ndarray:
+    """Quantizes a block of data using the specified method.
+
+    Args:
+        block (np.ndarray): The block of data to quantize.
+        bits (int): The number of bits to quantize to.
+        method (str): The quantization method to use. Can be "quantile" or
+            "floating_point".
+
+    Returns:
+        The quantized block of data.
+    """
     if method == "quantile":
         num_levels = 2 ** bits
         sorted_data = np.sort(block)
@@ -116,6 +134,7 @@ def _quantize_block(block: np.ndarray, bits: int, method: str) -> np.ndarray:
 
 
 def _split_indices(n: int, k: int) -> List[Tuple[int, int]]:
+    """Splits a range of indices into k chunks."""
     base = n // k
     rem = n % k
     out = []

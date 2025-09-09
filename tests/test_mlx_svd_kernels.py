@@ -4,6 +4,7 @@ from mlx_fast_kernels.svd_kernels import power_iter_step_tiled
 
 
 def test_svd_zstep_tiled():
+    """Tests the tiled Z-step of the SVD power iteration."""
     mx.random.seed(2)
     m, n, k = 64, 48, 8
     A = mx.random.normal(shape=(m, n), dtype=mx.float32)
