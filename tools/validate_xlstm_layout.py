@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Validate presence and placement of upstream xLSTM files and Metal kernel scaffolding.
 

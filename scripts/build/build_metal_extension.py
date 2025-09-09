@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Build PyTorch Metal Extension - WORKING Implementation
 

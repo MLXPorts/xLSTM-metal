@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """Check the structure of the pretrained weights"""
 
 import json

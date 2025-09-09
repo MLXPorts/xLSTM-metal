@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Enhanced xLSTM implementation for PyTorch
 Based on Beck et al. (2024) - "xLSTM: Extended Long Short-Term Memory"

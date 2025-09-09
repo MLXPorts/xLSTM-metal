@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Download and use pretrained xLSTM-7B model from HuggingFace
 """

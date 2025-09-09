@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Metal-optimized xLSTM implementation combining official NX-AI xLSTM with Metal acceleration.
 

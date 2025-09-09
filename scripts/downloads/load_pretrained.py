@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Load and use the pretrained xLSTM 7B model
 """

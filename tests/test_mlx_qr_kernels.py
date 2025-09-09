@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import os
 import mlx.core as mx
 from mlx_fast_kernels.qr_kernels import project_coeffs, update_vector

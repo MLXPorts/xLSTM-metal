@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Run a local xLSTM (MLX backend) on Apple Silicon with MLX/Metal kernels.
 

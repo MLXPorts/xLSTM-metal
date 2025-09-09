@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Benchmark xLSTM on Apple MPS across chunkwise backends and tuning sweeps.
 

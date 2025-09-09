@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Performance benchmark comparing MLX and PyTorch xLSTM implementations
 """

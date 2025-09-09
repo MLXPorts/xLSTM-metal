@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Complete Metal-optimized xLSTM implementation that matches official interface.
 Uses Metal when available, otherwise falls back to CPU.

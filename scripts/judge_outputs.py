@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Judge outputs produced by the optimizer runs using the same xLSTM model as a heuristic scorer.
 

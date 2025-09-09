@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Chunked Parallel xLSTM Implementation
 Advanced parallel processing with chunk-based sequence handling

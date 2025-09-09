@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Comprehensive testing and benchmarking script for xLSTM implementations
 """

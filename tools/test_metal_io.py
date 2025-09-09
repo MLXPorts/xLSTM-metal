@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 GPU-only IO test for Metal buffer mapping:
 - Compiles the shared shader and runs memcpy_kernel to copy an MPS tensor.

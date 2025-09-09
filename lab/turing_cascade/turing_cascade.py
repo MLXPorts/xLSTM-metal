@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Finite Computation Cascade System
 A deterministic computation system using exact rational arithmetic

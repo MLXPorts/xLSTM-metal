@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Compare our in-repo "official" mirror against the installed site-packages xlstm code.
 

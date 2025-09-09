@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Plot optimization results from runs/mps_opt/<run>/summary.csv.
 Usage:

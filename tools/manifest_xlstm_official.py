@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Emit a manifest of the upstream xLSTM mirror directory.
 Writes to stdout in a simple, sorted list of relative paths.

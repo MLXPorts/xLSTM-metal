@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Unified runner for xLSTM on Apple MPS.
 

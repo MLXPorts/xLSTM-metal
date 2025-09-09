@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import mlx.core as mx
 from mlx_fast_kernels.svd_kernels import power_iter_step_tiled
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Unified xLSTM implementation with optimized Metal Performance Shaders backend
 """

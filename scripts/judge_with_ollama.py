@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Judge optimizer outputs with a local Ollama model (e.g., qwen3-coder:30b).
 

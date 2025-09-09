@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 "xltop": lightweight terminal monitor for xLSTM on Apple/MPS.
 

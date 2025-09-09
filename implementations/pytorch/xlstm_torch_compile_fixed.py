@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 xLSTM with PyTorch torch.compile + Metal - FIXED Implementation
 

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import os
 import mlx.core as mx
 from mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles

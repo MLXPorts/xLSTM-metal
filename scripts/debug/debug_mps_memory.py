@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Debug what's actually in MPS tensor memory
 """

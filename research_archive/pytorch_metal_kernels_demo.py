@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 # Archived demo: moved from repo root; not used by production backends.
 """
 PyTorch Metal Kernel Implementation for xLSTM

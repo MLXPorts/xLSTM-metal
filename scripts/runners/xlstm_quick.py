@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Minimal, batteries‑included runner for local xLSTM on Apple MPS.
 

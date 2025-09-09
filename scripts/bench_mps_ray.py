@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Benchmark Ray chunkwise backend on Apple MPS with tuning sweeps.
 

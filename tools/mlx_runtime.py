@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Runtime configuration for MLX kernels (no environment variables required).
 

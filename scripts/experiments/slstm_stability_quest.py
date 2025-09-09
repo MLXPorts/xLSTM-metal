@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 sLSTM Stability Quest: A Text Adventure
 Where numerical instability is the real boss battle

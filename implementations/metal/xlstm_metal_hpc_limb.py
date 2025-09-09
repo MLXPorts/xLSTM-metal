@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 xLSTM with HPC Limb Metal Optimization
 

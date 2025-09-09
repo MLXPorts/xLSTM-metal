@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Run NX-AI/xLSTM-7b via Hugging Face transformers on Apple Silicon (MPS).
 

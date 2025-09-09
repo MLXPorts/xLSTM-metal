@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """Debug dimensions issue"""
 
 from xlstm_metal_complete import xLSTMLargeConfig

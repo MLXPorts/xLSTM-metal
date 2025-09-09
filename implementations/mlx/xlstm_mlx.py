@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 xLSTM implementation for MLX (Apple Silicon GPU)
 
@@ -17,15 +17,23 @@ import os
 import mlx.core as mx
 import mlx.nn as nn
 from typing import Tuple, Optional, List
-import numpy as np
+
 
 
 class CausalConv1d(nn.Module):
-    """Causal 1D convolution layer for MLX.
+    """A causal 1D convolution layer for MLX.
 
-    - Input shape: (B, L, C) or (B, C)
-    - Preserves causality by trimming the padded future region.
-    - Use small kernels (e.g., 3–5) for local context mixing.
+    This layer implements a 1D convolution that preserves causality. It does this
+    by adding padding to the input before the convolution and then trimming the
+    output to remove the padded future region. This is useful for sequence
+    modeling tasks where the output at each timestep should only depend on the
+    inputs from previous timesteps.
+
+    Args:
+        in_channels (int): The number of input channels.
+        out_channels (int): The number of output channels.
+        kernel_size (int): The size of the convolutional kernel.
+        dilation (int, optional): The dilation rate of the kernel. Defaults to 1.
     """
     def __init__(self, in_channels, out_channels, kernel_size, dilation=1):
         super().__init__()
@@ -49,7 +57,17 @@ class CausalConv1d(nn.Module):
 
 
 def block_diag(*matrices):
-    """Create a block diagonal matrix from a list of matrices"""
+    """Create a block diagonal matrix from a list of matrices.
+
+    This function takes a list of matrices and creates a block diagonal matrix
+    from them.
+
+    Args:
+        *matrices: A list of matrices to form the block diagonal matrix.
+
+    Returns:
+        A block diagonal matrix.
+    """
     rows = sum(mat.shape[0] for mat in matrices)
     cols = sum(mat.shape[1] for mat in matrices)
     
@@ -67,10 +85,16 @@ def block_diag(*matrices):
 
 
 class BlockLinear(nn.Module):
-    """Block diagonal linear layer for MLX.
+    """A block diagonal linear layer for MLX.
 
-    Useful for per-head projections with shared code paths. Internally constructs
-    a block-diagonal weight matrix from small per-head blocks.
+    This layer is useful for creating per-head projections with shared code paths.
+    It constructs a block-diagonal weight matrix from a list of smaller per-head
+    blocks.
+
+    Args:
+        block_specs (list): A list of tuples, where each tuple contains the
+            input and output dimensions of a block.
+        bias (bool, optional): Whether to include a bias term. Defaults to False.
     """
     def __init__(self, block_specs, bias=False):
         super().__init__()
@@ -81,7 +105,7 @@ class BlockLinear(nn.Module):
         # Store blocks as module attributes so they're tracked
         for i, (in_dim, out_dim) in enumerate(block_specs):
             # Initialize weights for each block
-            w = mx.random.normal((out_dim, in_dim)) * (0.02 / mx.sqrt(in_dim))
+            w = mx.random.normal((out_dim, in_dim)) * (mx.array(0.02) / mx.sqrt(in_dim))
             setattr(self, f'block_{i}', w)
         
         self.bias = mx.zeros(self.out_dim) if bias else None
@@ -113,18 +137,37 @@ class BlockLinear(nn.Module):
 
 
 def enlarge_as(x, target):
-    """Expand tensor x to match target dimensions"""
+    """Expand tensor x to match the number of dimensions of a target tensor.
+
+    This function adds new dimensions to the end of the input tensor `x` until
+    it has the same number of dimensions as the `target` tensor.
+
+    Args:
+        x (mx.array): The input tensor.
+        target (mx.array): The target tensor.
+
+    Returns:
+        mx.array: The expanded tensor.
+    """
     while len(x.shape) < len(target.shape):
         x = mx.expand_dims(x, axis=-1)
     return x
 
 
 class sLSTMBlock(nn.Module):
-    """Scalar LSTM block with exponential gating and state normalization.
+    """A scalar LSTM (sLSTM) block with exponential gating and state normalization.
 
-    Implements the sLSTM variant from xLSTM with grouped normalization and an
-    optional causal conv pre-activation path. Hidden state layout matches
-    (num_heads * head_dim).
+    This block implements the sLSTM variant from the xLSTM paper. It uses
+    grouped normalization and an optional causal convolution on the input.
+
+    Args:
+        inp_dim (int): The input dimension.
+        head_dim (int): The dimension of each head.
+        head_num (int): The number of heads.
+        p_factor (float, optional): The projection factor for the up-projection.
+            Defaults to 4/3.
+        ker_size (int, optional): The kernel size for the causal convolution.
+            Defaults to 4.
     """
     def __init__(self, inp_dim, head_dim, head_num, p_factor=4/3, ker_size=4):
         super().__init__()
@@ -187,7 +230,7 @@ class sLSTMBlock(nn.Module):
         
         c_t = f_t * c_tm1 + i_t * z_t
         n_t = f_t * n_tm1 + i_t
-        h_t = o_t * (c_t / mx.maximum(n_t, 1.0))
+        h_t = o_t * (c_t / mx.maximum(n_t, mx.array(1.0)))
         
         out = self.hid_norm(h_t)
         out1, out2 = mx.split(self.up_proj(out), 2, axis=-1)
@@ -198,11 +241,22 @@ class sLSTMBlock(nn.Module):
 
 
 class mLSTMBlock(nn.Module):
-    """Matrix LSTM block with covariance update rule.
+    """A matrix LSTM (mLSTM) block with a covariance update rule.
 
-    Maintains a per-head covariance-like state updated with exponential gates.
-    Projects inputs via left/right paths and mixes with a causal conv for local
-    smoothing before computing q/k/v and gating.
+    This block implements the mLSTM variant from the xLSTM paper. It maintains a
+    per-head covariance-like state that is updated with exponential gates. It
+    projects inputs via left and right paths and mixes them with a causal
+    convolution for local smoothing before computing queries, keys, values, and
+    gating.
+
+    Args:
+        inp_dim (int): The input dimension.
+        head_dim (int): The dimension of each head.
+        head_num (int): The number of heads.
+        p_factor (float, optional): The projection factor for the up-projection.
+            Defaults to 2.
+        ker_size (int, optional): The kernel size for the causal convolution.
+            Defaults to 4.
     """
     def __init__(self, inp_dim, head_dim, head_num, p_factor=2, ker_size=4):
         super().__init__()
@@ -279,7 +333,7 @@ class mLSTMBlock(nn.Module):
         # Compute output
         q_expanded = mx.expand_dims(q_t, axis=-1)
         h_numerator = mx.squeeze(c_t @ q_expanded, axis=-1)  # (batch, head_num, head_dim)
-        h_denominator = mx.maximum(mx.sum(n_t * q_t, axis=-1, keepdims=True), 1.0)  # (batch, head_num, 1)
+        h_denominator = mx.maximum(mx.sum(n_t * q_t, axis=-1, keepdims=True), mx.array(1.0))  # (batch, head_num, 1)
         h_t_heads = h_numerator / h_denominator  # (batch, head_num, head_dim)
         h_t_flat = mx.reshape(h_t_heads, (bs, self.hidden_dim))  # Flatten heads
         h_t = o_t * h_t_flat  # Apply output gate
@@ -292,12 +346,25 @@ class mLSTMBlock(nn.Module):
 
 
 class xLSTM(nn.Module):
-    """xLSTM model combining sLSTM and mLSTM blocks.
+    """An xLSTM model that combines sLSTM and mLSTM blocks.
 
-    - Embedding → alternating mLSTM/sLSTM blocks → output projection.
-    - `signature=(m,s)` cycles block types across `num_layers`.
-    - Call with `return_hidden=True` to obtain final per-block states for
-      streaming decode.
+    This model consists of an embedding layer, followed by a series of sLSTM and
+    mLSTM blocks, and finally an output projection layer. The sLSTM and mLSTM
+    blocks are alternated according to the `signature` argument.
+
+    Args:
+        vocab_size (int): The size of the vocabulary.
+        num_layers (int): The total number of sLSTM and mLSTM blocks.
+        signature (Tuple[int, int]): A tuple specifying the number of mLSTM and
+            sLSTM blocks in the repeating pattern.
+        inp_dim (int): The input and embedding dimension.
+        head_dim (int): The dimension of each head.
+        head_num (int): The number of heads.
+        p_factor (Tuple[float, float], optional): A tuple containing the
+            projection factors for the mLSTM and sLSTM blocks. Defaults to (2.0, 4/3).
+        ker_size (int, optional): The kernel size for the causal convolution.
+            Defaults to 4.
+        dropout (float, optional): The dropout rate. Defaults to 0.0.
     """
     def __init__(
         self,
@@ -407,6 +474,10 @@ class xLSTM(nn.Module):
         else:
             logits = self.head(output)
 
+        if return_hidden:
+            return logits, hidden_states
+        return logits
+
     def set_fast_head(self, enabled: bool) -> None:
         """Enable/disable fast head projection (tiled GEMM) for inference.
 
@@ -414,10 +485,6 @@ class xLSTM(nn.Module):
         implementation. For training with autograd, prefer `enabled=False`.
         """
         self.use_fast_head = bool(enabled)
-        
-        if return_hidden:
-            return logits, hidden_states
-        return logits
 
 
 def create_xlstm_model(

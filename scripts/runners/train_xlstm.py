@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Unified training script for xLSTM models (MLX and PyTorch)
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Regenerate and save outputs for each trial in an optimizer run.
 

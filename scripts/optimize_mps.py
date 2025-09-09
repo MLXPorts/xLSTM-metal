@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Optimize xLSTM MPS performance via random search or a simple genetic algorithm.
 

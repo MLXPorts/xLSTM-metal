@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Run a local xLSTM HF checkpoint on Apple Silicon (MPS) using the compiled backends.
 

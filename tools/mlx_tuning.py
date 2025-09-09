@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 MLX tuning helpers: per-device tile selection and default kernel modes.
 

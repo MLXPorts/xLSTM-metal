@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Ray Serve deployment for xLSTM inference (Apple/MPS).
 

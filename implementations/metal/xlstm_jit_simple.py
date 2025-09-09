@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Simplified xLSTM with PyTorch JIT + Metal Integration
 
@@ -19,7 +19,17 @@ device = torch.device("mps")
 
 
 class MetalSoftCap(nn.Module):
-    """Soft capping optimized for Metal MPS backend"""
+    """A soft capping layer optimized for the Metal MPS backend.
+
+    This layer applies a soft capping function to the input tensor, which is a
+    differentiable approximation of a hard clamp. The JIT compiler will fuse
+    the operations in this layer into optimized Metal kernels for efficient
+    execution on Apple Silicon GPUs.
+
+    Args:
+        cap_value (float, optional): The value at which to cap the input.
+            Defaults to 15.0.
+    """
     
     def __init__(self, cap_value: float = 15.0):
         super().__init__()

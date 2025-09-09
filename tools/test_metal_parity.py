@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Parity test for Metal step vs native step and native_sequence vs native_sequence__metal.
 Runs on tiny shapes and prints max abs/rel errors.

@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Quick numeric checks for MLX GEMM kernels (naive vs tiled vs mx.matmul).
 

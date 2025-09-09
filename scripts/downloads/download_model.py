@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Direct download of xLSTM-7B model
 """

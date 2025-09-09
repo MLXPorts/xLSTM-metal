@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 xLSTM with PyTorch JIT + Metal Kernel Integration
 
@@ -27,9 +27,16 @@ device = torch.device("mps")
 
 
 class JITMetalSoftCap(nn.Module):
-    """
-    TorchScript-compilable soft capping with Metal MPS acceleration.
-    JIT will optimize this into fused operations.
+    """A TorchScript-compilable soft capping layer with Metal MPS acceleration.
+
+    This layer applies a soft capping function to the input tensor, which is a
+    differentiable approximation of a hard clamp. The JIT compiler will fuse
+    the operations in this layer into optimized Metal kernels for efficient
+    execution on Apple Silicon GPUs.
+
+    Args:
+        cap_value (float, optional): The value at which to cap the input.
+            Defaults to 15.0.
     """
     
     def __init__(self, cap_value: float = 15.0):
@@ -42,9 +49,17 @@ class JITMetalSoftCap(nn.Module):
 
 
 class JITMetalRMSNorm(nn.Module):
-    """
-    TorchScript-compilable RMSNorm optimized for Metal MPS backend.
-    JIT compilation enables operator fusion and Metal kernel optimization.
+    """A TorchScript-compilable RMSNorm layer optimized for the Metal MPS backend.
+
+    This layer implements Root Mean Square Normalization, which is a variant of
+    Layer Normalization that is more efficient. The JIT compiler will fuse the
+    operations in this layer into optimized Metal kernels for efficient execution
+    on Apple Silicon GPUs.
+
+    Args:
+        hidden_size (int): The size of the hidden dimension.
+        eps (float, optional): A small value to add to the denominator for
+            numerical stability. Defaults to 1e-6.
     """
     
     def __init__(self, hidden_size: int, eps: float = 1e-6):
@@ -71,9 +86,18 @@ class JITMetalRMSNorm(nn.Module):
 
 
 class JITMetalLinearProjection(nn.Module):
-    """
-    Optimized linear projection that JIT compiles for Metal acceleration.
-    Combines multiple projections into fused operations.
+    """An optimized linear projection layer that JIT compiles for Metal acceleration.
+
+    This layer combines multiple linear projections into a single operation for
+    improved efficiency. The JIT compiler will fuse these operations into
+    efficient Metal GEMM operations.
+
+    Args:
+        in_features (int): The number of input features.
+        out_features (int): The number of output features per projection.
+        num_projections (int, optional): The number of projections to perform.
+            Defaults to 1.
+        bias (bool, optional): Whether to include a bias term. Defaults to False.
     """
     
     def __init__(self, in_features: int, out_features: int, num_projections: int = 1, bias: bool = False):
@@ -98,14 +122,20 @@ class JITMetalLinearProjection(nn.Module):
 
 
 class JITMetalmLSTMBlock(nn.Module):
-    """
-    mLSTM block optimized for PyTorch JIT + Metal acceleration.
-    
-    JIT compilation enables:
-    - Operator fusion (reduces kernel launches)
-    - Memory optimization (eliminates intermediate tensors)
-    - Graph optimization (removes Python overhead)
-    - Metal kernel selection (uses optimal MPS operations)
+    """An mLSTM block optimized for PyTorch JIT and Metal acceleration.
+
+    This block implements the matrix LSTM (mLSTM) variant from the xLSTM paper.
+    It is optimized for use with the PyTorch JIT compiler and the Metal Performance
+    Shaders (MPS) backend, enabling operator fusion, memory optimization, and
+    efficient execution on Apple Silicon GPUs.
+
+    Args:
+        d_model (int, optional): The input and output dimension of the block.
+            Defaults to 512.
+        num_heads (int, optional): The number of heads. Defaults to 8.
+        head_dim (int, optional): The dimension of each head. Defaults to 64.
+        gate_soft_cap (float, optional): The value at which to cap the gates.
+            Defaults to 15.0.
     """
     
     def __init__(self, d_model: int = 512, num_heads: int = 8, head_dim: int = 64, gate_soft_cap: float = 15.0):
@@ -180,8 +210,20 @@ class JITMetalmLSTMBlock(nn.Module):
 
 
 class JITMetalsLSTMBlock(nn.Module):
-    """
-    sLSTM block optimized for PyTorch JIT + Metal acceleration.
+    """An sLSTM block optimized for PyTorch JIT and Metal acceleration.
+
+    This block implements the scalar LSTM (sLSTM) variant from the xLSTM paper.
+    It is optimized for use with the PyTorch JIT compiler and the Metal Performance
+    Shaders (MPS) backend, enabling operator fusion, memory optimization, and
+    efficient execution on Apple Silicon GPUs.
+
+    Args:
+        d_model (int, optional): The input and output dimension of the block.
+            Defaults to 512.
+        proj_factor (float, optional): The projection factor for the up-projection.
+            Defaults to 1.333.
+        gate_soft_cap (float, optional): The value at which to cap the gates.
+            Defaults to 15.0.
     """
     
     def __init__(self, d_model: int = 512, proj_factor: float = 1.333, gate_soft_cap: float = 15.0):
@@ -240,14 +282,24 @@ class JITMetalsLSTMBlock(nn.Module):
 
 
 class JITMetalxLSTMModel(nn.Module):
-    """
-    Complete xLSTM model with PyTorch JIT compilation and Metal acceleration.
-    
-    This model combines:
-    1. TorchScript compilation for graph optimization
-    2. Metal MPS backend for GPU acceleration  
-    3. Operator fusion for reduced kernel launches
-    4. Memory optimization for efficient execution
+    """A complete xLSTM model optimized for PyTorch JIT and Metal acceleration.
+
+    This model combines sLSTM and mLSTM blocks to form a complete xLSTM model.
+    It is optimized for use with the PyTorch JIT compiler and the Metal
+    Performance Shaders (MPS) backend, enabling operator fusion, memory
+    optimization, and efficient execution on Apple Silicon GPUs.
+
+    Args:
+        vocab_size (int, optional): The size of the vocabulary. Defaults to 50257.
+        num_layers (int, optional): The total number of sLSTM and mLSTM blocks.
+            Defaults to 6.
+        d_model (int, optional): The input and embedding dimension. Defaults to 512.
+        signature (Tuple[int, ...], optional): A tuple specifying the number of
+            mLSTM and sLSTM blocks in the repeating pattern. Defaults to (1, 1).
+        head_dim (int, optional): The dimension of each head. Defaults to 32.
+        head_num (int, optional): The number of heads. Defaults to 4.
+        output_logit_soft_cap (float, optional): The value at which to cap the
+            output logits. Defaults to 30.0.
     """
     
     def __init__(
@@ -341,8 +393,20 @@ class JITMetalxLSTMModel(nn.Module):
 
 
 def benchmark_jit_vs_eager(model: nn.Module, tokens: torch.Tensor, num_runs: int = 10) -> Dict[str, float]:
-    """
-    Benchmark JIT-compiled vs eager execution performance.
+    """Benchmarks the performance of a JIT-compiled model against the eager model.
+
+    This function measures the execution time of both the JIT-compiled and eager
+    versions of a model and calculates the speedup.
+
+    Args:
+        model (nn.Module): The model to benchmark.
+        tokens (torch.Tensor): The input tokens for the model.
+        num_runs (int, optional): The number of times to run the benchmark.
+            Defaults to 10.
+
+    Returns:
+        Dict[str, float]: A dictionary containing the benchmark results, including
+            average execution times, speedup, and tokens per second.
     """
     model.eval()
     
@@ -400,9 +464,25 @@ def jit_generate_step(
     top_k: int = 50,
     top_p: float = 0.9
 ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
-    """
-    JIT-compiled generation step for optimized inference.
-    Fuses sampling operations with Metal kernels.
+    """Performs a single generation step using a JIT-compiled model.
+
+    This function takes a JIT-compiled model and generates the next token in a
+    sequence. It uses temperature, top-k, and top-p sampling to control the
+    randomness of the output.
+
+    Args:
+        model: The JIT-compiled model.
+        tokens (torch.Tensor): The input tokens.
+        hidden_states (List[torch.Tensor]): The hidden states from the previous step.
+        temperature (float, optional): The temperature for sampling. Defaults to 1.0.
+        top_k (int, optional): The number of top-k candidates to consider.
+            Defaults to 50.
+        top_p (float, optional): The cumulative probability for nucleus sampling.
+            Defaults to 0.9.
+
+    Returns:
+        Tuple[torch.Tensor, List[torch.Tensor]]: A tuple containing the next token
+            and the new hidden states.
     """
     # Forward pass (fully optimized by JIT + Metal)
     logits, new_hidden = model(tokens, hidden_states)
@@ -440,8 +520,16 @@ def jit_generate_step(
 
 
 def create_production_model(config: Dict[str, Any]) -> torch.jit.ScriptModule:
-    """
-    Create production-ready JIT-compiled xLSTM model.
+    """Creates and compiles a production-ready xLSTM model.
+
+    This function creates an xLSTM model from a configuration, compiles it using
+    the PyTorch JIT compiler, and saves it to a file.
+
+    Args:
+        config (Dict[str, Any]): A dictionary containing the model configuration.
+
+    Returns:
+        torch.jit.ScriptModule: The compiled and optimized model.
     """
     # Create model
     model = JITMetalxLSTMModel(**config).to(device)

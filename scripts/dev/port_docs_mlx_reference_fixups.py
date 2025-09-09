@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Apply project-local fixups to docs/mlx_reference/* copied from MetalFaiss.
 

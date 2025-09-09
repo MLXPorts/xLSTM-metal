@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Download xLSTM-7B model with better resume capability
 """

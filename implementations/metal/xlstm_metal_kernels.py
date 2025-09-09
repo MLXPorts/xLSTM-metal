@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 xLSTM Metal Kernel Implementation
 

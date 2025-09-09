@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Enhanced PyTorch xLSTM with optimized inference and generation capabilities
 """

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+
 """
 Debug the actual PyTorch storage API
 """

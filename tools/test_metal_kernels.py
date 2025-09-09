@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 """
 Quick Metal kernel self-test (MPS only).
 Runs soft_cap and a single mLSTM step on tiny tensors to validate JIT/build.

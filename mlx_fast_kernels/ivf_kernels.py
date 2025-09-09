@@ -252,16 +252,23 @@ _KERNEL_TOPK_MERGE = mx.fast.metal_kernel(
 
 
 def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
-    """Compute top-k L2 distances and ids for one query Q against X.
+    """Computes the top-k L2 distances and corresponding IDs for a single query vector.
 
-    Args
-    - Q: (d,) float32
-    - X: (m,d) float32
-    - ids: (m,) int32 (global ids corresponding to rows of X)
-    - k: number of nearest neighbors (k <= 32)
+    This function uses a Metal kernel to compute the L2 distances between a single
+    query vector `Q` and a set of vectors `X`. It then returns the `k` smallest
+    distances and their corresponding IDs.
 
-    Returns
-    - (vals, out_ids): both (k,), vals float32 ascending, ids int32
+    Args:
+        Q (mx.array): The query vector of shape (d,).
+        X (mx.array): The set of vectors to search, with shape (m, d).
+        ids (mx.array): The IDs corresponding to the vectors in `X`, with shape (m,).
+        k (int): The number of nearest neighbors to find.
+        tpb (Optional[int], optional): The number of threads per threadgroup. If
+            not provided, a suitable value is chosen automatically. Defaults to None.
+
+    Returns:
+        Tuple[mx.array, mx.array]: A tuple containing the top-k distances and IDs,
+            both of shape (k,).
     """
     m, d = int(X.shape[0]), int(X.shape[1])
     kk = int(min(k, 32))
@@ -305,10 +312,23 @@ def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optio
 
 
 def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
-    """Batched fused top-k: many queries (B,d) vs X (m,d).
+    """Computes the top-k L2 distances and corresponding IDs for a batch of query vectors.
 
-    Returns
-    - (vals, out_ids): both (B,k)
+    This function uses a Metal kernel to compute the L2 distances between a batch
+    of query vectors `Q` and a set of vectors `X`. It then returns the `k`
+    smallest distances and their corresponding IDs for each query vector.
+
+    Args:
+        Q (mx.array): The batch of query vectors of shape (b, d).
+        X (mx.array): The set of vectors to search, with shape (m, d).
+        ids (mx.array): The IDs corresponding to the vectors in `X`, with shape (m,).
+        k (int): The number of nearest neighbors to find.
+        tpb (Optional[int], optional): The number of threads per threadgroup. If
+            not provided, a suitable value is chosen automatically. Defaults to None.
+
+    Returns:
+        Tuple[mx.array, mx.array]: A tuple containing the top-k distances and IDs,
+            both of shape (b, k).
     """
     b, d = int(Q.shape[0]), int(Q.shape[1])
     m = int(X.shape[0])
@@ -352,7 +372,20 @@ def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb:
 
 
 def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tuple[mx.array, mx.array]:
-    """Merge partial top-k (P,kk) on device into (k,)."""
+    """Merges partial top-k results on the device.
+
+    This function takes partial top-k results from multiple chunks and merges them
+    on the device to produce the final top-k results.
+
+    Args:
+        vals_parts (mx.array): The partial top-k distances of shape (P, kk).
+        ids_parts (mx.array): The partial top-k IDs of shape (P, kk).
+        k (int): The final number of nearest neighbors to find.
+
+    Returns:
+        Tuple[mx.array, mx.array]: A tuple containing the final top-k distances
+            and IDs, both of shape (k,).
+    """
     P, kk = int(vals_parts.shape[0]), int(vals_parts.shape[1])
     shape = mx.array([P, kk, int(k)], dtype=mx.uint32)
     grid=(1,1,1); threadgroup=(32,1,1)
@@ -367,26 +400,42 @@ def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tupl
 
 
 def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
-    """Chunked variant: split rows and merge top-k on host."""
-    import math
+    """Computes top-k L2 distances for a single query by processing the data in chunks.
+
+    This function is a variant of `ivf_list_topk_l2` that processes the input
+    vectors `X` in chunks. It computes the top-k results for each chunk and then
+    merges them on the host to produce the final top-k results. This is useful
+    for very large datasets that do not fit into memory.
+
+    Args:
+        Q (mx.array): The query vector of shape (d,).
+        X (mx.array): The set of vectors to search, with shape (m, d).
+        ids (mx.array): The IDs corresponding to the vectors in `X`, with shape (m,).
+        k (int): The number of nearest neighbors to find.
+        rows_per_chunk (int, optional): The number of rows to process in each
+            chunk. Defaults to 4096.
+        tpb (Optional[int], optional): The number of threads per threadgroup. If
+            not provided, a suitable value is chosen automatically. Defaults to None.
+
+    Returns:
+        Tuple[mx.array, mx.array]: A tuple containing the top-k distances and IDs,
+            both of shape (k,).
+    """
     m = int(X.shape[0])
     kk = min(k, 32)
-    best_vals = [math.inf] * kk
-    best_ids = [0] * kk
+    best_vals = mx.full((kk,), float('inf'), dtype=mx.float32)
+    best_ids = mx.zeros((kk,), dtype=mx.int32)
 
     def merge(vals, ids):
         nonlocal best_vals, best_ids
-        lv = vals.tolist(); li = ids.tolist()
-        for v, i in zip(lv, li):
-            if math.isinf(v):
-                continue
-            worst_idx = max(range(kk), key=lambda t: best_vals[t])
-            if v < best_vals[worst_idx]:
-                best_vals[worst_idx] = v
-                best_ids[worst_idx] = i
-        order = sorted(range(kk), key=lambda t: best_vals[t])
-        best_vals = [best_vals[t] for t in order]
-        best_ids = [best_ids[t] for t in order]
+        # Combine best and new vals/ids
+        combined_vals = mx.concatenate([best_vals, vals])
+        combined_ids = mx.concatenate([best_ids, ids])
+
+        # Sort and pick top k
+        order = mx.argsort(combined_vals)[:k]
+        best_vals = combined_vals[order]
+        best_ids = combined_ids[order]
 
     for s in range(0, m, rows_per_chunk):
         e = min(m, s + rows_per_chunk)
@@ -395,11 +444,31 @@ def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, ro
         vals, oids = ivf_list_topk_l2(Q, X[s:e, :], ids[s:e], k, tpb=tpb)
         merge(vals, oids)
 
-    return mx.array(best_vals, dtype=mx.float32), mx.array(best_ids, dtype=mx.int32)
+    return best_vals, best_ids
 
 
 def ivf_list_topk_l2_chunked_device_merge(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
-    """Chunked fused scan with device-side merge of partial top-k."""
+    """Computes top-k L2 distances for a single query with chunking and device-side merge.
+
+    This function is a variant of `ivf_list_topk_l2` that processes the input
+    vectors `X` in chunks. It computes the top-k results for each chunk and then
+    merges them on the device to produce the final top-k results. This is useful
+    for very large datasets that do not fit into memory.
+
+    Args:
+        Q (mx.array): The query vector of shape (d,).
+        X (mx.array): The set of vectors to search, with shape (m, d).
+        ids (mx.array): The IDs corresponding to the vectors in `X`, with shape (m,).
+        k (int): The number of nearest neighbors to find.
+        rows_per_chunk (int, optional): The number of rows to process in each
+            chunk. Defaults to 4096.
+        tpb (Optional[int], optional): The number of threads per threadgroup. If
+            not provided, a suitable value is chosen automatically. Defaults to None.
+
+    Returns:
+        Tuple[mx.array, mx.array]: A tuple containing the top-k distances and IDs,
+            both of shape (k,).
+    """
     m = int(X.shape[0])
     kk = min(k, 32)
     parts_vals = []

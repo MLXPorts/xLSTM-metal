@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 import mlx.core as mx
 from mlx_fast_kernels.ivf_kernels import ivf_list_topk_l2
 
