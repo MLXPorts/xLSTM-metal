@@ -34,6 +34,7 @@ def check(shape=(64, 128, 32), tiles=(16, 16)):
 
 
 def main():
+    """The main function of the script."""
     naive = os.environ.get("XLSTM_GEMM_NAIVE", "0") == "1"
     print(f"Naive path: {naive}")
     # Odd shapes to stress partial tiles
