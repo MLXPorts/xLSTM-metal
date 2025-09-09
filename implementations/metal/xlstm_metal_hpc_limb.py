@@ -189,7 +189,19 @@ HPC_LIMB_KERNEL = r"""
 """
 
 class HPCLimbMetalxLSTM:
-    """xLSTM with HPC Limb Metal optimization for MLX"""
+    """An xLSTM model that uses a custom Metal kernel with HPC limb arithmetic.
+
+    This class implements an xLSTM model that is optimized for Apple Silicon GPUs
+    by using a custom Metal kernel. The kernel uses high-precision limb
+    arithmetic to work around the 64-buffer limit in Metal, allowing for more
+    complex computations to be performed on the GPU.
+
+    Args:
+        d_model (int, optional): The input and output dimension of the model.
+            Defaults to 512.
+        num_heads (int, optional): The number of heads. Defaults to 8.
+        head_dim (int, optional): The dimension of each head. Defaults to 64.
+    """
     
     def __init__(self, d_model=512, num_heads=8, head_dim=64):
         self.d_model = d_model
@@ -257,7 +269,15 @@ class HPCLimbMetalxLSTM:
 
 
 def test_hpc_limb_implementation():
-    """Test the HPC limb Metal implementation"""
+    """Tests the HPC limb Metal implementation of the xLSTM model.
+
+    This function creates an instance of the `HPCLimbMetalxLSTM` model, runs a
+    forward pass with some test data, and prints the output shapes and timings.
+    It also prints some debug values from the Metal kernel.
+
+    Returns:
+        A tuple containing the output tensor and the debug tensor.
+    """
     
     print("Testing HPC Limb Metal xLSTM Implementation")
     print("=" * 50)
@@ -311,7 +331,12 @@ def test_hpc_limb_implementation():
 
 
 def benchmark_vs_standard():
-    """Compare HPC limb approach vs standard implementation"""
+    """Benchmarks the HPC limb implementation against a standard implementation.
+
+    This function runs a benchmark to compare the performance of the HPC limb
+    implementation with a standard implementation. It uses different model
+    configurations to test the performance under different conditions.
+    """
     
     print("\nBenchmarking HPC Limb vs Standard Implementation")
     print("=" * 50)

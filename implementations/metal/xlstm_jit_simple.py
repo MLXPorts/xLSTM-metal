@@ -41,7 +41,18 @@ class MetalSoftCap(nn.Module):
 
 
 class MetalRMSNorm(nn.Module):
-    """RMSNorm optimized for Metal MPS backend"""
+    """An RMSNorm layer optimized for the Metal MPS backend.
+
+    This layer implements Root Mean Square Normalization, which is a variant of
+    Layer Normalization that is more efficient. The JIT compiler will fuse the
+    operations in this layer into optimized Metal kernels for efficient execution
+    on Apple Silicon GPUs.
+
+    Args:
+        hidden_size (int): The size of the hidden dimension.
+        eps (float, optional): A small value to add to the denominator for
+            numerical stability. Defaults to 1e-6.
+    """
     
     def __init__(self, hidden_size: int, eps: float = 1e-6):
         super().__init__()
@@ -58,7 +69,19 @@ class MetalRMSNorm(nn.Module):
 
 
 class MetalmLSTMBlock(nn.Module):
-    """mLSTM block optimized for PyTorch JIT + Metal"""
+    """An mLSTM block optimized for PyTorch JIT and Metal acceleration.
+
+    This block implements the matrix LSTM (mLSTM) variant from the xLSTM paper.
+    It is optimized for use with the PyTorch JIT compiler and the Metal Performance
+    Shaders (MPS) backend, enabling operator fusion, memory optimization, and
+    efficient execution on Apple Silicon GPUs.
+
+    Args:
+        d_model (int, optional): The input and output dimension of the block.
+            Defaults to 512.
+        num_heads (int, optional): The number of heads. Defaults to 8.
+        head_dim (int, optional): The dimension of each head. Defaults to 64.
+    """
     
     def __init__(self, d_model: int = 512, num_heads: int = 8, head_dim: int = 64):
         super().__init__()
@@ -131,7 +154,19 @@ class MetalmLSTMBlock(nn.Module):
 
 
 class MetalsLSTMBlock(nn.Module):
-    """sLSTM block optimized for PyTorch JIT + Metal"""
+    """An sLSTM block optimized for PyTorch JIT and Metal acceleration.
+
+    This block implements the scalar LSTM (sLSTM) variant from the xLSTM paper.
+    It is optimized for use with the PyTorch JIT compiler and the Metal Performance
+    Shaders (MPS) backend, enabling operator fusion, memory optimization, and
+    efficient execution on Apple Silicon GPUs.
+
+    Args:
+        d_model (int, optional): The input and output dimension of the block.
+            Defaults to 512.
+        proj_factor (float, optional): The projection factor for the up-projection.
+            Defaults to 1.333.
+    """
     
     def __init__(self, d_model: int = 512, proj_factor: float = 1.333):
         super().__init__()
@@ -185,7 +220,23 @@ class MetalsLSTMBlock(nn.Module):
 
 
 class MetalxLSTMModel(nn.Module):
-    """xLSTM model optimized for PyTorch JIT + Metal"""
+    """An xLSTM model optimized for PyTorch JIT and Metal acceleration.
+
+    This model combines sLSTM and mLSTM blocks to form a complete xLSTM model.
+    It is optimized for use with the PyTorch JIT compiler and the Metal
+    Performance Shaders (MPS) backend, enabling operator fusion, memory
+    optimization, and efficient execution on Apple Silicon GPUs.
+
+    Args:
+        vocab_size (int, optional): The size of the vocabulary. Defaults to 50257.
+        num_layers (int, optional): The total number of sLSTM and mLSTM blocks.
+            Defaults to 6.
+        d_model (int, optional): The input and embedding dimension. Defaults to 512.
+        signature (Tuple[int, ...], optional): A tuple specifying the number of
+            mLSTM and sLSTM blocks in the repeating pattern. Defaults to (1, 1).
+        head_dim (int, optional): The dimension of each head. Defaults to 32.
+        head_num (int, optional): The number of heads. Defaults to 4.
+    """
     
     def __init__(
         self,
@@ -264,7 +315,21 @@ class MetalxLSTMModel(nn.Module):
 
 
 def benchmark_jit_vs_eager(model: nn.Module, tokens: torch.Tensor, num_runs: int = 10) -> Dict[str, float]:
-    """Benchmark JIT vs eager execution"""
+    """Benchmarks the performance of a JIT-compiled model against the eager model.
+
+    This function measures the execution time of both the JIT-compiled and eager
+    versions of a model and calculates the speedup.
+
+    Args:
+        model (nn.Module): The model to benchmark.
+        tokens (torch.Tensor): The input tokens for the model.
+        num_runs (int, optional): The number of times to run the benchmark.
+            Defaults to 10.
+
+    Returns:
+        Dict[str, float]: A dictionary containing the benchmark results, including
+            average execution times, speedup, and tokens per second.
+    """
     model.eval()
     
     # Compile model
@@ -308,7 +373,19 @@ def benchmark_jit_vs_eager(model: nn.Module, tokens: torch.Tensor, num_runs: int
 
 
 def create_optimized_generation(compiled_model, max_length: int = 50):
-    """Create optimized generation function using JIT model"""
+    """Creates an optimized generation function using a JIT-compiled model.
+
+    This function takes a JIT-compiled model and returns a function that can be
+    used to generate sequences of tokens.
+
+    Args:
+        compiled_model: The JIT-compiled model.
+        max_length (int, optional): The maximum length of the generated sequence.
+            Defaults to 50.
+
+    Returns:
+        A function that can be used to generate sequences of tokens.
+    """
     
     def generate(prompt_tokens: torch.Tensor, temperature: float = 1.0, top_k: int = 50) -> torch.Tensor:
         generated = prompt_tokens.clone()

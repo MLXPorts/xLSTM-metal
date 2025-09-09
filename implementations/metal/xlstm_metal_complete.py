@@ -34,7 +34,29 @@ BackendModeType = Literal["train", "train_with_padding", "inference"]
 
 @dataclass
 class mLSTMBackendConfig:
-    """Configuration for mLSTM backend."""
+    """Configuration for the mLSTM backend.
+
+    This dataclass holds the configuration for the mLSTM backend, which can be
+    configured to use different kernels and modes for training and inference.
+
+    Attributes:
+        chunkwise_kernel (ChunkwiseKernelType): The kernel to use for chunkwise
+            processing. Can be "native", "metal", or "cuda".
+        sequence_kernel (SequenceKernelType): The kernel to use for sequence
+            processing. Can be "native", "metal", or "cuda".
+        step_kernel (StepKernelType): The kernel to use for single-step
+            processing. Can be "native", "metal", or "cuda".
+        mode (BackendModeType): The mode of operation. Can be "train",
+            "train_with_padding", or "inference".
+        chunk_size (int): The chunk size for chunkwise processing.
+        return_last_states (bool): Whether to return the last hidden states.
+        autocast_kernel_dtype (DtypeType): The data type to use for autocasting
+            in the kernels.
+        eps (float): A small value to add to the denominator for numerical
+            stability.
+        inference_state_dtype (DtypeType): The data type to use for the hidden
+            states during inference.
+    """
     chunkwise_kernel: ChunkwiseKernelType = "native"
     sequence_kernel: SequenceKernelType = "native"
     step_kernel: StepKernelType = "native"
@@ -47,7 +69,50 @@ class mLSTMBackendConfig:
 
 @dataclass
 class xLSTMLargeConfig:
-    """Configuration class copied from official xLSTM implementation."""
+    """Configuration for the xLSTM model.
+
+    This dataclass holds the configuration for the xLSTM model, including the
+    embedding dimension, number of heads, number of blocks, vocabulary size,
+    and other hyperparameters.
+
+    Attributes:
+        embedding_dim (int): The dimension of the embedding layer.
+        num_heads (int): The number of heads in the multi-head attention layers.
+        num_blocks (int): The number of mLSTM blocks in the model.
+        vocab_size (int): The size of the vocabulary.
+        use_bias (bool): Whether to use bias in the linear layers.
+        norm_eps (float): The epsilon value for the normalization layers.
+        norm_reduction_force_float32 (bool): Whether to force float32 for the
+            reduction operations in the normalization layers.
+        add_out_norm (bool): Whether to add a normalization layer at the end of
+            the model.
+        qk_dim_factor (float): The dimension factor for the query and key
+            projections.
+        v_dim_factor (float): The dimension factor for the value projection.
+        chunkwise_kernel (ChunkwiseKernelType): The kernel to use for chunkwise
+            processing.
+        sequence_kernel (SequenceKernelType): The kernel to use for sequence
+            processing.
+        step_kernel (StepKernelType): The kernel to use for single-step
+            processing.
+        mode (BackendModeType): The mode of operation.
+        chunk_size (int): The chunk size for chunkwise processing.
+        return_last_states (bool): Whether to return the last hidden states.
+        autocast_kernel_dtype (DtypeType): The data type to use for autocasting
+            in the kernels.
+        eps (float): A small value to add to the denominator for numerical
+            stability.
+        inference_state_dtype (DtypeType): The data type to use for the hidden
+            states during inference.
+        ffn_proj_factor (float): The projection factor for the feed-forward
+            network.
+        ffn_round_up_to_multiple_of (int): The value to round up the feed-forward
+            network dimension to.
+        gate_soft_cap (float): The value at which to cap the gates.
+        output_logit_soft_cap (float): The value at which to cap the output
+            logits.
+        weight_mode (WeightModeType): The weight mode for the linear layers.
+    """
     embedding_dim: int
     num_heads: int
     num_blocks: int
@@ -83,7 +148,14 @@ class xLSTMLargeConfig:
     weight_mode: WeightModeType = "single"
 
 class mLSTMBackend(nn.Module):
-    """mLSTM backend that works with Metal, CUDA, or CPU."""
+    """The backend for the mLSTM layer.
+
+    This module implements the backend for the mLSTM layer, which can be
+    configured to use different kernels and modes for training and inference.
+
+    Args:
+        config (mLSTMBackendConfig): The configuration for the mLSTM backend.
+    """
     def __init__(self, config: mLSTMBackendConfig):
         super().__init__()
         self.config = config
@@ -171,7 +243,26 @@ class mLSTMBackend(nn.Module):
 
 @dataclass
 class mLSTMLayerConfig:
-    """mLSTM layer configuration."""
+    """Configuration for the mLSTM layer.
+
+    This dataclass holds the configuration for the mLSTM layer, including the
+    embedding dimension, number of heads, and other hyperparameters.
+
+    Attributes:
+        embedding_dim (int): The dimension of the embedding layer.
+        num_heads (int): The number of heads in the multi-head attention layers.
+        use_bias (bool): Whether to use bias in the linear layers.
+        norm_eps (float): The epsilon value for the normalization layers.
+        norm_reduction_force_float32 (bool): Whether to force float32 for the
+            reduction operations in the normalization layers.
+        qk_dim_factor (float): The dimension factor for the query and key
+            projections.
+        v_dim_factor (float): The dimension factor for the value projection.
+        gate_soft_cap (float): The value at which to cap the gates.
+        mlstm_backend (mLSTMBackendConfig): The configuration for the mLSTM
+            backend.
+        weight_mode (WeightModeType): The weight mode for the linear layers.
+    """
     embedding_dim: int
     num_heads: int
     use_bias: bool = False
@@ -184,7 +275,15 @@ class mLSTMLayerConfig:
     weight_mode: WeightModeType = "single"
 
 class mLSTMLayer(nn.Module):
-    """mLSTM layer implementation."""
+    """The mLSTM layer.
+
+    This module implements the mLSTM layer, which is a variant of the LSTM layer
+    that uses a matrix-based memory state. It is optimized for use with the
+    PyTorch JIT compiler and the Metal Performance Shaders (MPS) backend.
+
+    Args:
+        config (mLSTMLayerConfig): The configuration for the mLSTM layer.
+    """
     def __init__(self, config: mLSTMLayerConfig):
         super().__init__()
         self.config = config
@@ -270,7 +369,13 @@ class mLSTMLayer(nn.Module):
         return y, state
 
 class FeedForward(nn.Module):
-    """FeedForward layer from official implementation."""
+    """A feed-forward layer.
+
+    This module implements a feed-forward layer with a SiLU activation function.
+
+    Args:
+        config (xLSTMLargeConfig): The configuration for the xLSTM model.
+    """
     def __init__(self, config: xLSTMLargeConfig):
         super().__init__()
         self.config = config
@@ -301,7 +406,15 @@ class FeedForward(nn.Module):
         return y
 
 class mLSTMBlock(nn.Module):
-    """mLSTM block from official implementation."""
+    """An mLSTM block.
+
+    This module implements an mLSTM block, which consists of an mLSTM layer
+    followed by a feed-forward layer. It also includes residual connections
+    and normalization layers.
+
+    Args:
+        config (xLSTMLargeConfig): The configuration for the xLSTM model.
+    """
     def __init__(self, config: xLSTMLargeConfig):
         super().__init__()
         self.config = config
@@ -359,7 +472,14 @@ class mLSTMBlock(nn.Module):
         return x, state
 
 class xLSTMLargeBlockStack(nn.Module):
-    """Block stack from official implementation."""
+    """A stack of mLSTM blocks.
+
+    This module implements a stack of mLSTM blocks, which are the building blocks
+    of the xLSTM model.
+
+    Args:
+        config (xLSTMLargeConfig): The configuration for the xLSTM model.
+    """
     def __init__(self, config: xLSTMLargeConfig):
         super().__init__()
         self.config = config
@@ -401,7 +521,15 @@ class xLSTMLargeBlockStack(nn.Module):
         return x, state
 
 class xLSTMLarge(nn.Module):
-    """xLSTM model that automatically uses best available device."""
+    """The xLSTM model.
+
+    This module implements the xLSTM model, which is a large language model based
+    on the xLSTM architecture. It uses a stack of mLSTM blocks to process the
+    input sequence and generate output logits.
+
+    Args:
+        config (xLSTMLargeConfig): The configuration for the xLSTM model.
+    """
     config_class = xLSTMLargeConfig
     
     def __init__(self, config: xLSTMLargeConfig):
