@@ -1,6 +1,6 @@
 
 import mlx.core as mx
-from mlx_fast_kernels.ivf_kernels import ivf_list_topk_l2
+from mlx_src.mlx_fast_kernels.ivf_kernels import ivf_list_topk_l2
 
 
 def _host_topk_l2(Q, X, ids, k):
@@ -33,4 +33,3 @@ def test_ivf_topk_small():
     assert len(vals) == k and len(idxs) == k
     # Verify same ids (unordered)
     assert set(idxs.tolist()) == set(hi)
-

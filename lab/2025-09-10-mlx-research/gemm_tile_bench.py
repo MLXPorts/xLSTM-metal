@@ -7,7 +7,7 @@ Includes variants discussed in WWDC-inspired notes (16x16 default; 32x8; 8x32; 1
 
 import time
 import mlx.core as mx
-from mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
+from mlx_src.mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
 
 
 def bench_gemm(m=1024, n=1024, k=1024, tiles=("16x16", "16x16")):
@@ -51,4 +51,3 @@ if __name__ == "__main__":
         for av, atb in tiles:
             t_av, t_atb = bench_gemm(m, n, k, tiles=(av, atb))
             print(f"  tiles av={av:>6} atb={atb:>6}:  A@V={t_av*1e3:.2f} ms,  A.T@B={t_atb*1e3:.2f} ms")
-

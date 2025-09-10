@@ -10,7 +10,7 @@ Set XLSTM_GEMM_NAIVE=1 to force naive path.
 import os
 import time
 import mlx.core as mx
-from mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
+from mlx_src.mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
 
 
 def check(shape=(64, 128, 32), tiles=(16, 16)):

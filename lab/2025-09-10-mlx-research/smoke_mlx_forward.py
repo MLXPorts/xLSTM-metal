@@ -1,5 +1,5 @@
 import mlx.core as mx
-from implementations.mlx.xlstm_mlx import create_xlstm_model
+from src.mlx_impl.xlstm_mlx import create_xlstm_model
 
 if __name__ == "__main__":
     mx.random.seed(0)

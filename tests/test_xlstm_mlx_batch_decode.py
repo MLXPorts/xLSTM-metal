@@ -1,6 +1,6 @@
 
 import mlx.core as mx
-from implementations.mlx.xlstm_mlx import create_xlstm_model
+from src.mlx_impl.xlstm_mlx import create_xlstm_model
 
 
 def test_batch_decode_shapes():
@@ -17,4 +17,3 @@ def test_batch_decode_shapes():
     logits2, state2 = model(step_in, hidden_states=state, return_hidden=True)
     assert logits2.shape == (B, 1, 2048)
     assert len(state2) == len(model.blocks)
-

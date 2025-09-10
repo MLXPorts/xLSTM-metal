@@ -10,4 +10,4 @@ _warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-from implementations.pytorch.xlstm_pytorch_inference import *  # noqa: F401,F403
+from src.pytorch.xlstm_pytorch_inference import *  # noqa: F401,F403

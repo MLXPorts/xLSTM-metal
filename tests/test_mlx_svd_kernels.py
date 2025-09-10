@@ -1,6 +1,6 @@
 
 import mlx.core as mx
-from mlx_fast_kernels.svd_kernels import power_iter_step_tiled
+from mlx_src.mlx_fast_kernels.svd_kernels import power_iter_step_tiled
 
 
 def test_svd_zstep_tiled():
@@ -13,4 +13,3 @@ def test_svd_zstep_tiled():
     Z = power_iter_step_tiled(A, V)
     mx.eval(Z_ref, Z)
     assert float(mx.max(mx.abs(Z_ref - Z))) <= 1e-4
-

@@ -24,11 +24,11 @@ from typing import Optional
 import mlx.core as mx
 
 try:
-    from implementations.mlx.xlstm_mlx import create_xlstm_model
+    from src.mlx_impl.xlstm_mlx import create_xlstm_model
 except Exception:
     # Allow running from repo root with PYTHONPATH=.
     sys.path.append(".")
-    from implementations.mlx.xlstm_mlx import create_xlstm_model
+    from src.mlx_impl.xlstm_mlx import create_xlstm_model
 
 
 class ByteTokenizer:

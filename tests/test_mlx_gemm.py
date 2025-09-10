@@ -1,7 +1,7 @@
 
 import os
 import mlx.core as mx
-from mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
+from mlx_src.mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
 
 
 def _check_once(m, n, k, tm, t):
@@ -22,4 +22,3 @@ def test_gemm_parity_multi():
     for m,n,k in shapes:
         for tm,t in tiles:
             _check_once(m,n,k,tm,t)
-

@@ -1,7 +1,7 @@
 
 import os
 import mlx.core as mx
-from mlx_fast_kernels.qr_kernels import project_coeffs, update_vector
+from mlx_src.mlx_fast_kernels.qr_kernels import project_coeffs, update_vector
 
 
 def test_qr_project_and_update():
@@ -20,4 +20,3 @@ def test_qr_project_and_update():
     v_upd = update_vector(Q, c, v)
     mx.eval(v_ref, v_upd)
     assert float(mx.max(mx.abs(v_ref - v_upd))) <= 1e-4
-

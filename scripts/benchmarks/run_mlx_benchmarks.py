@@ -32,24 +32,11 @@ from typing import Dict, List, Tuple
 
 import mlx.core as mx
 
-# Import model and kernels
-try:
-    from implementations.mlx.xlstm_mlx import create_xlstm_model
-except Exception:
-    import sys
-    sys.path.append(".")
-    from implementations.mlx.xlstm_mlx import create_xlstm_model
+# Import model and kernels (no fallbacks)
+from src.mlx_impl.xlstm_mlx import create_xlstm_model
 
-from mlx_fast_kernels.gemm_kernels import set_gemm_tiles, get_gemm_tiles
-try:
-    from tools.mlx_runtime import configure_gemm, configure_qr, configure_ivf
-except Exception:
-    def configure_gemm(**kwargs):
-        pass
-    def configure_qr(**kwargs):
-        pass
-    def configure_ivf(**kwargs):
-        pass
+from mlx_src.mlx_fast_kernels.gemm_kernels import set_gemm_tiles, get_gemm_tiles
+from tools.mlx_runtime import configure_gemm, configure_qr, configure_ivf
 
 
 def profiles() -> Dict[str, Dict[str, int]]:
@@ -97,10 +84,7 @@ def time_prefill_and_decode(model, seq_len: int, new_tokens: int) -> Tuple[float
 
 
 def maybe_make_charts(outdir: Path, csv_path: Path):
-    try:
-        import matplotlib.pyplot as plt
-    except Exception:
-        return
+    import matplotlib.pyplot as plt
     # Simple chart: decode tok/s by tile for each profile
     rows: List[Dict[str, str]] = []
     import csv as _csv
@@ -194,10 +178,10 @@ def main():
             tile_list = [t.strip() for t in args.tiles.split(",") if t.strip()]
             for tile in tile_list:
                 # AV uses TMxT; AT_B uses TNxTK. We map the same pair for both for comparability.
-                try:
-                    tm, t = tile.split("x"); tm = int(tm); t = int(t)
-                except Exception:
-                    raise ValueError(f"Invalid tile format: {tile}")
+                if "x" not in tile:
+                    raise ValueError(f"Invalid tile format (expected AxB): {tile}")
+                tm_s, t_s = tile.split("x", 1)
+                tm, t = int(tm_s), int(t_s)
                 set_gemm_tiles(av=(tm, t), atb=(t, t))
                 # Warm-up
                 _ = time_prefill_and_decode(model, seq_len=int(args.seq_len), new_tokens=4)

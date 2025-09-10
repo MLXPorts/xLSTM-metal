@@ -8,7 +8,7 @@ in mlx_fast_kernels/shaders.py.
 
 import time
 import mlx.core as mx
-from mlx_fast_kernels.shaders import soft_cap as metal_soft_cap
+from mlx_src.mlx_fast_kernels.shaders import soft_cap as metal_soft_cap
 
 
 def soft_cap_mlx(x, cap):
@@ -45,4 +45,3 @@ if __name__ == "__main__":
     for n in (1_000_0, 1_000_00, 1_000_000):
         diff, t_mlx, t_mtl = bench_once(n=n)
         print(f"n={n:8d}  max|Δ|={diff:.3e}  mlx={t_mlx*1e3:.2f} ms  metal={t_mtl*1e3:.2f} ms")
-

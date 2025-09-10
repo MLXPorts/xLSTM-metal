@@ -10,4 +10,4 @@ _warnings.warn(
     DeprecationWarning,
     stacklevel=2,
 )
-from implementations.mlx.xlstm_mlx import *  # noqa: F401,F403
+from src.mlx_impl.xlstm_mlx import *  # noqa: F401,F403
