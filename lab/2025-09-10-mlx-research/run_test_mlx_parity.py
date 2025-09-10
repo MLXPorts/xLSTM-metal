@@ -2,6 +2,7 @@ import mlx.core as mx
 from implementations.mlx.xlstm_mlx import create_xlstm_model
 from tools.mlx_runtime import configure_model, reset_runtime_config
 
+
 def _decode_argmax(model, tokens, new_tokens=16):
     logits, state = model(tokens, return_hidden=True)
     last = logits[:, -1, :]
@@ -13,6 +14,7 @@ def _decode_argmax(model, tokens, new_tokens=16):
         logits, state = model(step, hidden_states=state, return_hidden=True)
         last = logits[:, -1, :]
     return out_ids
+
 
 if __name__ == "__main__":
     mx.random.seed(0)
