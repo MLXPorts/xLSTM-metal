@@ -1,4 +1,3 @@
-
 from __future__ import annotations
 
 import json
@@ -20,7 +19,7 @@ from mlstm_kernels.torch.experiments.reversible_cell_experiment import (
 
 def main():
     device = device_auto()
-    outdir = Path("runs/experiments")
+    outdir = Path("lab/2025-08-28-compare-cells/results")
     outdir.mkdir(parents=True, exist_ok=True)
 
     cfg = TrainConfig()
@@ -75,3 +74,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
