@@ -84,56 +84,75 @@ def block_diag(*matrices):
     return result
 
 
-class BlockLinear(nn.Module):
-    """A block diagonal linear layer for MLX.
+class HeadLinear(nn.Module):
+    """Per-head linear without constructing a block-diagonal matrix.
 
-    This layer is useful for creating per-head projections with shared code paths.
-    It constructs a block-diagonal weight matrix from a list of smaller per-head
-    blocks.
-
-    Args:
-        block_specs (list): A list of tuples, where each tuple contains the
-            input and output dimensions of a block.
-        bias (bool, optional): Whether to include a bias term. Defaults to False.
+    Keeps weights as (H, Do, Di) and applies y[b,h,do] = sum_i x[b,h,i]*W[h,do,i].
+    Accepts flattened input (B, H*Di) and returns flattened output (B, H*Do).
     """
-    def __init__(self, block_specs, bias=False):
+    def __init__(self, num_heads: int, in_per_head: int, out_per_head: int, bias: bool = False):
         super().__init__()
-        self.block_specs = block_specs
-        self.out_dim = sum(out_dim for _, out_dim in block_specs)
-        self.in_dim = sum(in_dim for in_dim, _ in block_specs)
-        
-        # Store blocks as module attributes so they're tracked
-        for i, (in_dim, out_dim) in enumerate(block_specs):
-            # Initialize weights for each block
-            w = mx.random.normal((out_dim, in_dim)) * (mx.array(0.02) / mx.sqrt(in_dim))
-            setattr(self, f'block_{i}', w)
-        
-        self.bias = mx.zeros(self.out_dim) if bias else None
-    
-    def __call__(self, x):
-        # Collect blocks
-        blocks = [getattr(self, f'block_{i}') for i in range(len(self.block_specs))]
-        
-        # Create block diagonal weight matrix
-        full_weight = block_diag(*blocks)
-        
-        # Apply linear transformation
-        # x shape: (batch, features)
-        # Need to handle both 2D and higher dimensional inputs
-        orig_shape = x.shape
-        if len(x.shape) > 2:
-            x = x.reshape(-1, x.shape[-1])
-        
-        out = x @ full_weight.T
-        
+        self.num_heads = num_heads
+        self.in_per_head = in_per_head
+        self.out_per_head = out_per_head
+        scale = mx.array(0.02) / mx.sqrt(in_per_head)
+        # Weight: (H, Do, Di)
+        self.weight = mx.random.normal((num_heads, out_per_head, in_per_head)) * scale
+        self.bias = mx.zeros((num_heads, out_per_head)) if bias else None
+
+    def __call__(self, x: mx.array) -> mx.array:
+        # x: (B, H*Di) or (B, H, Di)
+        if len(x.shape) == 2:
+            B, F = int(x.shape[0]), int(x.shape[1])
+            H, Di = self.num_heads, self.in_per_head
+            assert F == H * Di, "HeadLinear: input last dim must equal H*Di"
+            xh = x.reshape(B, H, Di)
+        else:
+            xh = x
+            B, H, Di = int(xh.shape[0]), int(xh.shape[1]), int(xh.shape[2])
+        # Broadcast multiply and sum over Di
+        # xh: (B,H,Di) -> (B,H,1,Di); W: (H,Do,Di) -> (1,H,Do,Di)
+        y = mx.sum(xh[:, :, None, :] * self.weight[None, :, :, :], axis=-1)  # (B,H,Do)
         if self.bias is not None:
-            out = out + self.bias
-        
-        # Restore original batch dimensions
-        if len(orig_shape) > 2:
-            out = out.reshape(*orig_shape[:-1], -1)
-        
-        return out
+            y = y + self.bias[None, :, :]
+        return y.reshape(B, H * self.out_per_head)
+
+
+class MultiHeadLayerNorm(nn.Module):
+    """Head-aware LayerNorm: normalize per head over DH, then flatten.
+
+    Uses float32 reductions for stability; optional affine scale/bias.
+    """
+    def __init__(self, num_heads: int, head_dim: int, eps: float = 1e-6, affine: bool = True):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = head_dim
+        self.eps = eps
+        self.weight = mx.ones((num_heads * head_dim)) if affine else None
+        self.bias = mx.zeros((num_heads * head_dim)) if affine else None
+
+    def __call__(self, x: mx.array) -> mx.array:
+        # x: (B, NH*DH)
+        B, F = int(x.shape[0]), int(x.shape[1])
+        NH, DH = self.num_heads, self.head_dim
+        assert F == NH * DH, "MultiHeadLayerNorm: feature dim must be NH*DH"
+        xh = x.reshape(B, NH, DH)
+        in_dtype = xh.dtype
+        xf = xh.astype(mx.float32)
+        mean = mx.mean(xf, axis=-1, keepdims=True)
+        var = mx.var(xf, axis=-1, keepdims=True)
+        xnorm = (xf - mean) * mx.rsqrt(var + self.eps)
+        y = xnorm.astype(in_dtype).reshape(B, F)
+        if self.weight is not None:
+            y = y * self.weight
+        if self.bias is not None:
+            y = y + self.bias
+        return y
+
+
+def soft_cap(x: mx.array, cap: float) -> mx.array:
+    capv = mx.array(cap, dtype=x.dtype)
+    return capv * mx.tanh(x / capv)
 
 
 def enlarge_as(x, target):
@@ -177,7 +196,7 @@ class sLSTMBlock(nn.Module):
         self.hidden_dim = head_dim * head_num
         
         self.inp_norm = nn.LayerNorm(inp_dim)
-        self.hid_norm = nn.GroupNorm(head_num, self.hidden_dim)
+        self.hid_norm = MultiHeadLayerNorm(head_num, head_dim)
         
         # Conv1d for sLSTM - operates on inp_dim channels
         self.causal_conv = CausalConv1d(inp_dim, inp_dim, kernel_size=ker_size)
@@ -187,10 +206,10 @@ class sLSTMBlock(nn.Module):
         self.W_o = nn.Linear(inp_dim, self.hidden_dim)
         self.W_f = nn.Linear(inp_dim, self.hidden_dim)
         
-        self.R_z = BlockLinear([(head_dim, head_dim)] * head_num)
-        self.R_i = BlockLinear([(head_dim, head_dim)] * head_num)
-        self.R_o = BlockLinear([(head_dim, head_dim)] * head_num)
-        self.R_f = BlockLinear([(head_dim, head_dim)] * head_num)
+        self.R_z = HeadLinear(head_num, head_dim, head_dim)
+        self.R_i = HeadLinear(head_num, head_dim, head_dim)
+        self.R_o = HeadLinear(head_num, head_dim, head_dim)
+        self.R_f = HeadLinear(head_num, head_dim, head_dim)
         
         proj_dim = int(p_factor * self.hidden_dim)
         self.up_proj = nn.Linear(self.hidden_dim, 2 * proj_dim)
@@ -216,8 +235,8 @@ class sLSTMBlock(nn.Module):
         else:
             x_c = x_t
         
-        i_t = self.W_i(x_c) + self.R_i(h_tm1)
-        f_t = self.W_f(x_c) + self.R_f(h_tm1)
+        i_t = soft_cap(self.W_i(x_c) + self.R_i(h_tm1), 15.0)
+        f_t = soft_cap(self.W_f(x_c) + self.R_f(h_tm1), 15.0)
         z_t = self.W_z(x_t) + self.R_z(h_tm1)
         o_t = self.W_o(x_t) + self.R_o(h_tm1)
         
@@ -266,7 +285,7 @@ class mLSTMBlock(nn.Module):
         self.hidden_dim = head_dim * head_num
         
         self.inp_norm = nn.LayerNorm(inp_dim)
-        self.hid_norm = nn.GroupNorm(head_num, self.hidden_dim)
+        self.hid_norm = MultiHeadLayerNorm(head_num, head_dim)
         
         self.up_l_proj = nn.Linear(inp_dim, int(p_factor * inp_dim))
         self.up_r_proj = nn.Linear(inp_dim, self.hidden_dim)
@@ -310,8 +329,8 @@ class mLSTMBlock(nn.Module):
         k_t = mx.reshape(self.W_k(x_c), (bs, self.head_num, self.head_dim)) / mx.sqrt(self.head_dim)
         v_t = mx.reshape(self.W_v(x_t), (bs, self.head_num, self.head_dim))
         
-        i_t = self.W_i(x_c)
-        f_t = self.W_f(x_c)
+        i_t = soft_cap(self.W_i(x_c), 15.0)
+        f_t = soft_cap(self.W_f(x_c), 15.0)
         o_t = mx.sigmoid(self.W_o(x_t))
         
         m_t = mx.maximum(f_t + m_tm1, i_t)
@@ -401,8 +420,8 @@ class xLSTM(nn.Module):
                 self.blocks.append(sLSTMBlock(inp_dim, head_dim, head_num, s_factor, ker_size))
         
         self.head = nn.Linear(inp_dim, vocab_size)
-        # Fast head toggle (runtime-configurable)
-        self.use_fast_head = True
+        # Fast head toggle (runtime-configurable) — default off for safety/training
+        self.use_fast_head = False
     
     def init_hidden(self, batch_size):
         """Initialize hidden states for all blocks"""
@@ -473,6 +492,8 @@ class xLSTM(nn.Module):
                 logits = self.head(output)
         else:
             logits = self.head(output)
+        # Output logit soft-cap for numerical stability
+        logits = soft_cap(logits, 30.0)
 
         if return_hidden:
             return logits, hidden_states
