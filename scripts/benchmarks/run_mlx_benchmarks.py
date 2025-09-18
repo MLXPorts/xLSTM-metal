@@ -84,7 +84,11 @@ def time_prefill_and_decode(model, seq_len: int, new_tokens: int) -> Tuple[float
 
 
 def maybe_make_charts(outdir: Path, csv_path: Path):
-    import matplotlib.pyplot as plt
+    try:
+        import matplotlib.pyplot as plt
+    except ImportError:
+        print("matplotlib not found, skipping chart generation.")
+        return
     # Simple chart: decode tok/s by tile for each profile
     rows: List[Dict[str, str]] = []
     import csv as _csv
