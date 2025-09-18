@@ -473,16 +473,20 @@ class xLSTM(nn.Module):
         if use_fast_head is None:
             use_fast_head = self.use_fast_head if self.use_fast_head is not None else (os.environ.get("XLSTM_MLX_FAST_HEAD", "1") == "1")
         if use_fast_head:
-            from mlx_src.mlx_fast_kernels.gemm_kernels import gemm_av
-            # Flatten (B, T, D) -> (B*T, D) and use W^T for (D, V)
-            bt, d = int(output.shape[0] * output.shape[1]), int(output.shape[2])
-            v = int(self.vocab_size)
-            A = output.reshape(bt, d).astype(mx.float32)
-            Wt = mx.transpose(self.head.weight.astype(mx.float32))  # (D, V)
-            logits2d = gemm_av(A, Wt)  # (B*T, V)
-            if getattr(self.head, "bias", None) is not None:
-                logits2d = logits2d + self.head.bias.astype(logits2d.dtype)
-            logits = logits2d.reshape(output.shape[0], output.shape[1], v)
+            try:
+                from mlx_src.mlx_fast_kernels.gemm_kernels import gemm_av
+                # Flatten (B, T, D) -> (B*T, D) and use W^T for (D, V)
+                bt, d = int(output.shape[0] * output.shape[1]), int(output.shape[2])
+                v = int(self.vocab_size)
+                A = output.reshape(bt, d).astype(mx.float32)
+                Wt = mx.transpose(self.head.weight.astype(mx.float32))  # (D, V)
+                logits2d = gemm_av(A, Wt)  # (B*T, V)
+                if getattr(self.head, "bias", None) is not None:
+                    logits2d = logits2d + self.head.bias.astype(logits2d.dtype)
+                logits = logits2d.reshape(output.shape[0], output.shape[1], v)
+            except Exception:
+                # Fallback to standard linear on any error
+                logits = self.head(output)
         else:
             logits = self.head(output)
         # Output logit soft-cap for numerical stability
