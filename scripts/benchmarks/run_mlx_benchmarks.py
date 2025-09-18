@@ -182,10 +182,11 @@ def main():
             tile_list = [t.strip() for t in args.tiles.split(",") if t.strip()]
             for tile in tile_list:
                 # AV uses TMxT; AT_B uses TNxTK. We map the same pair for both for comparability.
-                if "x" not in tile:
-                    raise ValueError(f"Invalid tile format (expected AxB): {tile}")
-                tm_s, t_s = tile.split("x", 1)
-                tm, t = int(tm_s), int(t_s)
+                try:
+                    tm_s, t_s = tile.split("x", 1)
+                    tm, t = int(tm_s), int(t_s)
+                except ValueError:
+                    raise ValueError(f"Invalid tile format (expected AxB with integer values): {tile}") from None
                 set_gemm_tiles(av=(tm, t), atb=(t, t))
                 # Warm-up
                 _ = time_prefill_and_decode(model, seq_len=int(args.seq_len), new_tokens=4)
