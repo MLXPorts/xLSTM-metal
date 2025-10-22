@@ -21,7 +21,7 @@ def soft_cap(x: mx.array, cap_value: float) -> mx.array:
     Returns:
         Soft-capped tensor
     """
-    return cap_value * mx.tanh(x / cap_value)
+    return mx.multiply(cap_value, mx.tanh(mx.divide(x, cap_value)))
 
 
 class RMSNorm(nn.Module):
@@ -68,16 +68,16 @@ class RMSNorm(nn.Module):
 
         # Compute RMS: sqrt(mean(x^2))
         variance = mx.mean(mx.square(x), axis=-1, keepdims=True)
-        x_norm = x * mx.rsqrt(variance + self.eps)
+        x_norm = mx.multiply(x, mx.rsqrt(mx.add(variance, self.eps)))
 
         # Cast back to input dtype
         x_norm = x_norm.astype(input_dtype)
 
         # Apply learned weight and bias
         if self.use_weight:
-            x_norm = self.weight * x_norm
+            x_norm = mx.multiply(self.weight, x_norm)
         if self.use_bias:
-            x_norm = x_norm + self.bias
+            x_norm = mx.add(x_norm, self.bias)
 
         return x_norm
 
@@ -135,7 +135,7 @@ class MultiHeadLayerNorm(nn.Module):
         mean = mx.mean(x, axis=-1, keepdims=True)  # [B, S, num_heads, 1]
         variance = mx.var(x, axis=-1, keepdims=True)  # [B, S, num_heads, 1]
 
-        x_norm = (x - mean) * mx.rsqrt(variance + self.eps)
+        x_norm = mx.multiply(mx.subtract(x, mean), mx.rsqrt(mx.add(variance, self.eps)))
 
         # Cast back to input dtype
         x_norm = x_norm.astype(input_dtype)
@@ -143,8 +143,8 @@ class MultiHeadLayerNorm(nn.Module):
         # Apply per-head learned weight
         if self.use_weight:
             # Broadcast weight [num_heads, head_dim] to [B, S, num_heads, head_dim]
-            x_norm = self.weight * x_norm
+            x_norm = mx.multiply(self.weight, x_norm)
         if self.use_bias:
-            x_norm = x_norm + self.bias
+            x_norm = mx.add(x_norm, self.bias)
 
         return x_norm

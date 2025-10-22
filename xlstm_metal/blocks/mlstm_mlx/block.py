@@ -9,6 +9,7 @@ import mlx.core as mx
 import mlx.nn as nn
 from typing import Tuple, Optional
 from dataclasses import dataclass
+import operator
 
 from .components import MultiHeadLayerNorm, RMSNorm, soft_cap
 from .kernel import mlstm_sequential
@@ -40,10 +41,17 @@ class mLSTMConfig:
     return_last_states: bool = True
 
     def __post_init__(self):
-        self.qk_dim = int(self.embedding_dim * self.qk_dim_factor)
-        self.v_dim = int(self.embedding_dim * self.v_dim_factor)
-        self.head_dim = self.v_dim // self.num_heads
-        self.qk_head_dim = self.qk_dim // self.num_heads
+        # Compute dimensions using operator module (config scalars)
+        qk_dim_float = operator.mul(self.embedding_dim, self.qk_dim_factor)
+        v_dim_float = operator.mul(self.embedding_dim, self.v_dim_factor)
+
+        # Convert to integers (these are config dimensions, not tensor operations)
+        self.qk_dim = round(qk_dim_float)
+        self.v_dim = round(v_dim_float)
+
+        # Integer division for head dimensions
+        self.head_dim = operator.floordiv(self.v_dim, self.num_heads)
+        self.qk_head_dim = operator.floordiv(self.qk_dim, self.num_heads)
 
 
 class mLSTMLayer(nn.Module):
@@ -207,7 +215,7 @@ class mLSTMLayer(nn.Module):
         h_norm = h_norm.reshape(B, S, self.config.v_dim)  # [B, S, v_dim]
 
         # 10. Apply output gate (sigmoid)
-        h_out = mx.sigmoid(o_preact) * h_norm  # [B, S, v_dim]
+        h_out = mx.multiply(mx.sigmoid(o_preact), h_norm)  # [B, S, v_dim]
 
         # 11. Output projection
         y = self.out_proj(h_out)  # [B, S, embedding_dim]
@@ -260,6 +268,6 @@ class mLSTMBlock(nn.Module):
         x_mlstm, state = self.mlstm_layer(x_norm, state)
 
         # Residual connection
-        x_out = x + x_mlstm
+        x_out = mx.add(x, x_mlstm)
 
         return x_out, state

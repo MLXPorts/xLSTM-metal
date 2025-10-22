@@ -135,11 +135,11 @@ class xLSTMBlock(nn.Module):
         # mLSTM block: x + mLSTM(norm(x))
         x_norm = self.xlstm_norm(x)
         x_mlstm, new_state = self.xlstm(x_norm, state)
-        x = x + x_mlstm
+        x = mx.add(x, x_mlstm)
 
         # FFN block: x + FFN(norm(x))
         x_norm = self.ffn_norm(x)
         x_ffn = self.ffn(x_norm)
-        x = x + x_ffn
+        x = mx.add(x, x_ffn)
 
         return x, new_state

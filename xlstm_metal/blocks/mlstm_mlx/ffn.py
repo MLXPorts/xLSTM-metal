@@ -9,6 +9,7 @@ import mlx.core as mx
 import mlx.nn as nn
 from dataclasses import dataclass
 from typing import Literal
+import operator
 
 
 @dataclass
@@ -29,7 +30,7 @@ class FFNConfig:
     dropout: float = 0.0
 
     def __post_init__(self):
-        self.proj_up_dim = int(self.embedding_dim * self.proj_factor)
+        self.proj_up_dim = round(operator.mul(self.embedding_dim, self.proj_factor))
 
 
 class GatedFFN(nn.Module):
@@ -56,7 +57,7 @@ class GatedFFN(nn.Module):
         # Project up to 2x intermediate dim (for gate + up_proj)
         self.proj_up = nn.Linear(
             config.embedding_dim,
-            2 * config.proj_up_dim,
+            operator.mul(2, config.proj_up_dim),
             bias=config.use_bias
         )
 
@@ -97,7 +98,7 @@ class GatedFFN(nn.Module):
         gate_preact, up_proj = mx.split(up, 2, axis=-1)  # Each: [B, S, proj_up_dim]
 
         # Apply gating: act_fn(gate) * up_proj
-        gated = self.act_fn(gate_preact) * up_proj  # [B, S, proj_up_dim]
+        gated = mx.multiply(self.act_fn(gate_preact), up_proj)  # [B, S, proj_up_dim]
 
         # Project down
         y = self.proj_down(gated)  # [B, S, embedding_dim]
@@ -151,6 +152,6 @@ class FFNBlock(nn.Module):
         x_ffn = self.ffn(x_norm)
 
         # Residual connection
-        x_out = x + x_ffn
+        x_out = mx.add(x, x_ffn)
 
         return x_out

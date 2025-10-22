@@ -53,15 +53,15 @@ def mlstm_recurrent_step(
     V_DH = v.shape[2]
 
     # CRITICAL: Apply logsigmoid to forget gate (canonical implementation)
-    f_log = -mx.log(1.0 + mx.exp(-f_preact))  # logsigmoid
+    f_log = mx.negative(mx.log(mx.add(mx.array(1.0), mx.exp(mx.negative(f_preact)))))  # logsigmoid
 
     # Exponential gating with numerical stability
     # m_t = max(f_log + m_{t-1}, i_t)
-    m_new = mx.maximum(f_log + m_state, i_preact)  # [B, NH]
+    m_new = mx.maximum(mx.add(f_log, m_state), i_preact)  # [B, NH]
 
     # Normalized exponential gates
-    f_exp = mx.exp(f_log + m_state - m_new)  # [B, NH]
-    i_exp = mx.exp(i_preact - m_new)  # [B, NH]
+    f_exp = mx.exp(mx.subtract(mx.add(f_log, m_state), m_new))  # [B, NH]
+    i_exp = mx.exp(mx.subtract(i_preact, m_new))  # [B, NH]
 
     # Expand gates for broadcasting
     i_expanded = i_exp[:, :, None, None]  # [B, NH, 1, 1]
@@ -71,28 +71,28 @@ def mlstm_recurrent_step(
     # CRITICAL: Canonical uses k⊗v shape [B, NH, QK_DH, V_DH] not v⊗k!
     k_expanded = k[:, :, :, None]  # [B, NH, QK_DH, 1]
     v_expanded = v[:, :, None, :]  # [B, NH, 1, V_DH]
-    kv_outer = k_expanded * v_expanded  # [B, NH, QK_DH, V_DH]
+    kv_outer = mx.multiply(k_expanded, v_expanded)  # [B, NH, QK_DH, V_DH]
 
-    c_new = f_expanded * c_state + i_expanded * kv_outer  # [B, NH, QK_DH, V_DH]
+    c_new = mx.add(mx.multiply(f_expanded, c_state), mx.multiply(i_expanded, kv_outer))  # [B, NH, QK_DH, V_DH]
 
     # Update normalizer: n_t = f * n_{t-1} + i * k
     i_n = i_exp[:, :, None]  # [B, NH, 1]
     f_n = f_exp[:, :, None]  # [B, NH, 1]
-    n_new = f_n * n_state + i_n * k  # [B, NH, QK_DH]
+    n_new = mx.add(mx.multiply(f_n, n_state), mx.multiply(i_n, k))  # [B, NH, QK_DH]
 
     # CRITICAL: Scale query by 1/√d_qk (canonical implementation)
-    q_scaled = q * (QK_DH ** (-0.5))  # [B, NH, QK_DH]
+    q_scaled = mx.multiply(q, mx.power(mx.array(QK_DH), mx.array(-0.5)))  # [B, NH, QK_DH]
 
     # Compute output: h_t = (C_t^T @ q_scaled) / max(|n_t · q_scaled|, exp(-m_t)) + eps
     # C: [B, NH, QK_DH, V_DH], q: [B, NH, QK_DH] -> [B, NH, V_DH]
     h_num = mx.matmul(c_new.transpose(0, 1, 3, 2), q_scaled[:, :, :, None]).squeeze(-1)  # [B, NH, V_DH]
 
     # CRITICAL: Denominator uses max(|q·n|, exp(-m)) + eps (canonical implementation)
-    qn_dot = mx.sum(n_new * q_scaled, axis=-1, keepdims=True)  # [B, NH, 1]
-    max_val = mx.exp(-m_new)[:, :, None]  # [B, NH, 1]
-    h_den = mx.maximum(mx.abs(qn_dot), max_val) + eps  # [B, NH, 1]
+    qn_dot = mx.sum(mx.multiply(n_new, q_scaled), axis=-1, keepdims=True)  # [B, NH, 1]
+    max_val = mx.exp(mx.negative(m_new))[:, :, None]  # [B, NH, 1]
+    h_den = mx.add(mx.maximum(mx.abs(qn_dot), max_val), eps)  # [B, NH, 1]
 
-    h = h_num / h_den  # [B, NH, V_DH]
+    h = mx.divide(h_num, h_den)  # [B, NH, V_DH]
 
     return h, c_new, n_new, m_new
 
@@ -228,7 +228,7 @@ def mlstm_chunkwise(
         # Fallback for direct script execution
         import sys
         from pathlib import Path
-        metal_path = Path(__file__).parent.parent / "mlstm_metal"
+        metal_path = Path(__file__).parent.parent.joinpath("mlstm_metal")
         if str(metal_path) not in sys.path:
             sys.path.insert(0, str(metal_path))
         from fw_kernel_recurrent import mlstm_chunkwise_recurrent_fw_C_metal
@@ -237,19 +237,20 @@ def mlstm_chunkwise(
     B, NH, S, QK_DH = q.shape
     V_DH = v.shape[3]
 
-    # Compute number of chunks
+    # Compute number of chunks using operator module
+    import operator
     L = chunk_size
-    NC = (S + L - 1) // L  # Ceiling division
+    NC = operator.floordiv(operator.add(operator.sub(S, 1), L), L)  # Ceiling division: (S + L - 1) // L
 
     # Pad sequence if necessary
-    if S % L != 0:
-        pad_len = NC * L - S
+    if operator.ne(operator.mod(S, L), 0):
+        pad_len = operator.sub(operator.mul(NC, L), S)
         q = mx.pad(q, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
         k = mx.pad(k, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
         v = mx.pad(v, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
         i_preact = mx.pad(i_preact, [(0, 0), (0, 0), (0, pad_len)])
         f_preact = mx.pad(f_preact, [(0, 0), (0, 0), (0, pad_len)])
-        S_padded = NC * L
+        S_padded = operator.mul(NC, L)
     else:
         S_padded = S
 
@@ -279,11 +280,11 @@ def mlstm_chunkwise(
     vecF_chunked = f_preact.reshape(B, NH, NC, L)
 
     # Compute vecB = cumsum(logsigmoid(vecF)) along chunk dimension
-    vecF_logsig = -mx.log(1.0 + mx.exp(-vecF_chunked))
+    vecF_logsig = mx.negative(mx.log(mx.add(mx.array(1.0), mx.exp(mx.negative(vecF_chunked)))))
     vecB = mx.cumsum(vecF_logsig, axis=-1)
 
     # Compute qk_scale
-    qk_scale = QK_DH ** (-0.5)
+    qk_scale = operator.pow(QK_DH, -0.5)
 
     # Call parallel kernel
     matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(
