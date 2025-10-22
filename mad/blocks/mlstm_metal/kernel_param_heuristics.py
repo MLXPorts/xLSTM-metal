@@ -5,9 +5,12 @@
 import logging
 from dataclasses import dataclass
 
-from ....utils.kernels import is_power_of_2
-
 LOGGER = logging.getLogger(__name__)
+
+
+def is_power_of_2(n: int) -> bool:
+    """Check if n is a power of 2."""
+    return n > 0 and (n & (n - 1)) == 0
 
 
 @dataclass

@@ -1,2 +1,0 @@
-mlx>=0.29
-transformers>=4.40

@@ -1,5 +1,0 @@
-torch>=2.2
-ray[default]>=2.6
-transformers>=4.40
-safetensors>=0.4
-psutil>=5.9
