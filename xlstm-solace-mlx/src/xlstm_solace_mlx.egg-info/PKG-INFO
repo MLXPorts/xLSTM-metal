@@ -1,0 +1,40 @@
+Metadata-Version: 2.4
+Name: xlstm-solace-mlx
+Version: 0.0.1a0
+Summary: Unofficial Solace packaging of xLSTM for Apple MLX (no Ray). Not affiliated with NX-AI.
+Author: Solace (fork maintainers)
+Project-URL: Homepage, https://github.com/SolaceHarmony/xLSTM-Metal
+Project-URL: Repository, https://github.com/SolaceHarmony/xLSTM-Metal
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: Other/Proprietary License
+Classifier: Operating System :: MacOS :: MacOS X
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: mlx>=0.29
+Requires-Dist: transformers>=4.40
+
+xlstm-solace-mlx — import xlstm_solace_mlx
+
+Purpose
+- PyPI-ready packaging for the MLX path (Apple MLX, no Ray), import name `xlstm_solace_mlx`.
+
+Disclaimer
+- Independent Solace fork; not affiliated with NX‑AI or the original xLSTM authors.
+- Name intentionally includes “solace” to avoid confusion with upstream.
+
+Status
+- Pre-release scaffolding. CLI wiring and module exports will be added after the src/ refactor.
+
+Notes
+- Target Python: 3.12 (conda base recommended).
+- Focus: pure-MLX, single-process execution; keep MLX tensors on device (avoid CPU/NumPy hops).
+
+Weights (.safetensors)
+- The CLI can load MLX-native .safetensors weights produced for this architecture.
+- Usage: `python xlstm_run_mlx.py --weights /path/to/model.safetensors --strict 1 --prompt "Hello"`.
+- Strict loading (`--strict 1`, default) checks names/shapes match the module’s parameters.
+- If converting from Hugging Face/PyTorch, use `mlx_lm.convert` to produce MLX-compatible weights so names align.
