@@ -182,19 +182,59 @@ class mLSTMLayer(nn.Module):
         else:
             c_initial, n_initial, m_initial = state
 
-        # 6. mLSTM backend (sequential for now)
-        h, new_state = mlstm_sequential(
-            q=q,
-            k=k,
-            v=v,
-            i_preact=i_preact,
-            f_preact=f_preact,
-            c_initial=c_initial,
-            n_initial=n_initial,
-            m_initial=m_initial,
-            eps=self.config.eps,
-            return_last_states=self.config.return_last_states
-        )
+        # 6. mLSTM backend - use chunkwise parallel for sequences, recurrent for single tokens
+        if S == 1:
+            # Single token: use recurrent step
+            from .kernel import mlstm_recurrent_step
+
+            # Squeeze S dimension for recurrent step
+            q_t = q[:, :, 0, :]  # [B, NH, QK_DH]
+            k_t = k[:, :, 0, :]  # [B, NH, QK_DH]
+            v_t = v[:, :, 0, :]  # [B, NH, V_DH]
+            i_t = i_preact[:, :, 0]  # [B, NH]
+            f_t = f_preact[:, :, 0]  # [B, NH]
+
+            # Initialize states if needed
+            if c_initial is None:
+                NH = q.shape[1]
+                QK_DH = q.shape[3]
+                V_DH = v.shape[3]
+                c_initial = mx.zeros((B, NH, QK_DH, V_DH))
+                n_initial = mx.zeros((B, NH, QK_DH))
+                m_initial = mx.zeros((B, NH))
+
+            # Recurrent step
+            h_t, c_new, n_new, m_new = mlstm_recurrent_step(
+                q=q_t,
+                k=k_t,
+                v=v_t,
+                i_preact=i_t,
+                f_preact=f_t,
+                c_state=c_initial,
+                n_state=n_initial,
+                m_state=m_initial,
+                eps=self.config.eps
+            )
+
+            # Add back S dimension
+            h = h_t[:, :, None, :]  # [B, NH, 1, V_DH]
+            new_state = (c_new, n_new, m_new) if self.config.return_last_states else None
+        else:
+            # Multi-token sequence: use chunkwise parallel kernel
+            from .kernel import mlstm_chunkwise
+            h, new_state = mlstm_chunkwise(
+                q=q,
+                k=k,
+                v=v,
+                i_preact=i_preact,
+                f_preact=f_preact,
+                chunk_size=64,
+                c_initial=c_initial,
+                n_initial=n_initial,
+                m_initial=m_initial,
+                eps=self.config.eps,
+                return_last_states=self.config.return_last_states
+            )
         # h: [B, num_heads, S, head_dim]
 
         # 7. Transpose back and reshape
