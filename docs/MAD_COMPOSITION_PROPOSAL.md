@@ -4,7 +4,7 @@
 
 Date: 2025-01-21
 Status: Proposal
-Author: Claude (based on Sepp Hochreiter's MAD and LFM2 architectures)
+Author: Based on Sepp Hochreiter's MAD and LFM2 architectures
 
 ## Executive Summary
 
