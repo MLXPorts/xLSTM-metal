@@ -1,0 +1,2 @@
+from xlstm_solace_torch.mad.model.layers.rwkv.rwkv5 import time_mixer_rwkv5_wrapped_bf16, channel_mixer_rwkv5_wrapped
+from xlstm_solace_torch.mad.model.layers.rwkv.rwkv6 import time_mixer_rwkv6_wrapped_bf16, channel_mixer_rwkv6_wrapped
