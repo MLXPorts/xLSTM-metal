@@ -338,7 +338,7 @@ for _ in range(max_new_tokens):
 ## File Structure
 
 ```
-mad/
+xlstm_metal/
 ├── blocks/
 │   ├── mlstm_mlx/              # High-level mLSTM implementation
 │   │   ├── block.py            # mLSTM block wrapper
@@ -410,12 +410,12 @@ MINIMUM_MAX_VAL = -10.0    # Floor for stability
 
 ### Test Coverage
 
-1. **Component Tests** (mad/blocks/mlstm_mlx/test_*)
+1. **Component Tests** (xlstm_metal/blocks/mlstm_mlx/test_*)
    - Individual component functionality
    - Shape validation
    - Numerical correctness
 
-2. **Kernel Tests** (mad/blocks/mlstm_metal/test_*)
+2. **Kernel Tests** (xlstm_metal/blocks/mlstm_metal/test_*)
    - Metal kernel correctness vs pure MLX
    - Forward/backward pass parity
    - Gradient validation
@@ -442,7 +442,7 @@ python test_canonical_vs_mad.py
 python test_text_generation.py
 
 # Performance benchmarks
-python mad/blocks/mlstm_metal/test_performance_comparison.py
+python xlstm_metal/blocks/mlstm_metal/test_performance_comparison.py
 ```
 
 ## Future Work

@@ -9,9 +9,9 @@ import mlx.core as mx
 from typing import Optional, List
 from pathlib import Path
 
-from mad.wiring.mlx import WiredMADModel, create_xlstm_7b_wiring
-from mad.utils.weight_loader import load_weights_into_wired_model
-from mad.blocks.mlstm_mlx.components import soft_cap
+from ..wiring.mlx import WiredMADModel, create_xlstm_7b_wiring
+from ..utils.weight_loader import load_weights_into_wired_model
+from ..blocks.mlstm_mlx.components import soft_cap
 
 
 class xLSTM7BRunner:

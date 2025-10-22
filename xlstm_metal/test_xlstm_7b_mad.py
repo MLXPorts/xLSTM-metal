@@ -12,7 +12,7 @@ from pathlib import Path
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from mad.wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
+from xlstm_metal.wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
 
 
 def test_wiring_creation():

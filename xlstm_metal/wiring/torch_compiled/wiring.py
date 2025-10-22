@@ -247,7 +247,7 @@ class MADWiring:
         """
         # Import block classes based on type and backend
         if spec.backend == BackendType.TORCH_COMPILED:
-            from mad.blocks.mlstm_torch_compiled.block import (
+            from ...blocks.mlstm_torch_compiled.block import (
                 CompilablemLSTMBlock,
                 CompilablesLSTMBlock
             )
@@ -268,13 +268,13 @@ class MADWiring:
             elif spec.block_type == BlockType.LINEAR:
                 return nn.Linear(**spec.params)
             elif spec.block_type == BlockType.NORM:
-                from mad.blocks.mlstm_torch_compiled.block import MetalRMSNorm
+                from ...blocks.mlstm_torch_compiled.block import MetalRMSNorm
                 return MetalRMSNorm(spec.params.get('d_model', 512))
 
         elif spec.backend == BackendType.MLX:
             import mlx.nn as mlx_nn
-            from mad.blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
-            from mad.blocks.mlstm_mlx.components import RMSNorm
+            from ...blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
+            from ...blocks.mlstm_mlx.components import RMSNorm
 
             if spec.block_type == BlockType.MLSTM:
                 # Create xLSTM block (mLSTM + FFN)
