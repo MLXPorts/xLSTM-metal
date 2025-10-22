@@ -46,9 +46,9 @@ class MemoryCubeMLX(nn.Module):
         self.topk = int(topk)
 
         # Initialize empty buffers
-        # Note: MLX doesn't have register_buffer, we just keep as attributes
-        self.keys = mx.zeros((0, d_key))
-        self.vals = mx.zeros((0, d_val))
+        # MLX nn.Module uses __dict__ to avoid parameter registration issues
+        self.__dict__['keys'] = mx.zeros((0, d_key))
+        self.__dict__['vals'] = mx.zeros((0, d_val))
 
     def query(self, q: mx.array) -> tuple[mx.array, mx.array]:
         """Query keys with q [Q, d_key]; return (pred [Q, d_val], conf [Q]).
@@ -117,8 +117,9 @@ class MemoryCubeMLX(nn.Module):
             keys = keys[-self.max_items:]
             vals = vals[-self.max_items:]
 
-        self.keys = keys
-        self.vals = vals
+        # Update via __dict__ to avoid parameter registration
+        self.__dict__['keys'] = keys
+        self.__dict__['vals'] = vals
 
     def __call__(self, q: mx.array) -> tuple[mx.array, mx.array]:
         """Alias for query method to support nn.Module interface."""

@@ -216,7 +216,7 @@ def create_hrm_xlstm_7b_wiring(
         name='lm_head',
         block_type=BlockType.LINEAR,
         backend=BackendType.MLX,
-        params={'in_features': embedding_dim, 'out_features': vocab_size, 'bias': False}
+        params={'input_dims': embedding_dim, 'output_dims': vocab_size, 'bias': False}
     )
 
     # Create wiring and connect blocks

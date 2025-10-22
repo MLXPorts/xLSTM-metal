@@ -60,20 +60,27 @@ def demo_hrm_strategies():
         # Instantiate model
         model = WiredMADModel(wiring, 'embedding', 'lm_head')
 
-        # Generate dummy input
-        input_ids = mx.random.randint(0, vocab_size, (batch_size, seq_len))
+        # Generate dummy input (embeddings, not token IDs)
+        # Since we're testing the architecture, skip embedding layer
+        dummy_embeddings = mx.random.normal((batch_size, seq_len, embedding_dim))
 
         # Generate time steps for Z5 scheduler
         times = mx.arange(seq_len).reshape(1, -1)
         times = mx.broadcast_to(times, (batch_size, seq_len))
 
-        print(f"Input shape: {input_ids.shape}")
+        print(f"Input shape (embeddings): {dummy_embeddings.shape}")
         print(f"Times shape: {times.shape}")
         print(f"Times (Z5 slots): {times[0].tolist()}")
 
-        # Forward pass
+        # Forward pass - use first block as input, last block as output
         print("\nRunning forward pass...")
-        output, hidden_states = model(input_ids)
+        first_block = 'xlstm_0'
+        last_block = 'lm_head'
+
+        # Create a simpler model that starts from xlstm_0
+        from xlstm_metal.wiring.mlx import WiredMADModel
+        simple_model = WiredMADModel(wiring, first_block, last_block, debug=False)
+        output, hidden_states = simple_model(dummy_embeddings)
 
         print(f"Output shape: {output.shape}")
         print(f"Hidden states keys: {list(hidden_states.keys())}")

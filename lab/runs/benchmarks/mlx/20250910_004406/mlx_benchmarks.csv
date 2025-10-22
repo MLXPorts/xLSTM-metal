@@ -1,0 +1,2 @@
+profile,layers,model_dim,head_dim,heads,vocab,seq_len,new_tokens,tiles_av,tiles_atb,fast_head,prefill_s,prefill_tok_s,decode_s,decode_tok_s,total_s
+small,6,512,64,8,256,512,32,16x16,16x16,1,1.191026,429.88,0.084253,379.81,1.275435
