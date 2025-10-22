@@ -43,7 +43,8 @@ class LiquidTimeConstantMLX(nn.Module):
         self.hidden_size = hidden_size
 
         # Backbone: processes [x || h] concatenated input
-        self.fc1 = nn.Linear(input_size + hidden_size, hidden_size)
+        fc1_input_dim = mx.add(mx.array(input_size), mx.array(hidden_size))
+        self.fc1 = nn.Linear(fc1_input_dim, hidden_size)
         self.fc2 = nn.Linear(hidden_size, hidden_size)
 
         # Time and state networks
@@ -52,11 +53,11 @@ class LiquidTimeConstantMLX(nn.Module):
         self.state_net_h = nn.Linear(hidden_size, hidden_size)
 
         # Learned time constant τ (strictly positive via softplus)
-        tau_raw_init = mx.log(mx.exp(mx.array(tau_init)) - 1.0)
-        self.tau_raw = mx.ones((hidden_size,)) * tau_raw_init
+        tau_raw_init = mx.log(mx.subtract(mx.exp(mx.array(tau_init)), mx.array(1.0)))
+        self.tau_raw = mx.multiply(mx.ones((hidden_size,)), tau_raw_init)
 
         # State transition matrix A
-        self.A = mx.random.normal((hidden_size,)) * 0.02
+        self.A = mx.multiply(mx.random.normal((hidden_size,)), mx.array(0.02))
 
         # LayerNorm for stability
         self.norm = nn.LayerNorm(hidden_size)
@@ -83,7 +84,7 @@ class LiquidTimeConstantMLX(nn.Module):
             t = mx.broadcast_to(t, (x.shape[0],))
 
         # Compute time constant τ (strictly positive)
-        tau = nn.softplus(self.tau_raw) + 1e-4
+        tau = mx.add(nn.softplus(self.tau_raw), mx.array(1e-4))
 
         # Concatenate input and hidden state
         comb = mx.concatenate([x, h], axis=-1)
@@ -102,13 +103,14 @@ class LiquidTimeConstantMLX(nn.Module):
 
         # Time-modulated gate: higher t -> lower gate value
         t_expanded = t.reshape(-1, 1)  # (B, 1)
-        gate = mx.sigmoid(-f_t * t_expanded)
+        gate = mx.sigmoid(mx.multiply(mx.negative(f_t), t_expanded))
 
         # Blend short and long term
-        h_new = gate * g_x + (1.0 - gate) * h_x
+        one_minus_gate = mx.subtract(mx.array(1.0), gate)
+        h_new = mx.add(mx.multiply(gate, g_x), mx.multiply(one_minus_gate, h_x))
 
         # Residual update with stability clamping
-        delta = mx.clip(h_new - h, -1.0, 1.0)
-        h_out = self.norm(h + delta)
+        delta = mx.clip(mx.subtract(h_new, h), mx.array(-1.0), mx.array(1.0))
+        h_out = self.norm(mx.add(h, delta))
 
         return h_out, h_out

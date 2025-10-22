@@ -42,8 +42,8 @@ class MemoryCubeMLX(nn.Module):
         super().__init__()
         self.d_key = d_key
         self.d_val = d_val
-        self.max_items = int(max_items)
-        self.topk = int(topk)
+        self.max_items = max_items
+        self.topk = topk
 
         # Initialize empty buffers
         # MLX nn.Module uses __dict__ to avoid parameter registration issues
@@ -67,15 +67,17 @@ class MemoryCubeMLX(nn.Module):
             return pred, conf
 
         # Normalize keys and queries for cosine similarity
-        k_norm = self.keys / (mx.linalg.norm(self.keys, axis=-1, keepdims=True) + 1e-8)
-        q_norm = q / (mx.linalg.norm(q, axis=-1, keepdims=True) + 1e-8)
+        k_norm = mx.divide(self.keys, mx.add(mx.linalg.norm(self.keys, axis=-1, keepdims=True), 1e-8))
+        q_norm = mx.divide(q, mx.add(mx.linalg.norm(q, axis=-1, keepdims=True), 1e-8))
 
         # Compute cosine similarities: (Q, d_key) @ (d_key, K) -> (Q, K)
-        sims = q_norm @ k_norm.T
+        sims = mx.matmul(q_norm, mx.transpose(k_norm))
 
         # Top-k retrieval
         k_actual = min(self.topk, sims.shape[1])
-        topk_indices = mx.argpartition(-sims, kth=k_actual-1, axis=-1)[:, :k_actual]
+        k_actual_mx = mx.array(k_actual, dtype=mx.int32)
+        kth = mx.subtract(k_actual_mx, mx.array(1, dtype=mx.int32))
+        topk_indices = mx.argpartition(mx.negative(sims), kth=kth, axis=-1)[:, :k_actual]
 
         # Gather top-k values and scores
         # For each query, gather the top-k indices

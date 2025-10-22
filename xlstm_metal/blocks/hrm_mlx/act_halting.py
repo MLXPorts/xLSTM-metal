@@ -36,7 +36,7 @@ class ACTHaltingHeadMLX(nn.Module):
     def __init__(self, d_model: int, threshold: float = 0.5):
         super().__init__()
         self.proj = nn.Linear(d_model, 1)
-        self.threshold = float(threshold)
+        self.threshold = threshold
 
     def __call__(
         self,
@@ -59,13 +59,13 @@ class ACTHaltingHeadMLX(nn.Module):
         probs = mx.sigmoid(logits)
 
         # Apply threshold
-        th = self.threshold if threshold is None else float(threshold)
+        th = self.threshold if threshold is None else threshold
         mask = probs > th
 
         # Compute statistics
         stats = {
-            "act_prob_mean": float(mx.mean(probs).item()),
-            "act_open_rate": float(mx.mean(mask.astype(mx.float32)).item()),
+            "act_prob_mean": mx.mean(probs),
+            "act_open_rate": mx.mean(mask.astype(mx.float32)),
         }
 
         return probs, mask, stats

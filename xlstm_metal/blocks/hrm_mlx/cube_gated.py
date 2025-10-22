@@ -53,18 +53,20 @@ class CubeGatedBlockMLX(nn.Module):
         self.d_key = d_key
         self.d_val = d_val
         self.fuse_phase_keys = fuse_phase_keys
-        self.k_5ht = float(k_5ht)
-        self.gain_floor = float(gain_floor)
+        self.k_5ht = k_5ht
+        self.gain_floor = gain_floor
 
         # Key projection
         self.key_proj = nn.Linear(d_in, d_key)
 
         # Optional phase fusion: map [key || phase] -> key_dim
         if fuse_phase_keys:
-            self.phase_proj = nn.Linear(d_key + 8, d_key)
+            phase_input_dim = mx.add(mx.array(d_key), mx.array(8))
+            self.phase_proj = nn.Linear(phase_input_dim, d_key)
 
         # Alpha gate head: takes [h_in || pred || conf] -> gate value
-        self.alpha_fc1 = nn.Linear(d_in + d_val + 1, d_in)
+        alpha_input_dim = mx.add(mx.add(mx.array(d_in), mx.array(d_val)), mx.array(1))
+        self.alpha_fc1 = nn.Linear(alpha_input_dim, d_in)
         self.alpha_fc2 = nn.Linear(d_in, 1)
 
         # Memory cube
@@ -106,8 +108,9 @@ class CubeGatedBlockMLX(nn.Module):
         mod_5ht = state.get('mod_5ht', None)
         train = state.get('train', False)
         y_teacher = state.get('y_teacher', None)
-        allow_commit = None
+        allow_commit = state.get('allow_commit', None)
         B, L, D = h_in.shape
+        BL = mx.multiply(mx.array(B), mx.array(L))
 
         # Compute neuromodulation gain if provided
         gain = None
@@ -116,7 +119,7 @@ class CubeGatedBlockMLX(nn.Module):
             if g.ndim == 2:
                 g = mx.expand_dims(g, -1)
             # Divisive gain: higher 5-HT -> lower gain
-            gain = mx.clip(mx.exp(-self.k_5ht * g), self.gain_floor, 1.0)
+            gain = mx.clip(mx.exp(mx.multiply(mx.negative(mx.array(self.k_5ht)), g)), self.gain_floor, 1.0)
 
         # Project to keys
         keys = self.key_proj(h_in)  # (B, L, d_key)
@@ -128,17 +131,18 @@ class CubeGatedBlockMLX(nn.Module):
             t = times.astype(mx.float32)
 
             # Three cos/sin phases with periods 1, 3, 9
-            phase_1 = mx.cos(2 * mx.pi * t / 1.0)
-            phase_3 = mx.cos(2 * mx.pi * t / 3.0)
-            phase_9 = mx.cos(2 * mx.pi * t / 9.0)
-            sin_1 = mx.sin(2 * mx.pi * t / 1.0)
-            sin_3 = mx.sin(2 * mx.pi * t / 3.0)
-            sin_9 = mx.sin(2 * mx.pi * t / 9.0)
+            two_pi = mx.multiply(mx.array(2.0), mx.array(mx.pi))
+            phase_1 = mx.cos(mx.divide(mx.multiply(two_pi, t), mx.array(1.0)))
+            phase_3 = mx.cos(mx.divide(mx.multiply(two_pi, t), mx.array(3.0)))
+            phase_9 = mx.cos(mx.divide(mx.multiply(two_pi, t), mx.array(9.0)))
+            sin_1 = mx.sin(mx.divide(mx.multiply(two_pi, t), mx.array(1.0)))
+            sin_3 = mx.sin(mx.divide(mx.multiply(two_pi, t), mx.array(3.0)))
+            sin_9 = mx.sin(mx.divide(mx.multiply(two_pi, t), mx.array(9.0)))
 
             phi = mx.stack([phase_1, phase_3, phase_9, sin_1, sin_3, sin_9], axis=-1)  # (B, L, 6)
 
             # Z5 slot one-hot (5 classes)
-            slots = (t.astype(mx.int32) % 5)
+            slots = mx.remainder(t.astype(mx.int32), mx.array(5, dtype=mx.int32))
             # Create one-hot encoding manually
             z5 = (mx.expand_dims(slots, -1) == mx.arange(5)).astype(mx.float32)
 
@@ -153,7 +157,7 @@ class CubeGatedBlockMLX(nn.Module):
             keys = self.phase_proj(k_cat)  # (B, L, d_key)
 
         # Reshape for cube query: (B*L, d_key)
-        keys_flat = keys.reshape(B * L, -1)
+        keys_flat = keys.reshape((BL, -1))
 
         # Query memory cube
         pred, conf = self.cube.query(keys_flat)
@@ -170,43 +174,53 @@ class CubeGatedBlockMLX(nn.Module):
 
         # Apply neuromodulation if present
         if gain is not None:
-            pred = pred * gain
-            alpha = alpha * gain
+            pred = mx.multiply(pred, gain)
+            alpha = mx.multiply(alpha, gain)
 
         # Compute residual-augmented output
-        y_resid = h_in + pred
+        y_resid = mx.add(h_in, pred)
 
         # Blend with teacher or direct input
         if y_teacher is None:
-            y_out = (1 - alpha) * h_in + alpha * y_resid
+            one_minus_alpha = mx.subtract(mx.array(1.0), alpha)
+            y_out = mx.add(mx.multiply(one_minus_alpha, h_in), mx.multiply(alpha, y_resid))
         else:
-            y_out = (1 - alpha) * y_teacher + alpha * y_resid
+            one_minus_alpha = mx.subtract(mx.array(1.0), alpha)
+            y_out = mx.add(mx.multiply(one_minus_alpha, y_teacher), mx.multiply(alpha, y_resid))
 
         # Update cube if in training mode
         if train and y_teacher is not None:
             # Compute delta (residuals to store)
-            delta = (y_teacher - h_in).reshape(B * L, -1)
+            delta = mx.subtract(y_teacher, h_in).reshape((BL, -1))
 
             if allow_commit is not None:
                 assert allow_commit.shape[:2] == h_in.shape[:2], "allow_commit must be (B,L)"
                 # Only update for allowed positions (Z5 boundary commits)
-                mask = allow_commit.reshape(B * L)
-                if mx.sum(mask.astype(mx.float32)) > 0:
-                    # Filter keys and deltas by mask
-                    keys_masked = keys_flat[mask]
-                    delta_masked = delta[mask]
+                mask = allow_commit.reshape((BL,)).astype(mx.bool_)
+                num_commits = mx.sum(mask.astype(mx.int32))
+                if num_commits > 0:
+                    # Find indices where mask is True using cumsum trick
+                    indices = mx.arange(BL.item())
+                    # Select only indices where mask is True using multiplication + gather
+                    # Create selection by expanding mask to indices
+                    selected_indices = mx.where(mask, indices, mx.array(-1))
+                    # Filter out -1 values by taking first num_commits non-negative
+                    valid_mask = selected_indices >= 0
+                    idx = mx.where(valid_mask, selected_indices, mx.array(0))[:num_commits.item()]
+                    keys_masked = mx.take(keys_flat, idx, axis=0)
+                    delta_masked = mx.take(delta, idx, axis=0)
                     self.cube.update(keys_masked, delta_masked)
             else:
                 # Update all positions
                 self.cube.update(keys_flat, delta)
 
         # Return output and telemetry in state dict (MAD interface)
-        energy_pre = float(mx.mean(mx.sum(h_in ** 2, axis=-1)).item())
-        energy_post = float(mx.mean(mx.sum(y_out ** 2, axis=-1)).item())
+        energy_pre = mx.mean(mx.sum(mx.power(h_in, mx.array(2)), axis=-1))
+        energy_post = mx.mean(mx.sum(mx.power(y_out, mx.array(2)), axis=-1))
 
         new_state = {
-            'alpha_mean': float(mx.mean(alpha).item()),
-            'conf_mean': float(mx.mean(conf).item()),
+            'alpha_mean': mx.mean(alpha),
+            'conf_mean': mx.mean(conf),
             'energy_pre_gate': energy_pre,
             'energy_post_gate': energy_post
         }

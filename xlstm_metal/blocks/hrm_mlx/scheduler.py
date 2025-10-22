@@ -23,7 +23,7 @@ def z5_slots(times: mx.array) -> mx.array:
         >>> z5_slots(times)
         array([[0, 1, 2, 3, 4, 0, 1]], dtype=int64)
     """
-    return times.astype(mx.int64) % 5
+    return mx.remainder(times.astype(mx.int64), 5)
 
 
 def boundary_commit_mask(times: mx.array) -> mx.array:

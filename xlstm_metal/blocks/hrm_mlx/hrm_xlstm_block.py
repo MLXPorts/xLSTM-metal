@@ -123,7 +123,7 @@ class HRMxLSTMBlockMLX(nn.Module):
         """
         telemetry = {}
 
-        # 1. Apply base xLSTM block (mLSTM + FFN)
+        # 1. Apply base xLSTM block (mLSTM + FFN) - this computes the teacher signal
         xlstm_out, new_state = self.xlstm_block(x, state)
 
         # 2. Apply HRM cube gating if enabled
@@ -134,25 +134,21 @@ class HRMxLSTMBlockMLX(nn.Module):
                 allow_commit = boundary_commit_mask(times)
 
             # Apply cube-gated blending
-            # Use x as teacher signal (self-supervised residual learning)
-            hrm_out, alpha_mean, conf_mean = self.cube_gate(
-                h_in=xlstm_out,
-                y_teacher=x if train else None,  # Learn residuals from input
-                train=train,
-                allow_commit=allow_commit,
-                times=times,
-                mod_5ht=mod_5ht
-            )
+            # Per-block architecture: cube learns the residual transformation that xLSTM applies
+            # Teacher y_T = xlstm_block(x), stored residual Δy = y_T - x
+            # Cube gate receives original input x, blends with memory-augmented prediction
+            cube_state = {
+                'times': times,
+                'mod_5ht': mod_5ht,
+                'train': train,
+                'y_teacher': xlstm_out if train else None,  # Teacher is xLSTM output
+                'allow_commit': allow_commit  # Z5 boundary commit mask
+            }
+            hrm_out, hrm_telemetry = self.cube_gate(x, cube_state)
 
             output = hrm_out
-            telemetry['alpha_mean'] = alpha_mean
-            telemetry['conf_mean'] = conf_mean
-
-            # Energy tracking (L2 norms for stability monitoring)
-            energy_pre = float(mx.mean(mx.sum(xlstm_out ** 2, axis=-1)).item())
-            energy_post = float(mx.mean(mx.sum(hrm_out ** 2, axis=-1)).item())
-            telemetry['energy_pre_gate'] = energy_pre
-            telemetry['energy_post_gate'] = energy_post
+            # Collect telemetry from cube gate
+            telemetry.update(hrm_telemetry)
         else:
             output = xlstm_out
 
