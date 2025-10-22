@@ -11,8 +11,8 @@ import mlx.nn as nn
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple
 
-from mad.blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
-from mad.blocks.mlstm_mlx.components import RMSNorm, soft_cap
+from ..blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
+from ..blocks.mlstm_mlx.components import RMSNorm, soft_cap
 
 # Type aliases matching canonical
 mLSTMLayerStateType = Tuple[mx.array, mx.array, mx.array]  # (c, n, m)
@@ -94,7 +94,7 @@ class xLSTM7B(nn.Module):
 
         Uses mad.utils.weight_loader to map NPZ weights to MAD blocks.
         """
-        from mad.utils.weight_loader import load_xLSTM_7b_weights
+        from ..utils.weight_loader import load_xLSTM_7b_weights
 
         # Load weights into blocks
         embedding_weight, head_weight = load_xLSTM_7b_weights(

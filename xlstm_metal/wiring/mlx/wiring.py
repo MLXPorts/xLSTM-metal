@@ -9,7 +9,7 @@ import mlx.core as mx
 import mlx.nn as nn
 from typing import Dict, List, Optional, Tuple, Any
 
-from mad.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
+from ..core import MADWiring, BlockSpec, BlockType, BackendType
 
 
 class WiredMADModel(nn.Module):
@@ -20,7 +20,7 @@ class WiredMADModel(nn.Module):
     where dependencies allow.
 
     Example:
-        >>> from mad.wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
+        >>> from xlstm_metal.wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
         >>> wiring = create_xlstm_7b_wiring()
         >>> model = WiredMADModel(wiring, 'embedding', 'lm_head')
         >>> logits, state = model(input_ids)
@@ -84,9 +84,9 @@ class WiredMADModel(nn.Module):
         if spec.backend != BackendType.MLX:
             raise ValueError(f"WiredMADModel (MLX) can only instantiate MLX blocks, got {spec.backend}")
 
-        from mad.blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
-        from mad.blocks.mlstm_mlx.components import RMSNorm
-        from mad.blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
+        from xlstm_metal.blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
+        from xlstm_metal.blocks.mlstm_mlx.components import RMSNorm
+        from xlstm_metal.blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
 
         if spec.block_type == BlockType.TOKENIZER:
             # Tokenizer is not an nn.Module

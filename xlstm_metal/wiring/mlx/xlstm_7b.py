@@ -5,7 +5,7 @@ xLSTM-7B Model Wiring for MLX
 Helper function to create xLSTM-7B MAD wiring.
 """
 
-from mad.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
+from ..core import MADWiring, BlockSpec, BlockType, BackendType
 
 
 def create_xlstm_7b_wiring(

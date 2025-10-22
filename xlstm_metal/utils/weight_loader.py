@@ -10,10 +10,10 @@ import mlx.core as mx
 from typing import Dict, TYPE_CHECKING
 from pathlib import Path
 
-from mad.blocks.mlstm_mlx.xlstm_block import xLSTMBlock
+from ..blocks.mlstm_mlx.xlstm_block import xLSTMBlock
 
 if TYPE_CHECKING:
-    from mad.wiring import WiredMADModel
+    from ..wiring import WiredMADModel
 
 
 def load_npz_weights_to_block(npz_weights: Dict[str, mx.array], block_idx: int, block: xLSTMBlock):

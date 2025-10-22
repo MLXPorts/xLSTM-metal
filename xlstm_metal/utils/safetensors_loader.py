@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mad.wiring import WiredMADModel
+    from ..wiring import WiredMADModel
 
 
 def load_safetensors_into_wired_model(model_dir: str, model: "WiredMADModel"):
