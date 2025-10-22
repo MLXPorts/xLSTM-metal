@@ -28,6 +28,12 @@ class BlockType(Enum):
     ATTENTION = "attention"
     EMBEDDING = "embedding"
     TOKENIZER = "tokenizer"
+    # HRM+ (Hierarchical Retrieval Memory) block types
+    MEMORY_CUBE = "memory_cube"
+    LIQUID_CELL = "liquid_cell"
+    CUBE_GATED = "cube_gated"
+    ACT_HALTING = "act_halting"
+    HRM_XLSTM = "hrm_xlstm"  # HRM-enhanced xLSTM block
 
 
 @dataclass

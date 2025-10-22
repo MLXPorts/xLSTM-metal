@@ -87,6 +87,14 @@ class WiredMADModel(nn.Module):
         from xlstm_metal.blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
         from xlstm_metal.blocks.mlstm_mlx.components import RMSNorm
         from xlstm_metal.blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
+        from xlstm_metal.blocks.hrm_mlx import (
+            MemoryCubeMLX,
+            LiquidTimeConstantMLX,
+            CubeGatedBlockMLX,
+            ACTHaltingHeadMLX,
+            HRMxLSTMBlockMLX,
+            HRMxLSTMConfig
+        )
 
         if spec.block_type == BlockType.TOKENIZER:
             # Tokenizer is not an nn.Module
@@ -96,6 +104,22 @@ class WiredMADModel(nn.Module):
             # Create xLSTM block (mLSTM + FFN)
             config = xLSTMBlockConfig(**spec.params)
             return xLSTMBlock(config)
+        elif spec.block_type == BlockType.HRM_XLSTM:
+            # HRM-enhanced xLSTM block
+            config = HRMxLSTMConfig(**spec.params)
+            return HRMxLSTMBlockMLX(config)
+        elif spec.block_type == BlockType.MEMORY_CUBE:
+            # Content-addressable memory cube
+            return MemoryCubeMLX(**spec.params)
+        elif spec.block_type == BlockType.LIQUID_CELL:
+            # Liquid Time Constant cell
+            return LiquidTimeConstantMLX(**spec.params)
+        elif spec.block_type == BlockType.CUBE_GATED:
+            # Cube-gated block
+            return CubeGatedBlockMLX(**spec.params)
+        elif spec.block_type == BlockType.ACT_HALTING:
+            # ACT halting head
+            return ACTHaltingHeadMLX(**spec.params)
         elif spec.block_type == BlockType.EMBEDDING:
             vocab_size = spec.params['vocab_size']
             embedding_dim = spec.params['embedding_dim']
