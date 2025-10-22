@@ -1,2 +1,0 @@
-[console_scripts]
-xlstm-mlx = xlstm_solace_mlx.cli:main
