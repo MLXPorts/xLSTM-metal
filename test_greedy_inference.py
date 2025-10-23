@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 """
-Real inference test - Generate actual text with xLSTM-7B
+Test greedy decoding (temperature=0.0) to check if sampling is the issue
 """
 
 from pathlib import Path
@@ -10,7 +10,7 @@ from transformers import AutoTokenizer
 
 def main():
     print("="*80)
-    print("xLSTM-7B Real Inference Test")
+    print("xLSTM-7B Greedy Decoding Test")
     print("="*80)
 
     model_dir = Path("xlstm_7b_model")
@@ -36,15 +36,14 @@ def main():
     runner.load_weights(str(model_dir))
     print("   ✓ Weights loaded")
 
-    # Test prompts
+    # Simple prompts
     prompts = [
-        "The future of artificial intelligence is",
-        "Once upon a time",
-        "To be or not to be",
-        "In a galaxy far, far away",
+        "Hello, my name is",
+        "The capital of France is",
+        "2 + 2 =",
     ]
 
-    print("\n4. Running inference...")
+    print("\n4. Running greedy inference (temperature=0.0)...")
     print("="*80)
 
     for i, prompt in enumerate(prompts, 1):
@@ -53,20 +52,20 @@ def main():
 
         # Encode prompt
         input_ids = tokenizer.encode(prompt)
+        print(f"Input IDs: {input_ids}")
 
-        # Generate
+        # Generate with greedy decoding
         try:
             output_ids = runner.generate(
                 prompt_ids=input_ids,
-                max_tokens=50,
-                temperature=0.8,
-                top_k=50,
-                stop_tokens=[tokenizer.eos_token_id]
+                max_tokens=20,
+                temperature=0.0,  # Greedy decoding
             )
 
             # Decode
             output_text = tokenizer.decode(output_ids, skip_special_tokens=True)
-            print(f"Generated:\n{output_text}\n")
+            print(f"Output IDs: {output_ids}")
+            print(f"Generated: {output_text}\n")
 
         except Exception as e:
             print(f"✗ Error: {e}")
@@ -74,8 +73,6 @@ def main():
             traceback.print_exc()
             return 1
 
-    print("="*80)
-    print("✅ Real inference test completed successfully!")
     print("="*80)
     return 0
 

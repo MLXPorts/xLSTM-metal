@@ -110,41 +110,49 @@ class MultiHeadLayerNorm(nn.Module):
         self.force_float32_reductions = force_float32_reductions
 
         if use_weight:
-            # Shape: [num_heads, head_dim] - one weight vector per head
-            self.weight = mx.ones((num_heads, head_dim))
+            # Shape: [num_heads * head_dim] - flat weight matching transformers
+            self.weight = mx.ones((num_heads * head_dim,))
         if use_bias:
-            self.bias = mx.zeros((num_heads, head_dim))
+            self.bias = mx.zeros((num_heads * head_dim,))
 
     def __call__(self, x: mx.array) -> mx.array:
         """
-        Forward pass
+        Forward pass matching transformers xLSTMMultiHeadLayerNorm
 
         Args:
             x: Input tensor [B, S, num_heads, head_dim]
 
         Returns:
-            Normalized tensor [B, S, num_heads, head_dim]
+            Normalized tensor [B, S, num_heads * head_dim]
         """
+        B, S, NH, DH = x.shape
+        if NH != self.num_heads:
+            raise ValueError(f"Expected {self.num_heads} heads, got {NH}")
+        if DH != self.head_dim:
+            raise ValueError(f"Expected {self.head_dim} head_dim, got {DH}")
+
         input_dtype = x.dtype
 
         # Force float32 for reductions if requested
         if self.force_float32_reductions:
             x = x.astype(mx.float32)
 
-        # Normalize per head: compute mean/var over head_dim dimension
-        mean = mx.mean(x, axis=-1, keepdims=True)  # [B, S, num_heads, 1]
-        variance = mx.var(x, axis=-1, keepdims=True)  # [B, S, num_heads, 1]
+        # Normalize per head: compute mean/var over head_dim dimension (last dim)
+        mean = mx.mean(x, axis=-1, keepdims=True)  # [B, S, NH, 1]
+        variance = mx.var(x, axis=-1, keepdims=True)  # [B, S, NH, 1]
 
-        x_norm = (x - mean) * mx.rsqrt(variance + self.eps)
+        x_norm = mx.multiply(mx.subtract(x, mean), mx.rsqrt(mx.add(variance, self.eps)))
 
         # Cast back to input dtype
         x_norm = x_norm.astype(input_dtype)
 
-        # Apply per-head learned weight
+        # Reshape to [B, S, NH*DH] before applying weight
+        x_norm = x_norm.reshape(B, S, -1)
+
+        # Apply flat learned weight and bias
         if self.use_weight:
-            # Broadcast weight [num_heads, head_dim] to [B, S, num_heads, head_dim]
-            x_norm = self.weight * x_norm
+            x_norm = mx.multiply(self.weight, x_norm)
         if self.use_bias:
-            x_norm = x_norm + self.bias
+            x_norm = mx.add(x_norm, self.bias)
 
         return x_norm

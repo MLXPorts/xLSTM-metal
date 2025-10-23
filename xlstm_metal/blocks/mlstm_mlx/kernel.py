@@ -246,6 +246,10 @@ def mlstm_chunkwise(
     L = chunk_size
     NC = (S + L - 1) // L  # Ceiling division
 
+    # Validate chunk_size
+    if L > 64:
+        raise ValueError(f"chunk_size={L} exceeds Metal kernel buffer limit of 64!")
+
     # Pad sequence if necessary
     if S % L != 0:
         pad_len = NC * L - S
