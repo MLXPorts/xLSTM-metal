@@ -13,6 +13,12 @@ __pycache__/
 *.pyo
 *.pyd
 
+# Python build artifacts
+build/
+dist/
+*.egg-info/
+*.egg
+
 # Editor/OS
 .DS_Store
 .idea/
