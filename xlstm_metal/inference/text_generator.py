@@ -9,10 +9,10 @@ import mlx.core as mx
 from typing import Optional
 from pathlib import Path
 
-from ..wiring.core import MADWiring, BlockSpec, BlockType, BackendType
-from ..wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
-from ..utils.weight_loader import load_weights_into_wired_model
-from ..blocks.mlstm_mlx.components import soft_cap
+from mad.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
+from mad.wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
+from mad.utils.weight_loader import load_weights_into_wired_model
+from mad.blocks.mlstm_mlx.components import soft_cap
 
 
 class xLSTM7BTextGenerator:
@@ -71,7 +71,7 @@ class xLSTM7BTextGenerator:
 
         # Create tokenizer separately (NOT part of execution graph)
         print(f"Creating tokenizer (model_path={model_path})...")
-        from ..blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
+        from mad.blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
         tokenizer_config = TokenizerConfig(model_path=model_path, vocab_size=vocab_size)
         self.tokenizer = TokenizerBlock(tokenizer_config)
 

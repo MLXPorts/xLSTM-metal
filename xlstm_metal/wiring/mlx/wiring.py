@@ -20,7 +20,7 @@ class WiredMADModel(nn.Module):
     where dependencies allow.
 
     Example:
-        >>> from xlstm_metal.wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
+        >>> from mad.wiring.mlx import create_xlstm_7b_wiring, WiredMADModel
         >>> wiring = create_xlstm_7b_wiring()
         >>> model = WiredMADModel(wiring, 'embedding', 'lm_head')
         >>> logits, state = model(input_ids)
@@ -200,20 +200,6 @@ class WiredMADModel(nn.Module):
 
                 # Cache activation
                 activations[block_name] = output
-
-                # CRITICAL: Force evaluation every few blocks to prevent Metal resource exhaustion
-                # MLX's lazy evaluation can build a graph for all 32 blocks, exceeding Metal's
-                # resource_limit of 499000. Evaluating periodically frees Metal buffers.
-                # Evaluate every 4 blocks to balance performance vs resource usage.
-                block_idx = self.wiring.name_to_idx[block_name]
-                if block_idx % 4 == 0:
-                    mx.eval(output)
-                    if new_hidden_states.get(block_name) is not None:
-                        state_tuple = new_hidden_states[block_name]
-                        if isinstance(state_tuple, tuple):
-                            mx.eval(*state_tuple)
-                        else:
-                            mx.eval(state_tuple)
 
         # Return output block's activation
         final_output = activations[self.output_block_name]

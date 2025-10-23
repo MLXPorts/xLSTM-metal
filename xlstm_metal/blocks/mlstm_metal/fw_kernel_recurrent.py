@@ -38,6 +38,7 @@ _RECURRENT_FW_C_SRC = r"""
     uint siz_b_DHHV = params[8];
     uint save_states_every_nth_chunk = params[9];
     uint USE_INITIAL_STATE = params[10];
+    uint USE_DBG = params[11];
 
     // Extract strides from strides buffer
     uint str_matK_B_NH = strides[0];
@@ -114,6 +115,9 @@ _RECURRENT_FW_C_SRC = r"""
 
     // Iterate over chunks
     for (uint k = 0; k < NC; ++k) {
+        uint tid_linear = ty * siz_b_DHHV + tx; // Declare tid_linear here
+        uint num_threads = siz_b_DHQK * siz_b_DHHV; // Declare num_threads here
+
         // Store states every nth chunk
         if (k % save_states_every_nth_chunk == 0) {
             uint idx_k_save = k / save_states_every_nth_chunk;
@@ -148,93 +152,65 @@ _RECURRENT_FW_C_SRC = r"""
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        // STEP 1: Cooperatively load vecF, vecI and compute vecFlogsig_masked
-        // All threads work together to fill the shared arrays
-        uint tid_linear = ty * siz_b_DHHV + tx;
-        uint num_threads = siz_b_DHQK * siz_b_DHHV;
-
-        for (uint idx_L = tid_linear; idx_L < L; idx_L += num_threads) {
-            // Load vecF_k_val (shifted by +1, masked at L-1)
-            float vecF_val = 0.0f;
-            if (idx_L < L - 1) {
-                uint f_idx = idx_b_BNH * str_vecFI_B_NH + k * L + idx_L + 1;
-                vecF_val = vecF[f_idx];
-            }
-
-            // vecFlogsig = log(sigmoid(vecF)) using numerically stable formula
-            // log(sigmoid(x)) = -log(1 + exp(-x)) = -softplus(-x)
-            float vecFlogsig_val = (idx_L < L - 1) ? -log(1.0f + exp(-vecF_val)) : 0.0f;
-            vecFlogsig_masked_shared[idx_L] = vecFlogsig_val;
-
-            // Load vecI
-            uint i_idx = idx_b_BNH * str_vecFI_B_NH + k * L + idx_L;
-            vecI_shared[idx_L] = vecI[i_idx];
-        }
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-
-        // STEP 2: Compute vecA = reverse_cumsum(vecFlogsig_masked) + vecI
-        // This MUST be sequential due to data dependencies (or use parallel prefix sum)
-        // Let thread 0 do the entire computation to match Triton exactly
+        // STEP 1+2: Compute vecA (B_last - B + I), vecFlogsig_masked for debug, and prepare shared buffers
+        // Single-thread deterministic implementation following Transformers canonical formula.
         if (tx == 0 && ty == 0) {
-            // Compute reverse cumsum: vecA[i] = sum(vecFlogsig_masked[i:]) + vecI[i]
-            // Triton: tl.flip(tl.cumsum(tl.flip(vecFlogsig_masked)))
-            for (uint idx_L = 0; idx_L < L; ++idx_L) {
-                float cumsum_val = 0.0f;
-                for (uint j = idx_L; j < L - 1; ++j) {
-                    cumsum_val += vecFlogsig_masked_shared[j];
+            float tail_sum = 0.0f; // sum of logsig(f[j]) for j > i
+            for (int i = int(L) - 1; i >= 0; --i) {
+                // load gates
+                uint f_idx = idx_b_BNH * str_vecFI_B_NH + k * L + (uint)i;
+                float f_val = vecF[f_idx];
+                // logsigmoid(x) = -log(1 + exp(-x))
+                float f_logsig = -log(1.0f + exp(-f_val));
+
+                // I gate
+                uint i_idx = idx_b_BNH * str_vecFI_B_NH + k * L + (uint)i;
+                float i_val = vecI[i_idx];
+                // A[i] = sum_{j>i} logsig(F[j]) + I[i]
+                vecA_shared[i] = tail_sum + i_val;
+
+                // For debugging: masked logsig (exclude current, last=0)
+                vecFlogsig_masked_shared[i] = (i < int(L) - 1) ? (-log(1.0f + exp(-vecF[(uint)(i+1) + k*L + idx_b_BNH * str_vecFI_B_NH]))) : 0.0f;
+
+                // advance tail sum to include current for next iteration
+                tail_sum += f_logsig;
+                // also store vecI in shared for later use if needed
+                vecI_shared[i] = i_val;
+            }
+            if (USE_DBG) {
+                for (uint i = 0; i < L; ++i) {
+                    dbg[i] = vecA_shared[i];
+                    dbg[L + i] = vecFlogsig_masked_shared[i];
+                    dbg[2 * L + i] = vecI_shared[i];
                 }
-                vecA_shared[idx_L] = cumsum_val + vecI_shared[idx_L];
             }
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        // STEP 3: Compute scaG and scaAmax
-        // scaG = sum(vecFlogsig_masked) + log(sigmoid(vecF_first))
-        // scaAmax = max(vecA)
-        thread float scaG_partial = 0.0f;
-        thread float scaAmax_partial = -INFINITY;
-
-        for (uint idx_L = tid_linear; idx_L < L; idx_L += num_threads) {
-            if (idx_L < L - 1) {
-                scaG_partial += vecFlogsig_masked_shared[idx_L];
-            }
-            scaAmax_partial = fmax(scaAmax_partial, vecA_shared[idx_L]);
-        }
-
-        // Add log(sigmoid(vecF_first)) to scaG (only thread 0 does this)
-        if (tx == 0 && ty == 0) {
-            uint f_first_idx = idx_b_BNH * str_vecFI_B_NH + k * L;
-            float vecFfirst_val = vecF[f_first_idx];
-            float vecFfirstlogsig_val = -log(1.0f + exp(-vecFfirst_val));
-            scaG_partial += vecFfirstlogsig_val;
-        }
-
-        // Reduce scaG and scaAmax across threadgroup
-        threadgroup float scaG_reduce[256];
-        threadgroup float scaAmax_reduce[256];
-        scaG_reduce[tid_linear] = scaG_partial;
-        scaAmax_reduce[tid_linear] = scaAmax_partial;
-        threadgroup_barrier(mem_flags::mem_threadgroup);
-
+        // STEP 3: Compute scaG and scaAmax (single-thread, then broadcast)
+        threadgroup float sca_shared[2]; // [0] = scaG_final, [1] = scaMinter_next_val
         if (tx == 0 && ty == 0) {
             float scaG_sum = 0.0f;
             float scaAmax_max = -INFINITY;
-            for (uint i = 0; i < num_threads; ++i) {
-                scaG_sum += scaG_reduce[i];
-                scaAmax_max = fmax(scaAmax_max, scaAmax_reduce[i]);
+            for (uint i = 0; i < L; ++i) {
+                // reconstruct logsig F directly from tail sums: we already computed via loop
+                // but simplest is to read F and compute logsig again here
+                uint f_idx = idx_b_BNH * str_vecFI_B_NH + k * L + i;
+                float f_val = vecF[f_idx];
+                scaG_sum += -log(1.0f + exp(-f_val));
+                scaAmax_max = fmax(scaAmax_max, vecA_shared[i]);
             }
+            
+            if (USE_DBG) { dbg[3 * L] = scaG_sum; }
 
-            // scaMinter_next_val = max(scaG + scaMinter, scaAmax)
             float scaMinter_next = fmax(scaG_sum + scaMinter_k_val_shared[0], scaAmax_max);
-
-            // Store for use below (reuse reduce buffers as temp storage)
-            scaG_reduce[0] = scaG_sum;
-            scaAmax_reduce[0] = scaMinter_next;
+            sca_shared[0] = scaG_sum;
+            sca_shared[1] = scaMinter_next;
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        float scaG_final = scaG_reduce[0];
-        float scaMinter_next_val = scaAmax_reduce[0];
+        float scaG_final = sca_shared[0];
+        float scaMinter_next_val = sca_shared[1];
         float scaMinter_curr = scaMinter_k_val_shared[0];
 
         // Compute normalized gates
@@ -363,7 +339,7 @@ def _compile_recurrent_kernel():
         name="mlstm_recurrent_fw_C",
         input_names=["matK", "matV", "vecF", "vecI", "matC_initial", "vecN_initial",
                      "scaMinter_initial", "params", "strides"],
-        output_names=["matC_states", "vecN_states", "scaMinter_states"],
+        output_names=["matC_states", "vecN_states", "scaMinter_states", "dbg"],
         header=_HEADER,
         source=_RECURRENT_FW_C_SRC,
         ensure_row_contiguous=True,
@@ -391,7 +367,8 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
     siz_b_DHQK: int = 16,
     siz_b_DHHV: int = 16,
     save_states_every_nth_chunk: int = 1,
-) -> Tuple[mx.array, mx.array, mx.array]:
+    dbg: Optional[mx.array] = None,
+) -> Tuple[mx.array, mx.array, mx.array] | Tuple[mx.array, mx.array, mx.array, mx.array]:
     """
     Metal kernel for recurrent forward computation of mLSTM chunk states.
 
@@ -399,6 +376,7 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
         matC_states: (B, NH, (NC+1)*DHQK, DHHV)
         vecN_states: (B, NH, (NC+1)*DHQK)
         scaMinter_states: (B, NH, NC+1)
+        dbg_out: (L * 3 + 1,) debug buffer
     """
     B, NH, S, DHQK = matK.shape
     DHHV = matV.shape[3]
@@ -411,8 +389,9 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
 
     # Prepare parameter buffer
     USE_INITIAL_STATE = 1 if matC_initial is not None else 0
+    USE_DBG = 1 if dbg is not None else 0
     params = mx.array([B, NH, S, DHQK, DHHV, NC, L, siz_b_DHQK, siz_b_DHHV,
-                       save_states_every_nth_chunk, USE_INITIAL_STATE], dtype=mx.uint32)
+                       save_states_every_nth_chunk, USE_INITIAL_STATE, USE_DBG], dtype=mx.uint32)
 
     # Prepare strides buffer (all as if row-contiguous)
     # For K: (B, NH, S, DHQK) -> strides (NH*S*DHQK, S*DHQK, DHQK, 1)
@@ -452,6 +431,11 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
         vecN_initial = mx.zeros((B, NH, DHQK), dtype=matK.dtype)
     if scaMinter_initial is None:
         scaMinter_initial = mx.zeros((B, NH), dtype=matK.dtype)
+    # Track whether caller asked for debug output; allocate buffer only if requested
+    dbg_requested = dbg is not None
+    if not dbg_requested:
+        # Allocate a temporary buffer to satisfy kernel signature
+        dbg = mx.zeros((L * 3 + 1,), dtype=mx.float32)
 
     # Launch pre-compiled kernel: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
     num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK
@@ -462,13 +446,19 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
     outputs = _get_kernel()(
         inputs=[matK, matV, vecF, vecI, matC_initial, vecN_initial,
                 scaMinter_initial, params, strides],
-        output_shapes=[matC_states.shape, vecN_states.shape, scaMinter_states.shape],
-        output_dtypes=[matK.dtype, matK.dtype, matK.dtype],
+        output_shapes=[matC_states.shape, vecN_states.shape, scaMinter_states.shape, (L * 3 + 1,)],
+        output_dtypes=[matK.dtype, matK.dtype, matK.dtype, dbg.dtype],
         grid=grid,
         threadgroup=threadgroup,
     )
 
-    return outputs
+    matC_states, vecN_states, scaMinter_states, dbg_out = outputs
+
+    # Preserve backward compatibility: only return dbg if explicitly requested
+    if dbg_requested:
+        return matC_states, vecN_states, scaMinter_states, dbg_out
+    else:
+        return matC_states, vecN_states, scaMinter_states
 
 
 __all__ = ['mlstm_chunkwise_recurrent_fw_C_metal']

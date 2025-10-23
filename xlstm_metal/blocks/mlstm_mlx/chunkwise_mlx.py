@@ -158,14 +158,15 @@ def mlstm_chunkwise_mlx(
 
     assert S % chunk_size == 0, f"Sequence length {S} must be divisible by chunk_size {chunk_size}"
     NC = S // chunk_size
-    qk_scale = QK_DH ** (-0.5)
+    qk_scale = mx.rsqrt(mx.array(QK_DH, dtype=mx.float32))
 
     # Reshape to chunks: (B, NH, S) -> (B, NH, NC, L)
     i_preact = i_preact.reshape(B, NH, NC, chunk_size)
     f_preact = f_preact.reshape(B, NH, NC, chunk_size)
 
     # Compute vecB = cumsum(logsigmoid(f)) (Triton line 157, 313)
-    f_logsig = -mx.log(1.0 + mx.exp(-f_preact))  # logsigmoid
+    one = mx.array(1.0, dtype=f_preact.dtype)
+    f_logsig = -mx.log(one + mx.exp(-f_preact))  # logsigmoid
     vec_b = mx.cumsum(f_logsig, axis=-1)  # (B, NH, NC, L)
 
     # Phase 1: Recurrent computation of inter-chunk states
@@ -205,11 +206,13 @@ def mlstm_chunkwise_mlx(
     # Apply causal mask (Triton lines 137-140)
     # Create lower triangular mask
     causal_mask = mx.tril(mx.ones((chunk_size, chunk_size), dtype=mx.bool_))
-    matLogD_chunk = mx.where(causal_mask, matLogD_chunk, -float('inf'))
+    neg_inf = mx.array(-3.4028235e38, dtype=matLogD_chunk.dtype)
+    matLogD_chunk = mx.where(causal_mask, matLogD_chunk, neg_inf)
 
     # Compute vecM_intra = max(matLogD_chunk, axis=-1) (Triton lines 143-144)
     vecM_intra = mx.max(matLogD_chunk, axis=-1)  # (B, NH, NC, L)
-    vecM_intra = mx.maximum(vecM_intra, -10.0)  # MINIMUM_MAX_VAL (Triton line 144)
+    min_max_val = mx.array(-10.0, dtype=vecM_intra.dtype)
+    vecM_intra = mx.maximum(vecM_intra, min_max_val)  # MINIMUM_MAX_VAL
 
     # Compute vecM_combine (Triton lines 177-182)
     vecM_b_inter = vec_b + scaM_k_states[:, :, :, None]  # (B, NH, NC, L)
@@ -253,7 +256,8 @@ def mlstm_chunkwise_mlx(
     vecN_comb_denom = mx.maximum(mx.abs(vecN_comb), mx.exp(-vecM_combine))  # (B, NH, NC, L)
 
     # matH_out = matH_comb_num / (vecN_comb_denom + eps) (Triton line 250)
-    matH_out = matH_comb_num / (vecN_comb_denom[:, :, :, :, None] + eps)  # (B, NH, NC, L, DHHV)
+    eps_a = mx.array(eps, dtype=vecN_comb_denom.dtype)
+    matH_out = matH_comb_num / (vecN_comb_denom[:, :, :, :, None] + eps_a)  # (B, NH, NC, L, DHHV)
 
     # Reshape output back to (B, NH, S, DHHV)
     h = matH_out.reshape(B, NH, S, V_DH)

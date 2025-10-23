@@ -92,3 +92,4 @@ Rule of thumb:
 - MLX Streams patterns: see `tools/mlx_streams.py`.
 - Metal tiling patterns: `mlx_fast_kernels/gemm_kernels.py`.
 - PyTorch+MPS design: `docs/PYTORCH_MPS_INFERENCE_ARCHITECTURE.md`.
+- Numerics and dtype rules: `docs/MLX_NUMERICS_AND_DTYPE_GUIDE.md`.

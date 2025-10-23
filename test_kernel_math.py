@@ -29,7 +29,7 @@ def main():
     print("✓ Model loaded\n")
 
     # Test with longer prompt
-    prompt = "The capital of France is Paris. The capital of Germany is"
+    prompt = "a" * 65
     input_ids = tokenizer.encode(prompt)
     print(f"Prompt: '{prompt}'")
     print(f"Input IDs ({len(input_ids)} tokens): {input_ids}\n")

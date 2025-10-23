@@ -26,6 +26,15 @@ class mLSTMConfig:
         qk_dim_factor: 0.5  (qk_dim = 2048)
         v_dim_factor: 1.0   (v_dim = 4096)
         gate_soft_cap: 15.0
+
+    Kernel configuration:
+        chunk_size: 64  (chunk size for chunkwise parallel processing)
+        siz_b_DHQK: 16  (Metal threadgroup size for recurrent kernel)
+        siz_b_DHHV: 16  (Metal threadgroup size for recurrent kernel)
+        siz_b_LQ: 8     (Metal threadgroup size for parallel kernel)
+        siz_b_LKV: 8    (Metal threadgroup size for parallel kernel)
+        siz_b_DHQK_parallel: 8  (Metal threadgroup size for parallel kernel)
+        siz_b_DHHV_parallel: 8  (Metal threadgroup size for parallel kernel)
     """
     embedding_dim: int = 4096
     num_heads: int = 8
@@ -39,11 +48,25 @@ class mLSTMConfig:
     inference_state_dtype: str = "float32"
     return_last_states: bool = True
 
+    # Kernel performance parameters
+    chunk_size: int = 64
+    max_chunk_size: int = 64  # Metal kernel buffer limit
+    siz_b_DHQK: int = 16
+    siz_b_DHHV: int = 16
+    siz_b_LQ: int = 8
+    siz_b_LKV: int = 8
+    siz_b_DHQK_parallel: int = 8
+    siz_b_DHHV_parallel: int = 8
+
     def __post_init__(self):
         self.qk_dim = int(self.embedding_dim * self.qk_dim_factor)
         self.v_dim = int(self.embedding_dim * self.v_dim_factor)
         self.head_dim = self.v_dim // self.num_heads
         self.qk_head_dim = self.qk_dim // self.num_heads
+
+        # Validate chunk_size
+        if self.chunk_size > self.max_chunk_size:
+            raise ValueError(f"chunk_size={self.chunk_size} exceeds Metal kernel buffer limit of {self.max_chunk_size}!")
 
 
 class mLSTMLayer(nn.Module):
@@ -182,7 +205,10 @@ class mLSTMLayer(nn.Module):
         else:
             c_initial, n_initial, m_initial = state
 
-        # 6. mLSTM backend - use chunkwise parallel for sequences, recurrent for single tokens
+        # 6. mLSTM backend - select kernel based on sequence length (matches PyTorch)
+        #    - S == 1: single step recurrent
+        #    - 1 < S < chunk_size: sequential (loop over recurrent steps)
+        #    - S >= chunk_size: chunkwise parallel
         if S == 1:
             # Single token: use recurrent step
             from .kernel import mlstm_recurrent_step
@@ -219,8 +245,24 @@ class mLSTMLayer(nn.Module):
             # Add back S dimension
             h = h_t[:, :, None, :]  # [B, NH, 1, V_DH]
             new_state = (c_new, n_new, m_new) if self.config.return_last_states else None
+        elif S < self.config.chunk_size:
+            # Short sequence (1 < S < chunk_size): use sequential loop
+            # This matches PyTorch's wrap_chunkwise_arbitrary_sequence_length behavior
+            from .kernel import mlstm_sequential
+            h, new_state = mlstm_sequential(
+                q=q,
+                k=k,
+                v=v,
+                i_preact=i_preact,
+                f_preact=f_preact,
+                c_initial=c_initial,
+                n_initial=n_initial,
+                m_initial=m_initial,
+                eps=self.config.eps,
+                return_last_states=self.config.return_last_states
+            )
         else:
-            # Multi-token sequence: use chunkwise parallel kernel
+            # Long sequence (S >= chunk_size): use chunkwise parallel kernel
             from .kernel import mlstm_chunkwise
             h, new_state = mlstm_chunkwise(
                 q=q,
@@ -228,12 +270,19 @@ class mLSTMLayer(nn.Module):
                 v=v,
                 i_preact=i_preact,
                 f_preact=f_preact,
-                chunk_size=64,
+                chunk_size=self.config.chunk_size,
                 c_initial=c_initial,
                 n_initial=n_initial,
                 m_initial=m_initial,
                 eps=self.config.eps,
-                return_last_states=self.config.return_last_states
+                return_last_states=self.config.return_last_states,
+                siz_b_DHQK=self.config.siz_b_DHQK,
+                siz_b_DHHV=self.config.siz_b_DHHV,
+                siz_b_LQ=self.config.siz_b_LQ,
+                siz_b_LKV=self.config.siz_b_LKV,
+                siz_b_DHQK_parallel=self.config.siz_b_DHQK_parallel,
+                siz_b_DHHV_parallel=self.config.siz_b_DHHV_parallel,
+                max_chunk_size=self.config.max_chunk_size
             )
         # h: [B, num_heads, S, head_dim]
 
@@ -247,7 +296,7 @@ class mLSTMLayer(nn.Module):
         h_norm = h_norm.reshape(B, S, self.config.v_dim)  # [B, S, v_dim]
 
         # 10. Apply output gate (sigmoid)
-        h_out = mx.sigmoid(o_preact) * h_norm  # [B, S, v_dim]
+        h_out = mx.multiply(mx.sigmoid(o_preact), h_norm)  # [B, S, v_dim]
 
         # 11. Output projection
         y = self.out_proj(h_out)  # [B, S, embedding_dim]
@@ -300,6 +349,6 @@ class mLSTMBlock(nn.Module):
         x_mlstm, state = self.mlstm_layer(x_norm, state)
 
         # Residual connection
-        x_out = x + x_mlstm
+        x_out = mx.add(x, x_mlstm)
 
         return x_out, state
