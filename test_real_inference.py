@@ -88,9 +88,9 @@ def main():
         print(f"\n   Test {i}/{len(prompts)}: \"{prompt}\"")
 
         try:
-            # Tokenize
-            input_ids = tokenizer.encode(prompt)
-            print(f"     Tokenized: {len(input_ids)} tokens")
+            # Tokenize and prepend BOS token (CRITICAL for xLSTM-7B!)
+            input_ids = [tokenizer.bos_token_id] + tokenizer.encode(prompt)
+            print(f"     Tokenized: {len(input_ids)} tokens (including BOS)")
 
             # Generate with greedy decoding first
             print("     Generating (greedy)...")
