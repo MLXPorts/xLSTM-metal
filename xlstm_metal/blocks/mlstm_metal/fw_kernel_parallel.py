@@ -502,7 +502,7 @@ def mlstm_chunkwise_parallel_fw_Hintra_metal(
         inputs=[matQ, matK, matV, matC_states, vecN_states, scaMinter_states,
                 vecI, vecB, params, strides],
         output_shapes=[matHout.shape, vecNout.shape, vecMout.shape],
-        output_dtypes=[matQ.dtype, matQ.dtype, matQ.dtype],
+        output_dtypes=[mx.float32, mx.float32, mx.float32],
         grid=grid,
         threadgroup=threadgroup,
     )

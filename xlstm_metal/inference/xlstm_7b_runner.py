@@ -7,10 +7,10 @@ Provides text generation interface for xLSTM-7B model using WiredMADModel.
 
 import mlx.core as mx
 from typing import Optional, List
+from pathlib import Path
 
 from ..wiring.mlx import WiredMADModel, create_xlstm_7b_wiring
 from ..utils.weight_loader import load_weights_into_wired_model
-from ..utils.safetensors_loader import load_safetensors_into_wired_model
 from ..blocks.mlstm_mlx.components import soft_cap
 
 
@@ -80,6 +80,7 @@ class xLSTM7BRunner:
             model_path: Path to model directory (for safetensors) or NPZ file
         """
         from pathlib import Path
+        from ..utils.safetensors_loader import load_safetensors_into_wired_model
         path = Path(model_path)
 
         if path.is_dir():
@@ -141,45 +142,20 @@ class xLSTM7BRunner:
         # Forward pass
         logits, self.state = self.forward(input_ids, self.state)
 
-        # Evaluate to materialize the computation (MLX is lazy!)
-        mx.eval(logits)
-        if self.state is not None:
-            # Evaluate all state tensors (state is dict of (c, n, m) tuples)
-            for state_tuple in self.state.values():
-                if state_tuple is not None:
-                    # Each state is a tuple of 3 arrays: (c, n, m)
-                    if isinstance(state_tuple, tuple):
-                        mx.eval(*state_tuple)
-                    else:
-                        mx.eval(state_tuple)
-
         # Get logits for last token
         next_token_logits = logits[0, -1, :]  # [vocab_size]
 
-        # Handle greedy decoding (temperature=0.0) as special case
-        if temperature == 0.0:
-            next_token = mx.argmax(next_token_logits)
-            mx.eval(next_token)
-            return next_token.item()
-
         # Apply temperature
         if temperature != 1.0:
-            next_token_logits = mx.divide(next_token_logits, mx.array(temperature))
+            next_token_logits = next_token_logits / temperature
 
         # Apply top-k filtering
         if top_k is not None:
-            # Get top-k values
-            top_k_logits = mx.topk(next_token_logits, k=top_k)
-
-            # Get the minimum value in top-k as threshold
-            threshold = mx.min(top_k_logits)
-
-            # Create mask: keep values >= threshold
-            mask = next_token_logits >= threshold
-
-            # Zero out all values below threshold
-            neg_inf = mx.full(next_token_logits.shape, -1e10)
-            next_token_logits = mx.where(mask, next_token_logits, neg_inf)
+            top_k_values, top_k_indices = mx.topk(next_token_logits, top_k)
+            # Zero out all non-top-k values
+            mask = mx.zeros_like(next_token_logits)
+            mask[top_k_indices] = 1
+            next_token_logits = mx.where(mask == 1, next_token_logits, -float('inf'))
 
         # Apply top-p (nucleus) filtering
         if top_p is not None:
@@ -195,18 +171,14 @@ class xLSTM7BRunner:
             next_token_logits = mx.where(
                 next_token_logits >= cutoff_logit,
                 next_token_logits,
-                mx.array(-1e10)
+                -float('inf')
             )
 
         # Sample from distribution
         probs = mx.softmax(next_token_logits, axis=-1)
         next_token = mx.random.categorical(mx.log(probs))
 
-        # Evaluate to materialize before converting to Python
-        mx.eval(next_token)
-
-        # Convert to Python int for returning
-        return next_token.item()
+        return int(next_token)
 
     def generate(
         self,
@@ -233,11 +205,6 @@ class xLSTM7BRunner:
         """
         # Reset state for new generation
         self.reset_state()
-
-        # Prepend BOS token (required for xLSTM-7B)
-        # BOS token ID is 0 (from config: "bos_token_id": 0, "force_bos_token_insert": true)
-        if not prompt_ids or prompt_ids[0] != 0:
-            prompt_ids = [0] + prompt_ids
 
         # Convert prompt to array [1, S]
         generated = list(prompt_ids)

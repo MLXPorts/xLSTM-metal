@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 """
-Simple safetensors weight loader for xLSTM-7B MAD model.
+Direct safetensors weight loader for xLSTM-7B MAD model.
 
-Just loads the dict and maps HuggingFace names to our block names.
-No manual assignment - let the blocks handle their own parameter structure.
+Loads HuggingFace safetensors directly into WiredMADModel without conversion.
+Uses the canonical match_dict from xlstm-jax.
 """
 
 import mlx.core as mx
@@ -12,17 +12,15 @@ from pathlib import Path
 from typing import Dict, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..wiring import WiredMADModel
+    from mad.wiring import WiredMADModel
 
 
 def load_safetensors_into_wired_model(model_dir: str, model: "WiredMADModel"):
     """
-    Load xLSTM-7B weights from HuggingFace safetensors.
+    Load xLSTM-7B weights directly from HuggingFace safetensors into WiredMADModel.
 
-    Simple approach:
-    1. Load all safetensors into a dict (mx.load does this)
-    2. Map HuggingFace keys to our block keys
-    3. Assign weights to blocks
+    Based on xlstm-jax canonical implementation:
+    xlstm_jax/utils/model_param_handling/handle_mlstm_simple.py
 
     Args:
         model_dir: Path to HuggingFace model directory with safetensors
@@ -37,7 +35,7 @@ def load_safetensors_into_wired_model(model_dir: str, model: "WiredMADModel"):
     with open(index_path) as f:
         index = json.load(f)
 
-    # Load all shards into one dict
+    # Load all shards
     shard_files = sorted(set(index["weight_map"].values()))
     print(f"Loading {len(shard_files)} shards...")
 
@@ -49,87 +47,81 @@ def load_safetensors_into_wired_model(model_dir: str, model: "WiredMADModel"):
 
     print(f"Loaded {len(hf_weights)} tensors from safetensors")
 
-    # Map HuggingFace keys to our block structure
-    # HF: backbone.blocks.{i}.mlstm_layer.q.weight
-    # Us: blocks['xlstm_{i}'].xlstm.q.weight
+    # Load embedding
+    if 'backbone.embeddings.weight' in hf_weights and 'embedding' in model.blocks:
+        model.blocks['embedding'].weight = mx.array(hf_weights['backbone.embeddings.weight'])
+        print(f"✓ Loaded embedding: {hf_weights['backbone.embeddings.weight'].shape}")
 
-    # Build a dict that maps our parameter paths to HF parameter values
-    our_weights = {}
-
-    # Embedding
-    if 'backbone.embeddings.weight' in hf_weights:
-        our_weights['embedding.weight'] = hf_weights['backbone.embeddings.weight']
-
-    # xLSTM blocks
+    # Load blocks
     num_blocks = sum(1 for name in model.blocks.keys() if name.startswith('xlstm_'))
+    print(f"Loading {num_blocks} xLSTM blocks...")
+
     for i in range(num_blocks):
+        block_name = f'xlstm_{i}'
+        if block_name not in model.blocks:
+            print(f"Warning: {block_name} not found in model")
+            continue
+
+        block = model.blocks[block_name]
         hf_prefix = f'backbone.blocks.{i}'
-        our_prefix = f'xlstm_{i}'
 
-        # Map all HF keys for this block to our keys
-        for hf_key, tensor in hf_weights.items():
-            if not hf_key.startswith(hf_prefix):
-                continue
+        # mLSTM layer weights
+        mlstm_mapping = {
+            f'{hf_prefix}.mlstm_layer.q.weight': ('xlstm', 'q', 'weight'),
+            f'{hf_prefix}.mlstm_layer.k.weight': ('xlstm', 'k', 'weight'),
+            f'{hf_prefix}.mlstm_layer.v.weight': ('xlstm', 'v', 'weight'),
+            f'{hf_prefix}.mlstm_layer.igate_preact.weight': ('xlstm', 'igate_preact', 'weight'),
+            f'{hf_prefix}.mlstm_layer.igate_preact.bias': ('xlstm', 'igate_preact', 'bias'),
+            f'{hf_prefix}.mlstm_layer.fgate_preact.weight': ('xlstm', 'fgate_preact', 'weight'),
+            f'{hf_prefix}.mlstm_layer.fgate_preact.bias': ('xlstm', 'fgate_preact', 'bias'),
+            f'{hf_prefix}.mlstm_layer.ogate_preact.weight': ('xlstm', 'ogate_preact', 'weight'),
+            f'{hf_prefix}.mlstm_layer.out_proj.weight': ('xlstm', 'out_proj', 'weight'),
+        }
 
-            # Strip HF prefix and map to our structure
-            suffix = hf_key[len(hf_prefix)+1:]  # Remove "backbone.blocks.{i}."
+        for hf_key, (module, submodule, param) in mlstm_mapping.items():
+            if hf_key in hf_weights:
+                target = getattr(getattr(block, module), submodule)
+                setattr(target, param, mx.array(hf_weights[hf_key]))
 
-            # Map component names
-            suffix = suffix.replace('mlstm_layer.', 'xlstm.')
-            suffix = suffix.replace('norm_mlstm.', 'xlstm_norm.')
-            suffix = suffix.replace('norm_ffn.', 'ffn_norm.')
-            # ffn. stays ffn.
+        # Multi-head layer norm - keep FLAT shape [NH*DH], don't reshape!
+        # PyTorch transformers uses flat weight, not [NH, DH]
+        mhln_key = f'{hf_prefix}.mlstm_layer.multihead_norm.weight'
+        if mhln_key in hf_weights:
+            # CRITICAL: Keep flat shape AND create proper copy
+            block.xlstm.multihead_norm.weight = mx.array(hf_weights[mhln_key])
 
-            our_key = f'{our_prefix}.{suffix}'
-            our_weights[our_key] = tensor
+        # Norms
+        norm_mlstm_key = f'{hf_prefix}.norm_mlstm.weight'
+        if norm_mlstm_key in hf_weights:
+            block.xlstm_norm.weight = mx.array(hf_weights[norm_mlstm_key])
 
-    # Output norm
-    if 'backbone.out_norm.weight' in hf_weights:
-        our_weights['out_norm.weight'] = hf_weights['backbone.out_norm.weight']
+        norm_ffn_key = f'{hf_prefix}.norm_ffn.weight'
+        if norm_ffn_key in hf_weights:
+            block.ffn_norm.weight = mx.array(hf_weights[norm_ffn_key])
 
-    # LM head
-    if 'lm_head.weight' in hf_weights:
-        our_weights['lm_head.weight'] = hf_weights['lm_head.weight']
+        # FFN - load separate proj_up_gate and proj_up
+        up_gate_key = f'{hf_prefix}.ffn.proj_up_gate.weight'
+        up_key = f'{hf_prefix}.ffn.proj_up.weight'
+        if up_gate_key in hf_weights and up_key in hf_weights:
+            # Load gate and up projections separately (xLSTM-7B has separate layers)
+            block.ffn.proj_up_gate.weight = mx.array(hf_weights[up_gate_key])  # [10944, 4096]
+            block.ffn.proj_up.weight = mx.array(hf_weights[up_key])  # [10944, 4096]
 
-    # Now assign weights to blocks by iterating through our_weights
-    print(f"Mapping {len(our_weights)} weights to model blocks...")
+        down_key = f'{hf_prefix}.ffn.proj_down.weight'
+        if down_key in hf_weights:
+            block.ffn.proj_down.weight = mx.array(hf_weights[down_key])
 
-    for our_key, tensor in our_weights.items():
-        try:
-            # Parse key: "xlstm_0.xlstm.q.weight" -> block="xlstm_0", path="xlstm.q.weight"
-            parts = our_key.split('.', 1)
-            if len(parts) != 2:
-                # Top-level like "embedding.weight"
-                block_name = parts[0]
-                param_path = 'weight'
-            else:
-                block_name, param_path = parts
+        if (i + 1) % 8 == 0:
+            print(f"  ✓ Loaded blocks 0-{i}")
 
-            if block_name not in model.blocks:
-                print(f"Warning: Block '{block_name}' not in model, skipping {our_key}")
-                continue
+    # Load output norm
+    if 'backbone.out_norm.weight' in hf_weights and 'out_norm' in model.blocks:
+        model.blocks['out_norm'].weight = mx.array(hf_weights['backbone.out_norm.weight'])
+        print(f"✓ Loaded out_norm: {hf_weights['backbone.out_norm.weight'].shape}")
 
-            # Navigate to the parameter and set it
-            block = model.blocks[block_name]
-            path_parts = param_path.split('.')
-
-            # Navigate to the parent module
-            obj = block
-            for part in path_parts[:-1]:
-                if not part:  # Skip empty parts
-                    continue
-                obj = getattr(obj, part)
-
-            # Set the parameter
-            param_name = path_parts[-1]
-            if not param_name:
-                print(f"Warning: Empty parameter name for {our_key}")
-                continue
-
-            setattr(obj, param_name, tensor)
-
-        except Exception as e:
-            print(f"Error loading {our_key}: {e}")
-            raise
+    # Load LM head
+    if 'lm_head.weight' in hf_weights and 'lm_head' in model.blocks:
+        model.blocks['lm_head'].weight = mx.array(hf_weights['lm_head.weight'])
+        print(f"✓ Loaded lm_head: {hf_weights['lm_head.weight'].shape}")
 
     print(f"\n✅ Successfully loaded all pretrained weights from safetensors")

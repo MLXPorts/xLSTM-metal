@@ -157,6 +157,6 @@ class FFNBlock(nn.Module):
         x_ffn = self.ffn(x_norm)
 
         # Residual connection
-        x_out = x + x_ffn
+        x_out = mx.add(x, x_ffn)
 
         return x_out

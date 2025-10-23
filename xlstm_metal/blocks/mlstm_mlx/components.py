@@ -21,7 +21,8 @@ def soft_cap(x: mx.array, cap_value: float) -> mx.array:
     Returns:
         Soft-capped tensor
     """
-    return cap_value * mx.tanh(x / cap_value)
+    cap = mx.array(cap_value, dtype=x.dtype)
+    return mx.multiply(cap, mx.tanh(mx.divide(x, cap)))
 
 
 class RMSNorm(nn.Module):
@@ -40,7 +41,8 @@ class RMSNorm(nn.Module):
         force_float32_reductions: bool = True
     ):
         super().__init__()
-        self.eps = eps
+        # Store eps as MLX scalar for stability
+        self._eps = mx.array(eps, dtype=mx.float32)
         self.use_weight = use_weight
         self.use_bias = use_bias
         self.force_float32_reductions = force_float32_reductions
@@ -68,16 +70,17 @@ class RMSNorm(nn.Module):
 
         # Compute RMS: sqrt(mean(x^2))
         variance = mx.mean(mx.square(x), axis=-1, keepdims=True)
-        x_norm = x * mx.rsqrt(variance + self.eps)
+        eps_t = self._eps.astype(x.dtype)
+        x_norm = mx.multiply(x, mx.rsqrt(mx.add(variance, eps_t)))
 
         # Cast back to input dtype
         x_norm = x_norm.astype(input_dtype)
 
         # Apply learned weight and bias
         if self.use_weight:
-            x_norm = self.weight * x_norm
+            x_norm = mx.multiply(self.weight, x_norm)
         if self.use_bias:
-            x_norm = x_norm + self.bias
+            x_norm = mx.add(x_norm, self.bias)
 
         return x_norm
 
@@ -104,13 +107,14 @@ class MultiHeadLayerNorm(nn.Module):
         super().__init__()
         self.num_heads = num_heads
         self.head_dim = head_dim
-        self.eps = eps
+        self._eps = mx.array(eps, dtype=mx.float32)
         self.use_weight = use_weight
         self.use_bias = use_bias
         self.force_float32_reductions = force_float32_reductions
 
+        # CRITICAL: Weight and bias are FLAT [num_heads * head_dim], not [num_heads, head_dim]!
+        # This matches PyTorch transformers xLSTMMultiHeadLayerNorm
         if use_weight:
-            # Shape: [num_heads * head_dim] - flat weight matching transformers
             self.weight = mx.ones((num_heads * head_dim,))
         if use_bias:
             self.bias = mx.zeros((num_heads * head_dim,))
@@ -141,18 +145,21 @@ class MultiHeadLayerNorm(nn.Module):
         mean = mx.mean(x, axis=-1, keepdims=True)  # [B, S, NH, 1]
         variance = mx.var(x, axis=-1, keepdims=True)  # [B, S, NH, 1]
 
-        x_norm = mx.multiply(mx.subtract(x, mean), mx.rsqrt(mx.add(variance, self.eps)))
+        eps_t = self._eps.astype(x.dtype)
+        x_norm = mx.multiply(mx.subtract(x, mean), mx.rsqrt(mx.add(variance, eps_t)))
 
         # Cast back to input dtype
         x_norm = x_norm.astype(input_dtype)
 
-        # Reshape to [B, S, NH*DH] before applying weight
-        x_norm = x_norm.reshape(B, S, -1)
+        # CRITICAL: Reshape BEFORE applying weight/bias (matches transformers!)
+        # PyTorch: normalize per-head, reshape to flat, THEN apply weight
+        x_norm = x_norm.reshape(B, S, -1)  # [B, S, NH*DH]
 
-        # Apply flat learned weight and bias
+        # Apply weight and bias to FLAT tensor
+        # weight: [NH*DH], x_norm: [B, S, NH*DH]
         if self.use_weight:
             x_norm = mx.multiply(self.weight, x_norm)
         if self.use_bias:
-            x_norm = mx.add(x_norm, self.bias)
+            x_norm = mx.add(self.bias, x_norm)
 
         return x_norm
