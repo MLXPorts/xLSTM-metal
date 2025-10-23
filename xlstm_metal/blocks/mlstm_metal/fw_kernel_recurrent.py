@@ -107,9 +107,10 @@ _RECURRENT_FW_C_SRC = r"""
         threadgroup_barrier(mem_flags::mem_threadgroup);
     }
 
-    // Thread-local storage for vecA, vecFlogsig_masked computation
-    thread float vecA_local[64];  // Max L=64, adjust as needed
-    thread float vecFlogsig_masked_local[64];
+    // Threadgroup shared memory for vecFlogsig_masked and vecA (CRITICAL: must be shared across threads!)
+    threadgroup float vecFlogsig_masked_shared[64];
+    threadgroup float vecA_shared[64];
+    threadgroup float vecI_shared[64];
 
     // Iterate over chunks
     for (uint k = 0; k < NC; ++k) {
@@ -147,13 +148,12 @@ _RECURRENT_FW_C_SRC = r"""
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        // Compute vecA_k, scaG_k (gate computation logic)
-        // Each thread processes one position in L
-        thread float scaG_k_val = 0.0f;
-        thread float scaAmax_k_val = -INFINITY;
+        // STEP 1: Cooperatively load vecF, vecI and compute vecFlogsig_masked
+        // All threads work together to fill the shared arrays
+        uint tid_linear = ty * siz_b_DHHV + tx;
+        uint num_threads = siz_b_DHQK * siz_b_DHHV;
 
-        // Parallel computation of vecFlogsig and vecA
-        for (uint idx_L = tx; idx_L < L; idx_L += siz_b_DHHV) {
+        for (uint idx_L = tid_linear; idx_L < L; idx_L += num_threads) {
             // Load vecF_k_val (shifted by +1, masked at L-1)
             float vecF_val = 0.0f;
             if (idx_L < L - 1) {
@@ -161,47 +161,65 @@ _RECURRENT_FW_C_SRC = r"""
                 vecF_val = vecF[f_idx];
             }
 
-            // vecFlogsig_k_val = log(sigmoid(vecF_k_val))
-            float vecFlogsig_val = log(1.0f / (1.0f + exp(-vecF_val)));
-            vecFlogsig_masked_local[idx_L] = (idx_L < L - 1) ? vecFlogsig_val : 0.0f;
+            // vecFlogsig = log(sigmoid(vecF)) using numerically stable formula
+            // log(sigmoid(x)) = -log(1 + exp(-x)) = -softplus(-x)
+            float vecFlogsig_val = (idx_L < L - 1) ? -log(1.0f + exp(-vecF_val)) : 0.0f;
+            vecFlogsig_masked_shared[idx_L] = vecFlogsig_val;
 
-            // Load vecI_k_val
+            // Load vecI
             uint i_idx = idx_b_BNH * str_vecFI_B_NH + k * L + idx_L;
-            float vecI_val = vecI[i_idx];
+            vecI_shared[idx_L] = vecI[i_idx];
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
 
-            // Compute cumsum backwards (flip, cumsum, flip) - simplified serial version
-            // This needs to be done sequentially or with prefix sum
-            float cumsum_val = 0.0f;
-            for (uint j = idx_L; j < L - 1; ++j) {
-                cumsum_val += vecFlogsig_masked_local[j];
+        // STEP 2: Compute vecA = reverse_cumsum(vecFlogsig_masked) + vecI
+        // This MUST be sequential due to data dependencies (or use parallel prefix sum)
+        // Let thread 0 do the entire computation to match Triton exactly
+        if (tx == 0 && ty == 0) {
+            // Compute reverse cumsum: vecA[i] = sum(vecFlogsig_masked[i:]) + vecI[i]
+            // Triton: tl.flip(tl.cumsum(tl.flip(vecFlogsig_masked)))
+            for (uint idx_L = 0; idx_L < L; ++idx_L) {
+                float cumsum_val = 0.0f;
+                for (uint j = idx_L; j < L - 1; ++j) {
+                    cumsum_val += vecFlogsig_masked_shared[j];
+                }
+                vecA_shared[idx_L] = cumsum_val + vecI_shared[idx_L];
             }
-            vecA_local[idx_L] = cumsum_val + vecI_val;
+        }
+        threadgroup_barrier(mem_flags::mem_threadgroup);
 
-            // Track max for scaAmax
-            scaAmax_k_val = fmax(scaAmax_k_val, vecA_local[idx_L]);
+        // STEP 3: Compute scaG and scaAmax
+        // scaG = sum(vecFlogsig_masked) + log(sigmoid(vecF_first))
+        // scaAmax = max(vecA)
+        thread float scaG_partial = 0.0f;
+        thread float scaAmax_partial = -INFINITY;
+
+        for (uint idx_L = tid_linear; idx_L < L; idx_L += num_threads) {
+            if (idx_L < L - 1) {
+                scaG_partial += vecFlogsig_masked_shared[idx_L];
+            }
+            scaAmax_partial = fmax(scaAmax_partial, vecA_shared[idx_L]);
         }
 
-        // Compute scaG_k_val: sum(vecFlogsig_masked) + log(sigmoid(vecF[k*L+0]))
-        for (uint idx_L = 0; idx_L < L - 1; ++idx_L) {
-            scaG_k_val += vecFlogsig_masked_local[idx_L];
+        // Add log(sigmoid(vecF_first)) to scaG (only thread 0 does this)
+        if (tx == 0 && ty == 0) {
+            uint f_first_idx = idx_b_BNH * str_vecFI_B_NH + k * L;
+            float vecFfirst_val = vecF[f_first_idx];
+            float vecFfirstlogsig_val = -log(1.0f + exp(-vecFfirst_val));
+            scaG_partial += vecFfirstlogsig_val;
         }
-        uint f_first_idx = idx_b_BNH * str_vecFI_B_NH + k * L;
-        float vecFfirst_val = vecF[f_first_idx];
-        float vecFfirstlogsig_val = log(1.0f / (1.0f + exp(-vecFfirst_val)));
-        scaG_k_val += vecFfirstlogsig_val;
 
         // Reduce scaG and scaAmax across threadgroup
         threadgroup float scaG_reduce[256];
         threadgroup float scaAmax_reduce[256];
-        uint tid = ty * siz_b_DHHV + tx;
-        scaG_reduce[tid] = scaG_k_val;
-        scaAmax_reduce[tid] = scaAmax_k_val;
+        scaG_reduce[tid_linear] = scaG_partial;
+        scaAmax_reduce[tid_linear] = scaAmax_partial;
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
         if (tx == 0 && ty == 0) {
             float scaG_sum = 0.0f;
             float scaAmax_max = -INFINITY;
-            for (uint i = 0; i < siz_b_DHQK * siz_b_DHHV; ++i) {
+            for (uint i = 0; i < num_threads; ++i) {
                 scaG_sum += scaG_reduce[i];
                 scaAmax_max = fmax(scaAmax_max, scaAmax_reduce[i]);
             }
@@ -209,8 +227,8 @@ _RECURRENT_FW_C_SRC = r"""
             // scaMinter_next_val = max(scaG + scaMinter, scaAmax)
             float scaMinter_next = fmax(scaG_sum + scaMinter_k_val_shared[0], scaAmax_max);
 
-            // Store for use below
-            scaG_reduce[0] = scaG_sum;  // Reuse as temp storage
+            // Store for use below (reuse reduce buffers as temp storage)
+            scaG_reduce[0] = scaG_sum;
             scaAmax_reduce[0] = scaMinter_next;
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
@@ -263,12 +281,13 @@ _RECURRENT_FW_C_SRC = r"""
         }
         threadgroup_barrier(mem_flags::mem_threadgroup);
 
-        // Compute matKbar_k_val = matK_k_val * vecAbar (element-wise multiply by row)
+        // Compute matKbar_k_val = matK_k_val * vecAbar (element-wise multiply by column)
         // vecAbar_k_val = exp(vecA_k_val - scaMinter_next_val)
+        // CRITICAL: Use vecA_shared (threadgroup memory), not vecA_local!
         threadgroup float matKbar_tile[16][64];
         for (uint krow = ty; krow < siz_b_DHQK; krow += siz_b_DHQK) {
             for (uint kcol = tx; kcol < L; kcol += siz_b_DHHV) {
-                float vecAbar_val = exp(vecA_local[kcol] - scaMinter_next_val);
+                float vecAbar_val = exp(vecA_shared[kcol] - scaMinter_next_val);
                 if (krow < siz_b_DHQK && kcol < L) {
                     matKbar_tile[krow][kcol] = matK_tile[krow][kcol] * vecAbar_val;
                 }
@@ -337,6 +356,28 @@ _RECURRENT_FW_C_SRC = r"""
     }
 """
 
+# Register kernel compiler (lazy compilation on first use)
+def _compile_recurrent_kernel():
+    """Compiler function - called once on first kernel access."""
+    return mx.fast.metal_kernel(
+        name="mlstm_recurrent_fw_C",
+        input_names=["matK", "matV", "vecF", "vecI", "matC_initial", "vecN_initial",
+                     "scaMinter_initial", "params", "strides"],
+        output_names=["matC_states", "vecN_states", "scaMinter_states"],
+        header=_HEADER,
+        source=_RECURRENT_FW_C_SRC,
+        ensure_row_contiguous=True,
+    )
+
+# Register with global registry at module import time
+from .kernel_registry import register_kernel
+register_kernel('fw_recurrent', _compile_recurrent_kernel)
+
+def _get_kernel():
+    """Get compiled kernel from registry."""
+    from .kernel_registry import get_kernel
+    return get_kernel('fw_recurrent')
+
 def mlstm_chunkwise_recurrent_fw_C_metal(
     matK: mx.array,  # (B, NH, S, DHQK)
     matV: mx.array,  # (B, NH, S, DHHV)
@@ -361,6 +402,12 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
     """
     B, NH, S, DHQK = matK.shape
     DHHV = matV.shape[3]
+
+    # Validate input dimensions
+    assert matK.shape == (B, NH, S, DHQK), f"matK shape mismatch: {matK.shape} vs ({B}, {NH}, {S}, {DHQK})"
+    assert matV.shape == (B, NH, S, DHHV), f"matV shape mismatch: {matV.shape} vs ({B}, {NH}, {S}, {DHHV})"
+    assert vecF.shape == (B, NH, S), f"vecF shape mismatch: {vecF.shape} vs ({B}, {NH}, {S})"
+    assert vecI.shape == (B, NH, S), f"vecI shape mismatch: {vecI.shape} vs ({B}, {NH}, {S})"
 
     # Prepare parameter buffer
     USE_INITIAL_STATE = 1 if matC_initial is not None else 0
@@ -406,24 +453,13 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
     if scaMinter_initial is None:
         scaMinter_initial = mx.zeros((B, NH), dtype=matK.dtype)
 
-    # Build kernel
-    kernel = mx.fast.metal_kernel(
-        name="mlstm_recurrent_fw_C",
-        input_names=["matK", "matV", "vecF", "vecI", "matC_initial", "vecN_initial",
-                     "scaMinter_initial", "params", "strides"],
-        output_names=["matC_states", "vecN_states", "scaMinter_states"],
-        header=_HEADER,
-        source=_RECURRENT_FW_C_SRC,
-        ensure_row_contiguous=True,
-    )
-
-    # Launch: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
+    # Launch pre-compiled kernel: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
     num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK
     num_tiles_DHHV = (DHHV + siz_b_DHHV - 1) // siz_b_DHHV
     grid = (num_tiles_DHQK, num_tiles_DHHV, B * NH)
     threadgroup = (siz_b_DHHV, siz_b_DHQK, 1)
 
-    outputs = kernel(
+    outputs = _get_kernel()(
         inputs=[matK, matV, vecF, vecI, matC_initial, vecN_initial,
                 scaMinter_initial, params, strides],
         output_shapes=[matC_states.shape, vecN_states.shape, scaMinter_states.shape],

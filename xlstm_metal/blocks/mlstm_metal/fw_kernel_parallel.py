@@ -404,6 +404,28 @@ _PARALLEL_FW_HINTRA_SRC = r"""
     }
 """
 
+# Register kernel compiler (lazy compilation on first use)
+def _compile_parallel_kernel():
+    """Compiler function - called once on first kernel access."""
+    return mx.fast.metal_kernel(
+        name="mlstm_parallel_fw_Hintra",
+        input_names=["matQ", "matK", "matV", "matC_states", "vecN_states",
+                     "scaMinter_states", "vecI", "vecB", "params", "strides"],
+        output_names=["matHout", "vecNout", "vecMout"],
+        header=_HEADER,
+        source=_PARALLEL_FW_HINTRA_SRC,
+        ensure_row_contiguous=True,
+    )
+
+# Register with global registry at module import time
+from .kernel_registry import register_kernel
+register_kernel('fw_parallel', _compile_parallel_kernel)
+
+def _get_kernel():
+    """Get compiled kernel from registry."""
+    from .kernel_registry import get_kernel
+    return get_kernel('fw_parallel')
+
 def mlstm_chunkwise_parallel_fw_Hintra_metal(
     matQ: mx.array,  # (B, NH, S, DHQK)
     matK: mx.array,  # (B, NH, S, DHQK)
@@ -470,24 +492,13 @@ def mlstm_chunkwise_parallel_fw_Hintra_metal(
     vecNout = mx.zeros((B, NH, S), dtype=matQ.dtype)
     vecMout = mx.zeros((B, NH, S), dtype=matQ.dtype)
 
-    # Build kernel
-    kernel = mx.fast.metal_kernel(
-        name="mlstm_parallel_fw_Hintra",
-        input_names=["matQ", "matK", "matV", "matC_states", "vecN_states",
-                     "scaMinter_states", "vecI", "vecB", "params", "strides"],
-        output_names=["matHout", "vecNout", "vecMout"],
-        header=_HEADER,
-        source=_PARALLEL_FW_HINTRA_SRC,
-        ensure_row_contiguous=True,
-    )
-
-    # Launch: grid over (DHHV/siz_b_DHHV, L/siz_b_LQ, NC * B*NH)
+    # Launch pre-compiled kernel: grid over (DHHV/siz_b_DHHV, L/siz_b_LQ, NC * B*NH)
     num_tiles_DHHV = (DHHV + siz_b_DHHV - 1) // siz_b_DHHV
     num_tiles_LQ = (L + siz_b_LQ - 1) // siz_b_LQ
     grid = (num_tiles_DHHV, num_tiles_LQ, NC * B * NH)
     threadgroup = (siz_b_DHHV, siz_b_LQ, 1)
 
-    outputs = kernel(
+    outputs = _get_kernel()(
         inputs=[matQ, matK, matV, matC_states, vecN_states, scaMinter_states,
                 vecI, vecB, params, strides],
         output_shapes=[matHout.shape, vecNout.shape, vecMout.shape],

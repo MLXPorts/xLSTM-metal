@@ -141,8 +141,26 @@ class xLSTM7BRunner:
         # Forward pass
         logits, self.state = self.forward(input_ids, self.state)
 
+        # Evaluate to materialize the computation (MLX is lazy!)
+        mx.eval(logits)
+        if self.state is not None:
+            # Evaluate all state tensors (state is dict of (c, n, m) tuples)
+            for state_tuple in self.state.values():
+                if state_tuple is not None:
+                    # Each state is a tuple of 3 arrays: (c, n, m)
+                    if isinstance(state_tuple, tuple):
+                        mx.eval(*state_tuple)
+                    else:
+                        mx.eval(state_tuple)
+
         # Get logits for last token
         next_token_logits = logits[0, -1, :]  # [vocab_size]
+
+        # Handle greedy decoding (temperature=0.0) as special case
+        if temperature == 0.0:
+            next_token = mx.argmax(next_token_logits)
+            mx.eval(next_token)
+            return next_token.item()
 
         # Apply temperature
         if temperature != 1.0:
@@ -184,6 +202,9 @@ class xLSTM7BRunner:
         probs = mx.softmax(next_token_logits, axis=-1)
         next_token = mx.random.categorical(mx.log(probs))
 
+        # Evaluate to materialize before converting to Python
+        mx.eval(next_token)
+
         # Convert to Python int for returning
         return next_token.item()
 
@@ -212,6 +233,11 @@ class xLSTM7BRunner:
         """
         # Reset state for new generation
         self.reset_state()
+
+        # Prepend BOS token (required for xLSTM-7B)
+        # BOS token ID is 0 (from config: "bos_token_id": 0, "force_bos_token_insert": true)
+        if not prompt_ids or prompt_ids[0] != 0:
+            prompt_ids = [0] + prompt_ids
 
         # Convert prompt to array [1, S]
         generated = list(prompt_ids)

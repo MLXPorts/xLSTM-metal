@@ -34,29 +34,36 @@ class FFNConfig:
 
 class GatedFFN(nn.Module):
     """
-    Gated Feed-Forward Network with SwiGLU-style gating.
+    Gated Feed-Forward Network matching transformers xLSTMFeedForward.
 
-    Architecture:
-        x -> proj_up -> split -> [gate, up_proj]
-        gate -> act_fn(gate)
-        out = act_fn(gate) * up_proj
+    Architecture (weight_mode="single"):
+        x -> proj_up_gate(x) -> SiLU(gate)
+        x -> proj_up(x) -> z
+        out = SiLU(gate) * z
         out -> proj_down -> y
 
-    Weight structure (xLSTM-7B):
-        proj_up.weight: [2 * proj_up_dim, embedding_dim]  # [21888, 4096]
+    Weight structure (xLSTM-7B, weight_mode="single"):
+        proj_up_gate.weight: [proj_up_dim, embedding_dim]  # [10944, 4096]
+        proj_up.weight: [proj_up_dim, embedding_dim]       # [10944, 4096]
         proj_down.weight: [embedding_dim, proj_up_dim]     # [4096, 10944]
 
-    Note: proj_up outputs 2x proj_up_dim to handle both gate and up_proj
+    Matches transformers.models.xlstm.modeling_xlstm.xLSTMFeedForward (Lines 983-1028)
     """
 
     def __init__(self, config: FFNConfig):
         super().__init__()
         self.config = config
 
-        # Project up to 2x intermediate dim (for gate + up_proj)
+        # Separate gate and value projections (weight_mode="single")
+        self.proj_up_gate = nn.Linear(
+            config.embedding_dim,
+            config.proj_up_dim,
+            bias=config.use_bias
+        )
+
         self.proj_up = nn.Linear(
             config.embedding_dim,
-            2 * config.proj_up_dim,
+            config.proj_up_dim,
             bias=config.use_bias
         )
 
@@ -67,7 +74,7 @@ class GatedFFN(nn.Module):
             bias=config.use_bias
         )
 
-        # Activation function
+        # Activation function (SiLU for xLSTM-7B)
         if config.act_fn == "gelu":
             self.act_fn = nn.gelu
         elif config.act_fn == "swish":
@@ -82,7 +89,7 @@ class GatedFFN(nn.Module):
 
     def __call__(self, x: mx.array) -> mx.array:
         """
-        Forward pass
+        Forward pass (weight_mode="single")
 
         Args:
             x: Input tensor [B, S, embedding_dim]
@@ -90,14 +97,13 @@ class GatedFFN(nn.Module):
         Returns:
             y: Output tensor [B, S, embedding_dim]
         """
-        # Project up and split
-        up = self.proj_up(x)  # [B, S, 2 * proj_up_dim]
+        # Separate gate and value projections
+        gate = self.proj_up_gate(x)  # [B, S, proj_up_dim]
+        z = self.proj_up(x)          # [B, S, proj_up_dim]
 
-        # Split into gate and up_proj
-        gate_preact, up_proj = mx.split(up, 2, axis=-1)  # Each: [B, S, proj_up_dim]
-
-        # Apply gating: act_fn(gate) * up_proj
-        gated = self.act_fn(gate_preact) * up_proj  # [B, S, proj_up_dim]
+        # Apply gating: SiLU(gate) * z
+        # ZERO TOLERANCE: Use MLX operators
+        gated = mx.multiply(self.act_fn(gate), z)  # [B, S, proj_up_dim]
 
         # Project down
         y = self.proj_down(gated)  # [B, S, embedding_dim]
