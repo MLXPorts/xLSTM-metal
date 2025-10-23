@@ -24,13 +24,16 @@ def mlstm_recurrent_step(
     """
     Single-step mLSTM recurrence with exponential gating.
 
-    Implements the canonical mLSTM recurrence from mlstm_kernels.torch.recurrent.native_step.
+    Implements xLSTM-7B chunkwise approach (transformers native kernels).
 
-    Critical differences from paper notation:
+    Critical implementation details (matches transformers chunkwise exactly):
     - Forget gate uses logsigmoid before exponential
-    - Query is scaled by 1/√d_qk
-    - Denominator uses max(|q·n|, exp(-m)) + eps
+    - Key is NOT scaled when storing in C and n (xLSTM-7B approach)
+    - Query IS scaled by 1/√d_qk during retrieval (xLSTM-7B approach)
+    - Denominator uses max(|q_scaled·n|, exp(-m)) + eps
     - C state shape is [B, NH, DHQK, DHV] (k⊗v not v⊗k)
+
+    Note: Small models use the opposite (scale K, not Q). We match xLSTM-7B.
 
     Args:
         q: Query tensor [B, NH, QK_DH]
@@ -67,6 +70,8 @@ def mlstm_recurrent_step(
     i_expanded = i_exp[:, :, None, None]  # [B, NH, 1, 1]
     f_expanded = f_exp[:, :, None, None]  # [B, NH, 1, 1]
 
+    # CRITICAL: For xLSTM-7B chunkwise, K is NOT scaled when storing (different from small model!)
+    # The scaling happens on Q during retrieval instead (see chunkwise parallel kernel)
     # Update covariance matrix: C_t = f * C_{t-1} + i * (k ⊗ v)
     # CRITICAL: Canonical uses k⊗v shape [B, NH, QK_DH, V_DH] not v⊗k!
     k_expanded = k[:, :, :, None]  # [B, NH, QK_DH, 1]
@@ -75,19 +80,19 @@ def mlstm_recurrent_step(
 
     c_new = f_expanded * c_state + i_expanded * kv_outer  # [B, NH, QK_DH, V_DH]
 
-    # Update normalizer: n_t = f * n_{t-1} + i * k
+    # Update normalizer: n_t = f * n_{t-1} + i * k (NOT scaled)
     i_n = i_exp[:, :, None]  # [B, NH, 1]
     f_n = f_exp[:, :, None]  # [B, NH, 1]
     n_new = f_n * n_state + i_n * k  # [B, NH, QK_DH]
 
-    # CRITICAL: Scale query by 1/√d_qk (canonical implementation)
+    # CRITICAL: Scale query by 1/√d_qk during retrieval (xLSTM-7B approach)
     q_scaled = q * (QK_DH ** (-0.5))  # [B, NH, QK_DH]
 
-    # Compute output: h_t = (C_t^T @ q_scaled) / max(|n_t · q_scaled|, exp(-m_t)) + eps
+    # Compute output: h_t = (q_scaled^T @ C_t) / max(|q_scaled·n_t|, exp(-m_t)) + eps
     # C: [B, NH, QK_DH, V_DH], q: [B, NH, QK_DH] -> [B, NH, V_DH]
     h_num = mx.matmul(c_new.transpose(0, 1, 3, 2), q_scaled[:, :, :, None]).squeeze(-1)  # [B, NH, V_DH]
 
-    # CRITICAL: Denominator uses max(|q·n|, exp(-m)) + eps (canonical implementation)
+    # CRITICAL: Denominator uses max(|q_scaled·n|, exp(-m)) + eps
     qn_dot = mx.sum(n_new * q_scaled, axis=-1, keepdims=True)  # [B, NH, 1]
     max_val = mx.exp(-m_new)[:, :, None]  # [B, NH, 1]
     h_den = mx.maximum(mx.abs(qn_dot), max_val) + eps  # [B, NH, 1]
