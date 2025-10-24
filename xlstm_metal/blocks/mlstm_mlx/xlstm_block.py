@@ -45,6 +45,7 @@ class xLSTMBlockConfig:
     eps: float = 1e-6
     inference_state_dtype: str = "float32"
     return_last_states: bool = True
+    chunk_size: int = 64
 
     def __post_init__(self):
         # Create mLSTM config
@@ -59,7 +60,8 @@ class xLSTMBlockConfig:
             norm_reduction_force_float32=self.norm_reduction_force_float32,
             eps=self.eps,
             inference_state_dtype=self.inference_state_dtype,
-            return_last_states=self.return_last_states
+            return_last_states=self.return_last_states,
+            chunk_size=self.chunk_size
         )
 
         # Create FFN config

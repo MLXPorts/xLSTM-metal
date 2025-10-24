@@ -1,5 +1,7 @@
-import os
-import math
+"""
+Neuronal‑Dendrite Comb‑Filter Probe (Rall 3/2 + Turing carries)
+"""
+
 import argparse
 from pathlib import Path
 from typing import List, Tuple

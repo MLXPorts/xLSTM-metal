@@ -1,9 +1,0 @@
-*.vs*
-*.pytest*
-*.pyc
-*.ipynb
-
-*egg*
-*log*
-.local
-test/.*
