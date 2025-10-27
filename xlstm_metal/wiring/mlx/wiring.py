@@ -86,6 +86,7 @@ class WiredMADModel(nn.Module):
 
         from xlstm_metal.blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
         from xlstm_metal.blocks.mlstm_mlx.components import RMSNorm
+        from xlstm_metal.blocks.slstm_mlx.block import sLSTMBlock, sLSTMConfig
         from xlstm_metal.blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
 
         if spec.block_type == BlockType.TOKENIZER:
@@ -96,6 +97,10 @@ class WiredMADModel(nn.Module):
             # Create xLSTM block (mLSTM + FFN)
             config = xLSTMBlockConfig(**spec.params)
             return xLSTMBlock(config)
+        elif spec.block_type == BlockType.SLSTM:
+            # Create sLSTM block
+            config = sLSTMConfig(**spec.params)
+            return sLSTMBlock(config)
         elif spec.block_type == BlockType.EMBEDDING:
             vocab_size = spec.params['vocab_size']
             embedding_dim = spec.params['embedding_dim']

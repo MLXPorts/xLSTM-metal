@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 #  Copyright (c) NXAI GmbH.
 #  This software may be used and distributed according to the terms of the NXAI Community License Agreement.
 
@@ -10,14 +9,15 @@ This kernel computes gradient deltas for C states by backpropagating through chu
 in reverse order (last to first).
 """
 
-import mlx.core as mx
-from typing import Tuple, Optional
+from typing import Optional, Callable, Union
 
-_HEADER = """#include <metal_stdlib>
+import mlx.core as mx
+
+HEADER = """#include <metal_stdlib>
 using namespace metal;
 """
 
-_RECURRENT_BW_DC_SRC = r"""
+RECURRENT_BW_DC_SRC = r"""
     // Thread and threadgroup indices
     uint idx_b_DHQK = threadgroup_position_in_grid.x;
     uint idx_b_DHHV = threadgroup_position_in_grid.y;
@@ -355,8 +355,8 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
         input_names=["matQ", "vecF", "scaM_inter", "vecM_combine", "matDeltaH",
                      "vecN_out", "matDeltaC_last", "params", "strides"],
         output_names=["matDeltaC_states"],
-        header=_HEADER,
-        source=_RECURRENT_BW_DC_SRC,
+        header=HEADER,
+        source=RECURRENT_BW_DC_SRC,
         ensure_row_contiguous=True,
     )
 
