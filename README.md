@@ -85,7 +85,22 @@ pip install mlx
 git clone https://github.com/MLXPorts/xLSTM-metal.git
 cd xLSTM-metal
 
+# Install HuggingFace Hub for model downloads
+pip install huggingface_hub
+
+# Download xLSTM-7B model (~14GB)
+python scripts/downloads/download_model.py
+
 # Run inference
+python generate.py --model ./xlstm_7b_model --prompt "Hello world"
+```
+
+### Alternative: Direct HuggingFace Download
+
+The model will be automatically downloaded on first use:
+
+```bash
+# Model downloads automatically from HuggingFace Hub
 python generate.py --model NX-AI/xLSTM-7b --prompt "Hello world"
 ```
 
@@ -139,12 +154,14 @@ for token_id in prompt_ids:
 
 ## Performance
 
-xLSTM-Metal is optimized for Apple Silicon:
+xLSTM-Metal leverages Apple Silicon's unified memory architecture and Metal acceleration through MLX:
 
-- **Unified Memory**: Efficient use of Apple's unified memory architecture
-- **Metal Kernels**: GPU-accelerated computation via MLX
-- **MAD Scheduling**: Optimal block execution order for maximum throughput
-- **Memory Monitoring**: Built-in memory usage tracking and management
+- **Unified Memory**: Direct GPU access without CPU-GPU data transfers
+- **MLX Optimization**: Lazy evaluation and optimized kernel fusion
+- **MAD Scheduling**: Efficient block execution with minimal overhead
+- **Memory Efficient**: Stateful generation reduces recomputation
+
+Performance characteristics depend on model size, sequence length, and hardware generation (M1/M2/M3/M4). See [docs/](docs/) for detailed architecture documentation.
 
 ## Technical Details
 
@@ -201,40 +218,27 @@ python -m pytest tests/test_xlstm.py -v
 
 ### Original Research
 
-xLSTM was introduced in:
-- Beck, M., Pöppel, K., Spanring, M., Auer, A., Prudnikova, O., Kopp, M., Klambauer, G., Brandstetter, J., & Hochreiter, S. (2024). xLSTM: Extended Long Short-Term Memory. *arXiv preprint arXiv:2405.04517*.
+xLSTM was introduced by Beck et al. (2024):
+
+Beck, M., Pöppel, K., Spanring, M., Auer, A., Prudnikova, O., Kopp, M., Klambauer, G., Brandstetter, J., & Hochreiter, S. (2024). xLSTM: Extended Long Short-Term Memory. *arXiv preprint arXiv:2405.04517*.
 
 ### Model Weights
 
-- **xLSTM-7B**: Provided by [NX-AI](https://huggingface.co/NX-AI) under Apache 2.0 license
-- **HuggingFace Hub**: Model hosting and distribution
+Official xLSTM-7B model weights provided by [NX-AI](https://huggingface.co/NX-AI/xLSTM-7b) under Apache 2.0 license.
 
-### Implementation
+### Framework
 
-- **MLX Framework**: Apple's machine learning framework for Apple Silicon
-- **Metal Performance Shaders**: GPU acceleration on Apple devices
-- **Contributors**: See [AUTHORS.md](AUTHORS.md) for detailed contributions
+Built on [MLX](https://github.com/ml-explore/mlx), Apple's machine learning framework for Apple Silicon.
 
 ## License
 
-This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
+Apache License 2.0. See [LICENSE](LICENSE) for full text.
 
-The xLSTM-7B model weights are provided under the Apache 2.0 license by NX-AI.
+Model weights from NX-AI are also under Apache 2.0.
 
 ## Citation
 
-If you use xLSTM-Metal in your research, please cite:
-
-```bibtex
-@misc{xlstm_metal_2024,
-  title={xLSTM-Metal: High-Performance xLSTM for Apple Silicon},
-  author={MLXPorts Contributors},
-  year={2024},
-  url={https://github.com/MLXPorts/xLSTM-metal}
-}
-```
-
-And the original xLSTM paper:
+If you use this implementation, please cite the original xLSTM paper:
 
 ```bibtex
 @article{beck2024xlstm,
@@ -245,12 +249,22 @@ And the original xLSTM paper:
 }
 ```
 
-## Support
+## Documentation
 
-- **Documentation**: See `docs/` directory for technical details
-- **Issues**: Report bugs and feature requests on GitHub
-- **Community**: Join discussions in GitHub Discussions
+Complete technical documentation available in [docs/](docs/):
+
+- [MLX Architecture Guide](docs/porting/mlx_metal/XLSTM_MLX_ARCHITECTURE.md)
+- [MAD Wiring System](docs/components/mad/MAD_WIRING_INTEGRATION.md)
+- [Testing Guide](docs/porting/mlx_metal/MLX_TESTING.md)
+- [Developer Guide](AGENTS.md)
+
+## Requirements
+
+- **Hardware**: Apple Silicon (M1/M2/M3/M4)
+- **OS**: macOS 13.0 or later
+- **Python**: 3.9 or later
+- **MLX**: Latest version from pip
 
 ---
 
-**Note**: This implementation requires Apple Silicon (M1/M2/M3/M4) for optimal performance. MLX is specifically designed for Apple's unified memory architecture.
+*This is an unofficial implementation optimized for Apple Silicon. For the original research and reference implementation, see the xLSTM paper.*
