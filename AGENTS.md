@@ -1,15 +1,26 @@
+# Agent and Developer Guide
+
+This repo implements xLSTM for Apple Silicon using MLX with Metal Accelerated Dispatch (MAD). These guidelines ensure production-safe development.
+
+## Quick Reference
+
+**Primary Entry Point:** `generate.py` - Production runner using MLX backend  
+**Core Implementation:** `xlstm_metal/` - MAD wiring, blocks, and inference  
+**Tests:** `run_pytest.py` - Test suite runner  
+**Documentation:** `docs/` - Technical documentation by component
+
 ## CLAUDE Guidance (Read Me First)
 
-This repo runs on Apple Silicon with GPU-first compiled backends. These rules are strict so your help stays production‑safe and useful.
+This repo runs on Apple Silicon with MLX-first compiled backends. These rules are strict so your help stays production-safe and useful.
 
-### Zero‑Mock Policy (Production Code)
+### Zero-Mock Policy (Production Code)
 - Don’t add mocks, stubs, or fake implementations to production paths. Use real implementations or leave TODOs in comments with precise next steps.
 - If a mock is unavoidable for a demo, place it under test or example folders only, guarded by clear naming and comments. Never wire a mock into default execution.
 
 ### Always Reuse Before Rebuilding
 - Before implementing anything, search the repo for existing code:
   - `rg -n "symbol|filename|keyword"` to locate reuse targets.
-  - Scan `mlstm_kernels/`, `scripts/`, and `docs/` for prior art and conventions.
+  - Scan `xlstm_metal/`, `scripts/`, and `docs/` for prior art and conventions.
 - Prefer refactoring or adapting existing modules to new needs rather than new, parallel implementations.
 - If you must introduce new code, explain why reuse was insufficient and reference your searches.
 
@@ -26,17 +37,14 @@ This repo runs on Apple Silicon with GPU-first compiled backends. These rules ar
 - Don’t stream giant artifacts or model weights to stdout. If you need to show something, quote only the relevant lines.
 
 ### Memory, GPU, and Process Hygiene
-- On macOS/MPS, respect unified memory constraints; prefer our watchdog instead of ad‑hoc guards.
-- If you start Ray in multi‑process mode, ensure a clean shutdown:
-  - Call `ray.shutdown()` on normal exit.
-  - If a crash leaves residue, run `ray stop --force`.
-- Don’t leave background processes running. Confirm with `top`, `ps`, or `ray status`.
+- On macOS/Apple Silicon, respect unified memory constraints
+- MLX handles memory automatically; trust the framework
+- Don't leave background processes running. Confirm with `top` or `ps`
 
 ### Use the Existing Telemetry
-- Prefer the repo’s tools instead of rolling new ones:
-  - Memory/logging: `MemoryMonitor` and `--mem-*` flags.
-  - Terminal monitor: `scripts/xltop.py` (TUI, JSON/NDJSON modes).
-  - Dashboard: runner flags `--ray-dashboard [--ray-keep-alive]`.
+- Production runner: `python generate.py --model <path> --prompt "text"`
+- Testing: `python run_pytest.py`
+- Check model info: `python generate.py --model <path> --info`
 
 ### Safe Editing Practices
 - Keep changes minimal and focused; do not refactor unrelated code.
@@ -49,11 +57,10 @@ This repo runs on Apple Silicon with GPU-first compiled backends. These rules ar
 - Show exact commands you used (with `conda run -n base python …` and `PYTHONPATH=.`) so others can reproduce.
 
 ### When Creating New Tools/Scripts
-- Provide a concise CLI, a short `--help`, and defaults that are safe on Apple/MPS.
-- Honor existing env vars (`XLSTM_*`, `PYTORCH_ENABLE_MPS_FALLBACK=0`).
-- Add a brief note to `docs/LOGGING_AND_OBSERVABILITY.md` or `AGENTS.md` if user‑facing.
+- Provide a concise CLI, a short `--help`, and defaults that are safe on Apple/MLX.
+- Add a brief note to documentation if user-facing.
 
-### Don’ts (Common Failure Modes)
+### Don'ts (Common Failure Modes)
 - Don’t fabricate behavior or outputs; if something can’t be verified, say so.
 - Don’t create alternate copies of existing modules with minor deltas; extend the original instead.
 - Don’t spam the terminal with entire files or binary junk.
@@ -71,11 +78,9 @@ Use precise language: state constraints and the real implementation. If somethin
 - View a file chunk: `sed -n '1,200p' path/to/file.py`
 - Copy/rename: `cp src.py dst.py` • `mv old.py new.py`
 - Kill a PID: `kill -TERM <pid>` then `kill -KILL <pid>` if needed
-- Clean Ray residue: `ray stop --force`
-- Memory snapshot: `conda run -n base python scripts/xltop.py --json`
 
 ### Ask When Unsure
 - If the requirement is ambiguous, ask concise clarifying questions rather than guessing. Provide a proposed plan with options.
 
-—
-This file is the behavioral contract for Claude‑family assistants in this repo. Defer to `AGENTS.md` for tooling specifics and to `docs/` for backend details.
+---
+This file is the behavioral contract for Claude-family assistants in this repo. Defer to documentation in `docs/` for technical implementation details.
