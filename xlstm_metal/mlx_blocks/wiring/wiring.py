@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+l#!/usr/bin/env python
 """
 MAD Wiring for MLX Backend
 
@@ -9,7 +9,7 @@ import mlx.core as mx
 import mlx.nn as nn
 from typing import Dict, List, Optional, Tuple, Any
 
-from ..core import MADWiring, BlockSpec, BlockType, BackendType
+from xlstm_metal.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
 
 
 class WiredMADModel(nn.Module):
@@ -84,11 +84,16 @@ class WiredMADModel(nn.Module):
         if spec.backend != BackendType.MLX:
             raise ValueError(f"WiredMADModel (MLX) can only instantiate MLX blocks, got {spec.backend}")
 
-        from xlstm_metal.blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
-        from xlstm_metal.blocks.mlstm_mlx.components import RMSNorm
+        from xlstm_metal.mlx_blocks.mlstm.xlstm_block import xLSTMBlock, xLSTMBlockConfig
+        from xlstm_metal.mlx_blocks.mlstm.block import mLSTMBlock, mLSTMConfig
+        from xlstm_metal.mlx_blocks.mlstm.components import RMSNorm
         from xlstm_metal.blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
 
-        if spec.block_type == BlockType.TOKENIZER:
+        if spec.block_type == BlockType.XLSTM_BLOCK:
+            # Canonical xLSTM block (norm+mLSTM+norm+FFN atomic unit)
+            config = xLSTMBlockConfig(**spec.params)
+            return xLSTMBlock(config)
+        elif spec.block_type == BlockType.TOKENIZER:
             # Tokenizer is not an nn.Module
             config = TokenizerConfig(**spec.params)
             return TokenizerBlock(config)
