@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 """
 MAD Wiring System - NCPS-Style Graph Composition
 
