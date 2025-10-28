@@ -9,7 +9,7 @@ import time
 import sys
 sys.path.insert(0, '/Volumes/emberstuff/xLSTM/mad/blocks')
 
-from mlstm_mlx.kernel import mlstm_chunkwise, mlstm_sequential
+from mlstm.kernel import mlstm_chunkwise, mlstm_sequential
 
 
 def benchmark_kernel(name, kernel_fn, inputs, num_warmup=3, num_runs=10):

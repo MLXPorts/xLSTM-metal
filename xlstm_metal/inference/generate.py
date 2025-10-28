@@ -10,17 +10,17 @@ import mlx.core as mx
 from typing import Optional, List
 from pathlib import Path
 
-from xlstm_metal.wiring.mlx import WiredMADModel, create_xlstm_wiring
-from xlstm_metal.utils.config_loader import load_config
+from xlstm_metal.mlx_blocks.wiring import create_xlstm_wiring
+from xlstm_metal.utils.infer_config_from_checkpoint import infer_config_from_checkpoint
 from xlstm_metal.utils.weight_loader import load_weights_into_wired_model
-from xlstm_metal.blocks.mlstm_mlx.components import soft_cap
+from xlstm_metal.mlx_blocks.mlstm.components import soft_cap
 
 
 class xLSTMRunner:
     """
-    Generic inference runner for xLSTM models (config-driven).
+    Generic inference runner for xLSTM models (checkpoint-driven).
 
-    Automatically loads model configuration from config.json and creates
+    Automatically infers model configuration from checkpoint and creates
     the appropriate model architecture. Works with any xLSTM model size.
 
     Example:
@@ -44,16 +44,16 @@ class xLSTMRunner:
         Initialize xLSTM runner from model directory.
 
         Args:
-            model_path: Path to model directory containing config.json and weights
+            model_path: Path to model directory containing checkpoint and weights
 
-        The model configuration is loaded automatically from config.json,
+        The model configuration is inferred automatically from the checkpoint,
         eliminating the need for hardcoded model size parameters.
         """
         self.model_path = Path(model_path)
 
-        # Load configuration from model directory
-        print(f"Loading configuration from {self.model_path / 'config.json'}...")
-        self.config = load_config(str(self.model_path))
+        # Infer configuration from checkpoint
+        print(f"Inferring configuration from checkpoint in {self.model_path}...")
+        self.config = infer_config_from_checkpoint(str(self.model_path))
 
         # Extract key parameters for easy access
         self.embedding_dim = self.config['embedding_dim']
@@ -66,15 +66,7 @@ class xLSTMRunner:
         print(f"Creating xLSTM MAD wiring ({self.num_blocks} blocks, {self.embedding_dim}d)...")
         self.wiring = create_xlstm_wiring(self.config)
 
-        # Create wired model
-        print("Creating WiredMADModel...")
-        self.model = WiredMADModel(
-            wiring=self.wiring,
-            input_block='embedding',
-            output_block='lm_head'
-        )
-
-        print(f"✓ xLSTM model created with {self.num_blocks} blocks, {self.embedding_dim}d")
+        print(f"✓ xLSTM neural circuit created with {self.num_blocks} blocks, {self.embedding_dim}d")
 
         # Load weights automatically
         print("Loading weights...")
@@ -156,17 +148,17 @@ class xLSTMRunner:
 
         Automatically detects format (safetensors or NPZ) and loads weights.
         """
-        from .utils.safetensors_loader import load_safetensors_into_wired_model
+        from .utils.safetensors_loader import load_safetensors_into_wiring
 
         # Check for safetensors files
         if (self.model_path / "model.safetensors").exists() or \
            (self.model_path / "model.safetensors.index.json").exists():
             # Load from safetensors directory
-            load_safetensors_into_wired_model(str(self.model_path), self.model)
+            load_safetensors_into_wiring(str(self.model_path), self.wiring)
             print(f"✓ Weights loaded from safetensors")
         elif (self.model_path / "model.npz").exists():
             # Load from NPZ file
-            load_weights_into_wired_model(str(self.model_path / "model.npz"), self.model)
+            load_weights_into_wired_model(str(self.model_path / "model.npz"), self.wiring)
             print(f"✓ Weights loaded from NPZ")
         else:
             raise ValueError(
@@ -184,7 +176,7 @@ class xLSTMRunner:
         state: Optional[dict] = None
     ) -> tuple[mx.array, dict]:
         """
-        Forward pass through the model.
+        Forward pass through the neural circuit.
 
         Args:
             input_ids: Input token IDs [B, S]
@@ -194,8 +186,8 @@ class xLSTMRunner:
             logits: Output logits [B, S, vocab_size]
             new_state: Updated state dict
         """
-        # WiredMADModel forward returns (output, hidden_states)
-        logits, new_state = self.model(input_ids, state)
+        # Execute neural circuit
+        logits, new_state = self.wiring(input_ids, state)
 
         # Apply output soft-cap
         logits_capped = soft_cap(logits, self.output_logit_soft_cap)
@@ -314,7 +306,7 @@ class xLSTMRunner:
 
     def get_model_info(self) -> dict:
         """
-        Get information about the model structure.
+        Get information about the neural circuit structure.
 
         Returns:
             Dictionary with model info including config values
@@ -330,7 +322,7 @@ class xLSTMRunner:
             'chunk_size': self.config.get('chunk_size', 64),
             'gate_soft_cap': self.config['gate_soft_cap'],
             'output_logit_soft_cap': self.output_logit_soft_cap,
-            'total_blocks': len(self.model.blocks),
-            'execution_stages': len(self.model.stages),
-            'block_names': list(self.model.blocks.keys())
+            'total_neurons': len(self.wiring.neurons),
+            'execution_stages': len(self.wiring.get_execution_stages()),
+            'neuron_names': list(self.wiring.neurons.keys())
         }

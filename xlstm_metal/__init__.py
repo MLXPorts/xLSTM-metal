@@ -11,6 +11,14 @@ Quick start:
 """
 
 from xlstm_metal.inference.generate import xLSTMRunner
-from .wiring import MADWiring, BlockSpec, BlockType, BackendType
+from xlstm_metal.mlx_blocks.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
 
-__all__ = ['xLSTMRunner', 'MADWiring', 'BlockSpec', 'BlockType', 'BackendType']
+__version__ = "0.1.0"
+
+__all__ = [
+    'xLSTMRunner',
+    'MADWiring',
+    'BlockSpec',
+    'BlockType',
+    'BackendType',
+]

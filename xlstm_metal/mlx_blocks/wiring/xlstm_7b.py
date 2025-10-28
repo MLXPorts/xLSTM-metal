@@ -9,7 +9,7 @@ Following the NCPS (Neural Circuit Policies) architecture where:
 """
 
 from typing import Dict, Any, Optional, List
-from ..core import Wiring, BackendType
+from .core import Wiring, BackendType
 
 
 class xLSTMWiring(Wiring):

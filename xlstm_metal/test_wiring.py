@@ -12,15 +12,14 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from mad.wiring import (
+from xlstm_metal.wiring import (
     MADWiring,
     BlockSpec,
     BlockType,
     BackendType,
-    WiredMADModel,
-    create_parallel_head_wiring,
-    create_xlstm_7_1_wiring
 )
+from xlstm_metal.wiring.mlx import WiredMADModel
+from xlstm_metal.wiring.mlx.xlstm_7b import create_xlstm_wiring
 
 
 def test_basic_wiring():

@@ -9,9 +9,9 @@ import mlx.core as mx
 from typing import Optional, List
 from pathlib import Path
 
-from ..wiring.mlx import WiredMADModel, create_xlstm_7b_wiring
+from ..mlx_blocks.wiring import create_xlstm_wiring
 from ..utils.weight_loader import load_weights_into_wired_model
-from ..blocks.mlstm_mlx.components import soft_cap
+from ..mlx_blocks.mlstm.components import soft_cap
 
 
 class xLSTM7BRunner:
@@ -51,23 +51,21 @@ class xLSTM7BRunner:
 
         # Create wiring
         print("Creating xLSTM-7B MAD wiring...")
-        self.wiring = create_xlstm_7b_wiring(
-            embedding_dim=embedding_dim,
-            num_heads=num_heads,
-            num_blocks=num_blocks,
-            vocab_size=vocab_size,
-            output_logit_soft_cap=output_logit_soft_cap
-        )
+        config = {
+            'embedding_dim': embedding_dim,
+            'num_heads': num_heads,
+            'num_blocks': num_blocks,
+            'vocab_size': vocab_size,
+            'qk_dim_factor': 0.5,
+            'v_dim_factor': 1.0,
+            'ffn_proj_factor': 2.671875,
+            'gate_soft_cap': 15.0,
+            'norm_eps': 1e-6,
+            'output_logit_soft_cap': output_logit_soft_cap
+        }
+        self.wiring = create_xlstm_wiring(config)
 
-        # Create wired model
-        print("Creating WiredMADModel...")
-        self.model = WiredMADModel(
-            wiring=self.wiring,
-            input_block='embedding',
-            output_block='lm_head'
-        )
-
-        print(f"✓ xLSTM-7B model created with {num_blocks} blocks")
+        print(f"✓ xLSTM-7B neural circuit created with {num_blocks} blocks")
 
         # State for stateful generation
         self.state = None
@@ -80,15 +78,15 @@ class xLSTM7BRunner:
             model_path: Path to model directory (for safetensors) or NPZ file
         """
         from pathlib import Path
-        from ..utils.safetensors_loader import load_safetensors_into_wired_model
+        from ..utils.safetensors_loader import load_safetensors_into_wiring
         path = Path(model_path)
 
         if path.is_dir():
             # Load from safetensors directory
-            load_safetensors_into_wired_model(str(path), self.model)
+            load_safetensors_into_wiring(str(path), self.wiring)
         elif path.suffix == '.npz':
             # Load from NPZ file
-            load_weights_into_wired_model(str(path), self.model)
+            load_weights_into_wired_model(str(path), self.wiring)
         else:
             raise ValueError(f"Unknown model format: {model_path}")
 
@@ -102,7 +100,7 @@ class xLSTM7BRunner:
         state: Optional[dict] = None
     ) -> tuple[mx.array, dict]:
         """
-        Forward pass through the model.
+        Forward pass through the neural circuit.
 
         Args:
             input_ids: Input token IDs [B, S]
@@ -112,8 +110,8 @@ class xLSTM7BRunner:
             logits: Output logits [B, S, vocab_size]
             new_state: Updated state dict
         """
-        # WiredMADModel forward returns (output, hidden_states)
-        logits, new_state = self.model(input_ids, state)
+        # Execute neural circuit
+        logits, new_state = self.wiring(input_ids, state)
 
         # Apply output soft-cap
         logits_capped = soft_cap(logits, self.output_logit_soft_cap)
@@ -232,7 +230,7 @@ class xLSTM7BRunner:
 
     def get_model_info(self) -> dict:
         """
-        Get information about the model structure.
+        Get information about the neural circuit structure.
 
         Returns:
             Dictionary with model info
@@ -242,7 +240,7 @@ class xLSTM7BRunner:
             'num_heads': self.num_heads,
             'num_blocks': self.num_blocks,
             'vocab_size': self.vocab_size,
-            'total_blocks': len(self.model.blocks),
-            'execution_stages': len(self.model.stages),
-            'block_names': list(self.model.blocks.keys())
+            'total_neurons': len(self.wiring.neurons),
+            'execution_stages': len(self.wiring.get_execution_stages()),
+            'neuron_names': list(self.wiring.neurons.keys())
         }

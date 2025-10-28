@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 """
-Test xLSTM-7B MAD Integration
+Test xLSTM NCPS Wiring
 
-Verifies that the MAD wiring system can instantiate and run xLSTM-7B.
+Verifies that the NCPS wiring system works correctly for xLSTM.
 """
 
 import mlx.core as mx
@@ -12,7 +12,7 @@ from pathlib import Path
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from xlstm_metal.wiring.mlx import create_xlstm_wiring
+from xlstm_metal.mlx_blocks.wiring import create_xlstm_wiring
 
 
 def test_wiring_creation():
@@ -21,7 +21,7 @@ def test_wiring_creation():
     print("Test 1: Create xLSTM-7B Wiring")
     print("=" * 80)
 
-    # Use config-driven wiring instead of deprecated hardcoded function
+    # Use config-driven wiring
     config = {
         'embedding_dim': 4096,
         'num_heads': 8,
@@ -102,7 +102,6 @@ def test_basic_functionality(wiring):
     print("\n✓ Basic functionality test successful\n")
 
 
-
 if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("xLSTM-7B NCPS Wiring Tests")
@@ -115,3 +114,4 @@ if __name__ == "__main__":
     print("\n" + "=" * 80)
     print("All Tests Passed! ✓")
     print("=" * 80 + "\n")
+

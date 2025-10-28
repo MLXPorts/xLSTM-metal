@@ -273,8 +273,8 @@ class MADWiring:
 
         elif spec.backend == BackendType.MLX:
             import mlx.nn as mlx_nn
-            from ...blocks.mlstm_mlx.xlstm_block import xLSTMBlock, xLSTMBlockConfig
-            from ...blocks.mlstm_mlx.components import RMSNorm
+            from ...blocks.mlstm.xlstm_block import xLSTMBlock, xLSTMBlockConfig
+            from ...blocks.mlstm.components import RMSNorm
 
             if spec.block_type == BlockType.MLSTM:
                 # Create xLSTM block (mLSTM + FFN)

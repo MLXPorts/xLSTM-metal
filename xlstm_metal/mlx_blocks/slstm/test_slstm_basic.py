@@ -12,7 +12,7 @@ from pathlib import Path
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
-from xlstm_metal.blocks.slstm_mlx import sLSTMBlock, sLSTMConfig
+from xlstm_metal.mlx_blocks.slstm import sLSTMBlock, sLSTMConfig
 
 
 def test_slstm_instantiation():
@@ -110,7 +110,7 @@ def test_slstm_kernel_only():
     print("Test 4: sLSTM Kernel Direct Test")
     print("=" * 80)
 
-    from xlstm_metal.blocks.slstm_mlx.kernel import slstm_recurrent_step
+    from xlstm_metal.mlx_blocks.slstm.kernel import slstm_recurrent_step
 
     B, NH, H = 2, 4, 128
 
