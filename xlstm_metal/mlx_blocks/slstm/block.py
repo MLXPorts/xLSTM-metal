@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 sLSTM Block for xLSTM
 

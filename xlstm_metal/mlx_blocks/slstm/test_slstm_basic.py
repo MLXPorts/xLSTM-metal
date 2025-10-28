@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Basic test for sLSTM implementation
 

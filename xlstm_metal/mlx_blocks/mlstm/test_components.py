@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Unit tests for MLX components (RMSNorm, MultiHeadLayerNorm, soft_cap)
 

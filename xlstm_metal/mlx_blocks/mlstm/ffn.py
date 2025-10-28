@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Gated Feed-Forward Network (FFN) for xLSTM
 

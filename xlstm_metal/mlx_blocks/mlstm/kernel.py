@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 mLSTM Kernel - Metal JIT Implementation
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Smoke tests for Metal mLSTM kernels.
 
 Tests basic compilation, execution, and output shape correctness.

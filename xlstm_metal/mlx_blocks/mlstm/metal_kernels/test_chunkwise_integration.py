@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Test chunkwise mLSTM integration with Metal kernels.
 
 Verifies that the chunkwise implementation produces reasonable outputs.

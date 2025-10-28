@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Python wrapper for backward recurrent Metal kernel."""
 
 import mlx.core as mx

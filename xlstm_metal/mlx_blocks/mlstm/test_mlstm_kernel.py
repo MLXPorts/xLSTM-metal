@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Unit tests for mLSTM kernel (exponential gating recurrence)
 

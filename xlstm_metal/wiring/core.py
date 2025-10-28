@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 MAD Wiring Core - Backend-Agnostic Abstractions
 

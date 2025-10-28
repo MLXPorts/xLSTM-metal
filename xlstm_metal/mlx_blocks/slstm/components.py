@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 sLSTM Components - Shared utilities
 

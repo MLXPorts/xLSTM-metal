@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Simplified unit tests for MLX components using only MLX operations.
 No NumPy to avoid wrapper conflicts.

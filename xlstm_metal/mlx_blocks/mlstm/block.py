@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 mLSTM Block for xLSTM-7B
 

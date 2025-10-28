@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 xLSTM Model Wiring for MLX
 

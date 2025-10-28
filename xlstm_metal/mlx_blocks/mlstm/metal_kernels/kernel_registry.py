@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Metal Kernel Registry - Singleton for JIT-compiled kernels
 

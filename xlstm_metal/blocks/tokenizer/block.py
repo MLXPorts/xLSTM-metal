@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Tokenizer Block for MAD System
 

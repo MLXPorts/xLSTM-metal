@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 mLSTM Chunkwise MLX Implementation (High-Level Operations)
 

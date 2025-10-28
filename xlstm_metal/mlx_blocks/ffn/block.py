@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 xLSTM Feed-Forward Network Block - MLX Implementation
 

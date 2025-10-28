@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """Performance comparison between sequential and chunkwise mLSTM implementations.
 
 Demonstrates the speedup from using O(T/C + C) chunkwise algorithm vs O(T) sequential.
