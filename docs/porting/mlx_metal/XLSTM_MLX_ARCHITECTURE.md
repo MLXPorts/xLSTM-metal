@@ -438,6 +438,9 @@ All implementations validated against the canonical xLSTM reference:
 # Compare MAD implementation to canonical
 python test_canonical_vs_mad.py
 
+# Test text generation
+python test_text_generation.py
+
 # Performance benchmarks
 python xlstm_metal/blocks/mlstm_metal/test_performance_comparison.py
 ```
