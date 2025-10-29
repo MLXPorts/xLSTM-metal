@@ -5,7 +5,7 @@ Helper functions to create xLSTM MAD wiring from config dict.
 """
 
 from typing import Dict, Any, Optional
-from xlstm_metal.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
+from .wiring import MADWiring, BlockSpec, BlockType, BackendType
 
 
 def create_xlstm_wiring(config: Dict[str, Any]) -> MADWiring:
