@@ -96,9 +96,15 @@ class PyTorchxLSTMRunner:
                 self.model.load_state_dict(state_dict, strict=False)
                 print("✓ Weights loaded successfully")
             except ImportError:
-                print("Warning: safetensors not available. Install with: pip install safetensors")
+                raise ImportError(
+                    "safetensors is required for PyTorch weight loading. "
+                    "Install with: pip install safetensors"
+                )
         else:
-            print("Warning: No weights file found")
+            raise FileNotFoundError(
+                f"No safetensors weight files found in {self.model_path}. "
+                f"Expected model.safetensors or model-*.safetensors files."
+            )
 
     def generate_next_token(
         self,
@@ -187,31 +193,15 @@ class PyTorchxLSTMRunner:
         Returns:
             Generated text
         """
-        # Tokenize prompt (stub - would need actual tokenizer)
-        prompt_ids = torch.tensor([[1, 2, 3]], dtype=torch.long, device=self.device)  # Placeholder
-
-        output_ids = list(prompt_ids[0].cpu().numpy())
-
-        for i in range(max_tokens):
-            # Generate next token
-            next_token = self.generate_next_token(
-                torch.tensor([output_ids], dtype=torch.long, device=self.device),
-                temperature=temperature,
-                top_k=top_k,
-                top_p=top_p
-            )
-
-            output_ids.append(next_token)
-
-            if verbose and (i + 1) % 10 == 0:
-                print(f"Generated {i + 1}/{max_tokens} tokens")
-
-            # Check for stop tokens
-            if stop_tokens and next_token in stop_tokens:
-                break
-
-        # Detokenize (stub - would need actual tokenizer)
-        return f"Generated {len(output_ids)} tokens"
+        # TODO: Implement real tokenizer integration for PyTorch backend
+        # See xlstm_metal/blocks/mlx/tokenizer/block.py for MLX tokenizer implementation
+        # Owner: TBD | Date: TBD
+        # Next step: Create PyTorch-compatible tokenizer block that loads from model directory
+        raise NotImplementedError(
+            "PyTorch backend tokenizer not yet implemented. "
+            "Use MLX backend (xlstm_metal.inference.mlx.generate.xLSTMRunner) for full inference support, "
+            "or implement tokenization externally and call generate_next_token() directly with token IDs."
+        )
 
 
 if __name__ == "__main__":

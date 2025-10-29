@@ -53,6 +53,15 @@ def mlstm_recurrent_step(
     """
     B, NH, QK_DH = q.shape
     V_DH = v.shape[2]
+    
+    # Store computation dtype and state dtype (canonical: state=float32, compute=qkv dtype)
+    dtype_qkv = q.dtype
+    dtype_state = mx.float32
+    
+    # Ensure states are float32 (canonical requirement)
+    c_state = c_state.astype(dtype_state)
+    n_state = n_state.astype(dtype_state)
+    m_state = m_state.astype(dtype_state)
 
     # CRITICAL: Apply logsigmoid to forget gate (canonical implementation)
     one = mx.array(1.0, dtype=f_preact.dtype)
@@ -90,15 +99,30 @@ def mlstm_recurrent_step(
 
     # Compute output: h_t = (q_scaled^T @ C_t) / max(|q_scaled·n_t|, exp(-m_t)) + eps
     # C: [B, NH, QK_DH, V_DH], q: [B, NH, QK_DH] -> [B, NH, V_DH]
-    h_num = mx.matmul(c_new.transpose(0, 1, 3, 2), q_scaled[:, :, :, None]).squeeze(-1)  # [B, NH, V_DH]
+    # Convert c_new to computation dtype for matmul (canonical pattern)
+    c_new_compute = c_new.astype(dtype_qkv)
+    h_num = mx.matmul(c_new_compute.transpose(0, 1, 3, 2), q_scaled[:, :, :, None]).squeeze(-1)  # [B, NH, V_DH]
+    h_num = h_num.astype(dtype_state)  # Convert back to state dtype
 
     # CRITICAL: Denominator uses max(|q_scaled·n|, exp(-m)) + eps
-    qn_dot = mx.sum(mx.multiply(n_new, q_scaled), axis=-1, keepdims=True)  # [B, NH, 1]
+    # Convert n_new to computation dtype for dot product (canonical pattern)
+    n_new_compute = n_new.astype(dtype_qkv)
+    qn_dot = mx.sum(mx.multiply(n_new_compute, q_scaled), axis=-1, keepdims=True)  # [B, NH, 1]
+    qn_dot = qn_dot.astype(dtype_state)  # Convert back to state dtype
+    
     max_val = mx.exp(mx.negative(m_new))[:, :, None]  # [B, NH, 1]
-    eps_a = mx.array(eps, dtype=q.dtype)
+    eps_a = mx.array(eps, dtype=dtype_state)
     h_den = mx.add(mx.maximum(mx.abs(qn_dot), max_val), eps_a)  # [B, NH, 1]
 
     h = mx.divide(h_num, h_den)  # [B, NH, V_DH]
+    
+    # Convert output to computation dtype (canonical pattern)
+    h = h.astype(dtype_qkv)
+    
+    # Ensure states remain float32 (canonical requirement)
+    c_new = c_new.astype(dtype_state)
+    n_new = n_new.astype(dtype_state)
+    m_new = m_new.astype(dtype_state)
 
     return h, c_new, n_new, m_new
 
@@ -139,21 +163,22 @@ def mlstm_sequential(
     B, NH, S, QK_DH = q.shape
     V_DH = v.shape[3]
 
-    # Initialize states
+    # Initialize states - CRITICAL: States must be float32 for numerical stability
+    # (matches canonical transformers implementation)
     if c_initial is None:
-        c_state = mx.zeros((B, NH, QK_DH, V_DH), dtype=q.dtype)
+        c_state = mx.zeros((B, NH, QK_DH, V_DH), dtype=mx.float32)
     else:
-        c_state = c_initial
+        c_state = c_initial.astype(mx.float32)
 
     if n_initial is None:
-        n_state = mx.zeros((B, NH, QK_DH), dtype=q.dtype)
+        n_state = mx.zeros((B, NH, QK_DH), dtype=mx.float32)
     else:
-        n_state = n_initial
+        n_state = n_initial.astype(mx.float32)
 
     if m_initial is None:
-        m_state = mx.zeros((B, NH), dtype=q.dtype)
+        m_state = mx.zeros((B, NH), dtype=mx.float32)
     else:
-        m_state = m_initial
+        m_state = m_initial.astype(mx.float32)
 
     # Process sequence step-by-step
     h_list = []

@@ -64,11 +64,12 @@ def greedy_gen_timed(model: xLSTMLarge, prefill_tokens: torch.Tensor, max_len: i
 
 
 def set_chunk_size(model: xLSTMLarge, chunk_size: int):
+    """Set chunk size for all mLSTM layers in the model.
+    
+    Raises AttributeError if blocks don't have the expected structure.
+    """
     for blk in model.backbone.blocks:
-        try:
-            blk.mlstm_layer.mlstm_backend.config.chunk_size = chunk_size
-        except Exception:
-            pass
+        blk.mlstm_layer.mlstm_backend.config.chunk_size = chunk_size
 
 
 def build_model(model_path: str, chunkwise_backend: str, chunk_size: int) -> tuple[xLSTMLarge, AutoTokenizer]:
