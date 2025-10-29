@@ -10,6 +10,11 @@ import mlx.core as mx
 from typing import Optional, List
 from pathlib import Path
 
+# Use importlib to set the correct path for imports
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
 from xlstm_metal.blocks.mlx.wiring import WiredMADModel, create_xlstm_wiring
 from xlstm_metal.inference.utils import load_config, load_weights_into_wired_model, infer_config_from_checkpoint
 from xlstm_metal.blocks.mlx.mlstm import soft_cap
@@ -155,7 +160,7 @@ class xLSTMRunner:
 
         Automatically detects format (safetensors or NPZ) and loads weights.
         """
-        from .utils.safetensors_loader import load_safetensors_into_wired_model
+        from xlstm_metal.inference.utils.safetensors_loader import load_safetensors_into_wired_model
 
         # Check for safetensors files
         if (self.model_path / "model.safetensors").exists() or \

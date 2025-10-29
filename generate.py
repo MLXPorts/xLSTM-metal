@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 try:
     from xlstm_metal import xLSTMRunner
+    from xlstm_metal.blocks.mlx.tokenizer.block import TokenizerBlock, TokenizerConfig
 except ImportError as e:
     print(f"Error importing xlstm_metal: {e}")
     print("Make sure you're running from the repository root.")
@@ -45,17 +46,14 @@ def main():
     print(f"Loading model: {args.model}")
     runner = xLSTMRunner.from_pretrained(args.model)
     
+    # Initialize tokenizer using MAD TokenizerBlock
+    tokenizer_config = TokenizerConfig(model_path=args.model)
+    tokenizer = TokenizerBlock(tokenizer_config)
+    
     if args.info:
         info = runner.get_model_info()
         print(f"Model: {info['num_blocks']} blocks, {info['embedding_dim']}d, {info['vocab_size']} vocab")
         return
-    
-    # Simple tokenization (replace with proper tokenizer)
-    def tokenize(text):
-        return [ord(c) % 1000 for c in text]
-    
-    def detokenize(tokens):
-        return ''.join([chr(t % 256) for t in tokens if 0 <= t % 256 < 128])
     
     if args.interactive:
         print("Interactive mode (Ctrl+C to exit)")
@@ -65,7 +63,7 @@ def main():
                 if not prompt:
                     continue
                     
-                prompt_ids = tokenize(prompt)
+                prompt_ids = tokenizer.encode(prompt).tolist()
                 generated_ids = runner.generate(
                     prompt_ids, 
                     max_tokens=args.max_tokens,
@@ -73,14 +71,14 @@ def main():
                     top_k=args.top_k,
                     top_p=args.top_p
                 )
-                output = detokenize(generated_ids)
+                output = tokenizer.decode(generated_ids)
                 print(f"Generated: {output}")
                 
             except KeyboardInterrupt:
                 break
     else:
         # Single generation
-        prompt_ids = tokenize(args.prompt)
+        prompt_ids = tokenizer.encode(args.prompt).tolist()
         generated_ids = runner.generate(
             prompt_ids,
             max_tokens=args.max_tokens, 
@@ -88,7 +86,7 @@ def main():
             top_k=args.top_k,
             top_p=args.top_p
         )
-        output = detokenize(generated_ids)
+        output = tokenizer.decode(generated_ids)
         print(output)
 
 
