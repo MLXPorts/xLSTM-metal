@@ -242,69 +242,36 @@ class MADWiring:
             spec: BlockSpec defining the block
 
         Returns:
-            Instantiated nn.Module
+            Instantiated MLX Module
         """
-        # Import block classes based on type and backend
-        if spec.backend == BackendType.TORCH_COMPILED:
-            from ...blocks.mlstm_torch_compiled.block import (
-                CompilablemLSTMBlock,
-                CompilablesLSTMBlock
+        # MLX backend only - this wiring is exclusively for MLX
+        import mlx.nn as mlx_nn
+        from xlstm_metal.blocks.mlx.mlstm import xLSTMBlock, xLSTMBlockConfig
+        from xlstm_metal.blocks.mlx.mlstm import RMSNorm
+
+        if spec.block_type == BlockType.MLSTM:
+            # Create xLSTM block (mLSTM + FFN)
+            config = xLSTMBlockConfig(**spec.params)
+            return xLSTMBlock(config)
+        elif spec.block_type == BlockType.EMBEDDING:
+            vocab_size = spec.params['vocab_size']
+            embedding_dim = spec.params['embedding_dim']
+            return mlx_nn.Embedding(vocab_size, embedding_dim)
+        elif spec.block_type == BlockType.LINEAR:
+            return mlx_nn.Linear(**spec.params)
+        elif spec.block_type == BlockType.NORM:
+            d_model = spec.params.get('embedding_dim') or spec.params.get('d_model')
+            eps = spec.params.get('eps', 1e-6)
+            force_float32 = spec.params.get('force_float32_reductions', True)
+            return RMSNorm(
+                num_features=d_model,
+                eps=eps,
+                use_weight=True,
+                use_bias=False,
+                force_float32_reductions=force_float32
             )
-
-            if spec.block_type == BlockType.MLSTM:
-                return CompilablemLSTMBlock(**spec.params)
-            elif spec.block_type == BlockType.SLSTM:
-                return CompilablesLSTMBlock(**spec.params)
-            elif spec.block_type == BlockType.FFN:
-                # Implement FFN block
-                d_model = spec.params.get('d_model', 512)
-                ffn_dim = spec.params.get('ffn_dim', 2048)
-                return nn.Sequential(
-                    nn.Linear(d_model, ffn_dim),
-                    nn.SiLU(),
-                    nn.Linear(ffn_dim, d_model)
-                )
-            elif spec.block_type == BlockType.LINEAR:
-                return nn.Linear(**spec.params)
-            elif spec.block_type == BlockType.NORM:
-                from ...blocks.mlstm_torch_compiled.block import MetalRMSNorm
-                return MetalRMSNorm(spec.params.get('d_model', 512))
-
-        elif spec.backend == BackendType.MLX:
-            import mlx.nn as mlx_nn
-            from xlstm_metal.blocks.mlx.mlstm import xLSTMBlock, xLSTMBlockConfig
-            from xlstm_metal.blocks.mlx.mlstm import RMSNorm
-
-            if spec.block_type == BlockType.MLSTM:
-                # Create xLSTM block (mLSTM + FFN)
-                config = xLSTMBlockConfig(**spec.params)
-                return xLSTMBlock(config)
-            elif spec.block_type == BlockType.EMBEDDING:
-                vocab_size = spec.params['vocab_size']
-                embedding_dim = spec.params['embedding_dim']
-                return mlx_nn.Embedding(vocab_size, embedding_dim)
-            elif spec.block_type == BlockType.LINEAR:
-                return mlx_nn.Linear(**spec.params)
-            elif spec.block_type == BlockType.NORM:
-                d_model = spec.params.get('embedding_dim') or spec.params.get('d_model')
-                eps = spec.params.get('eps', 1e-6)
-                force_float32 = spec.params.get('force_float32_reductions', True)
-                return RMSNorm(
-                    num_features=d_model,
-                    eps=eps,
-                    use_weight=True,
-                    use_bias=False,
-                    force_float32_reductions=force_float32
-                )
-            else:
-                raise NotImplementedError(f"MLX backend not yet implemented for {spec.block_type}")
-
-        elif spec.backend == BackendType.TRITON:
-            # Triton blocks (to be implemented)
-            raise NotImplementedError(f"Triton backend not yet implemented for {spec.block_type}")
-
         else:
-            raise ValueError(f"Unknown backend: {spec.backend}")
+            raise NotImplementedError(f"MLX backend not yet implemented for {spec.block_type}")
 
     def visualize(self) -> str:
         """
@@ -497,7 +464,7 @@ def create_parallel_head_wiring(
     num_heads: int = 4,
     d_model: int = 512,
     head_dim: int = 128,
-    backend: BackendType = BackendType.TORCH_COMPILED
+    backend: BackendType = BackendType.MLX
 ) -> MADWiring:
     """
     Create wiring for parallel multi-head mLSTM.
@@ -562,7 +529,7 @@ def create_parallel_head_wiring(
 def create_xlstm_7_1_wiring(
     d_model: int = 512,
     num_blocks: int = 8,
-    backend: BackendType = BackendType.TORCH_COMPILED
+    backend: BackendType = BackendType.MLX
 ) -> MADWiring:
     """
     Create wiring for 7:1 xLSTM pattern (7 mLSTM blocks, 1 sLSTM block).

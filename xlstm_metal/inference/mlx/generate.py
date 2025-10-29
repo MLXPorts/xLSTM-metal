@@ -232,27 +232,37 @@ class xLSTMRunner:
 
         # Apply top-k filtering
         if top_k is not None:
-            top_k_values, top_k_indices = mx.topk(next_token_logits, top_k)
-            # Zero out all non-top-k values
-            mask = mx.zeros_like(next_token_logits)
-            mask[top_k_indices] = 1
-            next_token_logits = mx.where(mask == 1, next_token_logits, -float('inf'))
+            # Get top-k values using argsort (which returns indices we can use)
+            top_k_indices = mx.argsort(next_token_logits)[::-1][:top_k]
+            # Get threshold value (smallest value in top-k)
+            threshold = next_token_logits[top_k_indices[-1]]
+            # Keep only top-k or better
+            next_token_logits = mx.where(
+                next_token_logits >= threshold,
+                next_token_logits,
+                mx.array(-float('inf'))
+            )
 
         # Apply top-p (nucleus) filtering
         if top_p is not None:
+            # Sort logits in descending order
             sorted_logits = mx.sort(next_token_logits)[::-1]
+            # Compute probabilities and cumulative sum
             sorted_probs = mx.softmax(sorted_logits, axis=-1)
             cumulative_probs = mx.cumsum(sorted_probs, axis=-1)
-
-            # Find cutoff index
-            cutoff_idx = mx.argmax(cumulative_probs > top_p)
-            cutoff_logit = sorted_logits[cutoff_idx]
-
-            # Zero out all values below cutoff
+            
+            # Find how many tokens to keep (at least 1)
+            keep_mask = cumulative_probs <= top_p
+            num_keep = max(1, int(mx.sum(keep_mask).item()))
+            
+            # Get threshold (logit value at cutoff)
+            threshold = sorted_logits[num_keep - 1]
+            
+            # Keep only tokens above threshold
             next_token_logits = mx.where(
-                next_token_logits >= cutoff_logit,
+                next_token_logits >= threshold,
                 next_token_logits,
-                -float('inf')
+                mx.array(-float('inf'))
             )
 
         # Sample from distribution
