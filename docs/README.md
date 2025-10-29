@@ -58,7 +58,7 @@ New to xLSTM-Metal? Start here:
 
 - **[CoreML/ANE Guidance](porting/coreml/ane_guidance.md)** - Apple Neural Engine deployment
 - **[Triton Kernels Deep Dive](components/kernels/TRITON_KERNELS_DEEP_DIVE.md)** - Triton kernel reference
-- **[MLX vs Ray](porting/mlx_metal/MLX_VS_RAY.md)** - Architecture comparisons
+- **[MLX vs Ray](porting/ray_coroutines/MLX_VS_RAY.md)** - Architecture comparisons
 
 ## Key Concepts
 

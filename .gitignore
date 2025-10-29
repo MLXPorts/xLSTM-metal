@@ -32,3 +32,4 @@ xlstm_7b_model/
 
 # Local run/benchmark outputs
 runs/
+/vendored/

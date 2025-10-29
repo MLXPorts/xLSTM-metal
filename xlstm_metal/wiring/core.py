@@ -19,7 +19,6 @@ class BackendType(Enum):
 
 class BlockType(Enum):
     """MAD block types"""
-    XLSTM_BLOCK = "xlstm_block"  # Atomic block: norm+mLSTM+norm+FFN (canonical)
     MLSTM = "mlstm"
     SLSTM = "slstm"
     FFN = "ffn"

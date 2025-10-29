@@ -10,7 +10,7 @@ Quick start:
     >>> output = runner.generate([1, 2, 3], max_tokens=50)
 """
 
-from xlstm_metal.inference.generate import xLSTMRunner
-from .wiring import MADWiring, BlockSpec, BlockType, BackendType
+from xlstm_metal.inference.mlx import xLSTMRunner
+from xlstm_metal.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
 
 __all__ = ['xLSTMRunner', 'MADWiring', 'BlockSpec', 'BlockType', 'BackendType']
