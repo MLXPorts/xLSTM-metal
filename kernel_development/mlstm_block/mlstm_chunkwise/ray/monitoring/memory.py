@@ -75,6 +75,10 @@ def _get_mps_mem_mb() -> tuple[Optional[float], Optional[float]]:
 
 
 def snapshot() -> MemStats:
+    """
+
+    :return:
+    """
     ts = time.time()
     rss = _get_process_mem_mb()
     avail, total = _get_system_mem_mb()
@@ -119,6 +123,10 @@ class MemoryMonitor:
         self._csv_fp = None
 
     def start(self):
+        """
+
+        :return:
+        """
         if not self.enabled:
             return self
         if self.log_csv_path:
@@ -134,6 +142,9 @@ class MemoryMonitor:
         return self
 
     def stop(self):
+        """
+
+        """
         self._stop.set()
         if self._thread is not None:
             self._thread.join(timeout=1.0)
@@ -207,6 +218,9 @@ class MemoryMonitor:
             time.sleep(max(self.poll_ms, 50) / 1000.0)
 
     def check(self):
+        """
+
+        """
         # If background thread recorded abort, raise here
         exc = getattr(self, "_exc", None)
         if exc is not None:

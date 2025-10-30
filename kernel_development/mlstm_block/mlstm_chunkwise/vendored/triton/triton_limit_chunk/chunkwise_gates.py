@@ -13,6 +13,15 @@ import torch
 def compute_gate_grads_vecDeltaI_vecDeltaF(
     matQ: torch.Tensor, matK: torch.Tensor, matDeltaQ: torch.Tensor, matDeltaK: torch.Tensor, vecF: torch.Tensor
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+
+    :param matQ:
+    :param matK:
+    :param matDeltaQ:
+    :param matDeltaK:
+    :param vecF:
+    :return:
+    """
     #! postprocessing: compute deltaF and deltaI gradients
     ## ? postprocessing
     # vecF = rearrange(vecF, "b nh nc l -> b nh (nc l)")

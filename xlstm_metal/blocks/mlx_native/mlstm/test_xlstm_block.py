@@ -3,6 +3,7 @@ Unit tests for complete xLSTM Block
 """
 
 import mlx.core as mx
+
 from xlstm_block import xLSTMBlock, xLSTMBlockConfig
 
 
@@ -38,7 +39,7 @@ def test_xlstm_block_shapes():
     print(f"\nInput shape: {x.shape}")
 
     # Forward pass
-    y, state = block(x, state=None)
+    y, state = block(x)
 
     print(f"Output shape: {y.shape}")
     print(f"State tuple:")
@@ -147,7 +148,7 @@ def test_xlstm_block_state_carryover():
 
     # First sequence
     x1 = mx.random.normal(shape=(1, 4, config.embedding_dim))
-    y1, state1 = block(x1, state=None)
+    y1, state1 = block(x1)
 
     print(f"First call:")
     print(f"  Input: {x1.shape}")

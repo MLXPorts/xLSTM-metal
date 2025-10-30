@@ -32,6 +32,13 @@ from scripts.run_local_xlstm_mps import load_local_config, load_local_weights
 
 @torch.no_grad()
 def greedy_gen(model: xLSTMLarge, x: torch.Tensor, max_len: int) -> torch.Tensor:
+    """
+
+    :param model:
+    :param x:
+    :param max_len:
+    :return:
+    """
     device = x.device
     state = None
     B = x.size(0)
@@ -49,6 +56,11 @@ def greedy_gen(model: xLSTMLarge, x: torch.Tensor, max_len: int) -> torch.Tensor
 
 
 def set_chunk_size(model: xLSTMLarge, chunk_size: int) -> None:
+    """
+
+    :param model:
+    :param chunk_size:
+    """
     for blk in model.backbone.blocks:
         try:
             blk.mlstm_layer.mlstm_backend.config.chunk_size = int(chunk_size)
@@ -57,6 +69,12 @@ def set_chunk_size(model: xLSTMLarge, chunk_size: int) -> None:
 
 
 def make_input(tok: AutoTokenizer, prompt: str) -> torch.Tensor:
+    """
+
+    :param tok:
+    :param prompt:
+    :return:
+    """
     x = tok(prompt, return_tensors="pt")["input_ids"].to("mps")
     if tok.bos_token_id is not None:
         bos = torch.tensor([[tok.bos_token_id]], device="mps", dtype=x.dtype)
@@ -65,6 +83,9 @@ def make_input(tok: AutoTokenizer, prompt: str) -> torch.Tensor:
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", type=str, default=None, help="Optional JSON config to override CLI")
     ap.add_argument("--run", type=str, required=True, help="Optimizer run directory with summary.csv")

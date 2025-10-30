@@ -58,6 +58,11 @@ def profiles() -> Dict[str, Dict[str, int]]:
 
 
 def ensure_outdir(base: Path) -> Path:
+    """
+
+    :param base:
+    :return:
+    """
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     out = base / ts
     out.mkdir(parents=True, exist_ok=True)
@@ -65,6 +70,13 @@ def ensure_outdir(base: Path) -> Path:
 
 
 def time_prefill_and_decode(model, seq_len: int, new_tokens: int) -> Tuple[float, float, float]:
+    """
+
+    :param model:
+    :param seq_len:
+    :param new_tokens:
+    :return:
+    """
     # Synthetic byte tokens for simplicity; tokenizer choice doesn't affect compute scale much
     tokens = mx.random.randint(0, 256, (1, seq_len))
     # Prefill
@@ -84,6 +96,12 @@ def time_prefill_and_decode(model, seq_len: int, new_tokens: int) -> Tuple[float
 
 
 def maybe_make_charts(outdir: Path, csv_path: Path):
+    """
+
+    :param outdir:
+    :param csv_path:
+    :return:
+    """
     try:
         import matplotlib.pyplot as plt
     except ImportError:
@@ -92,7 +110,7 @@ def maybe_make_charts(outdir: Path, csv_path: Path):
     # Simple chart: decode tok/s by tile for each profile
     rows: List[Dict[str, str]] = []
     import csv as _csv
-    with open(csv_path, "r", newline="") as f:
+    with open(csv_path, newline="") as f:
         r = _csv.DictReader(f)
         rows = [row for row in r]
     # Group by profile

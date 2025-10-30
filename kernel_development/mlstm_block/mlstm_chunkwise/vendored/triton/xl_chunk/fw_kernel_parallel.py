@@ -58,6 +58,53 @@ def mlstm_chunkwise__parallel_fw_Hintra_kernel(
     EPS: tl.constexpr = 0.0,
     MINIMUM_MAX_VAL: tl.constexpr = -10.0,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param matC_states:
+    :param vecN_states:
+    :param scaMinter_states:
+    :param vecI:
+    :param vecB:
+    :param matHout:
+    :param vecNout:
+    :param vecMout:
+    :param qk_scale:
+    :param str_matQK_B_NH:
+    :param str_matQK_S:
+    :param str_matQK_DHQK:
+    :param str_matHV_B_NH:
+    :param str_matHV_S:
+    :param str_matHV_DHHV:
+    :param str_matCstates_B_NH:
+    :param str_matCstates_NCDHQK:
+    :param str_matCstates_DHHV:
+    :param str_vecNstates_B_NH:
+    :param str_vecNstates_NCDHQK:
+    :param str_scaMinterstates_B_NH:
+    :param str_vecBI_B_NH:
+    :param str_vecBI_NC:
+    :param str_vecBI_L:
+    :param str_vecMN_B_NH:
+    :param str_vecMN_S:
+    :param B:
+    :param NH:
+    :param S:
+    :param DHQK:
+    :param DHHV:
+    :param NC:
+    :param L:
+    :param siz_b_LQ:
+    :param siz_b_LKV:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param DTYPE:
+    :param OUTPUT_DTYPE:
+    :param EPS:
+    :param MINIMUM_MAX_VAL:
+    """
     # our grid has 4 dimensions: (num_b_DHHV, num_b_LQ, (NC, B * NH))
     idx_b_DHHV, idx_b_LQ, idx_b_NC_BNH = (
         tl.program_id(0),

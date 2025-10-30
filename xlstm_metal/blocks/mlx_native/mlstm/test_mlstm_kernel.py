@@ -5,6 +5,7 @@ Tests the core mlstm_recurrent_step and mlstm_sequential functions.
 """
 
 import mlx.core as mx
+
 from kernel import mlstm_recurrent_step, mlstm_sequential
 
 

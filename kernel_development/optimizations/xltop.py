@@ -50,23 +50,36 @@ from pathlib import Path
 # Ensure repo root on sys.path for direct invocation
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from mlstm_kernels.torch.monitoring.memory import snapshot, MemoryMonitor
 import signal as _signal
 
 
 def fmt_mb(x: Optional[float]) -> str:
+    """
+
+    :param x:
+    :return:
+    """
     if x is None:
         return "-"
     return f"{x:8.1f} MB"
 
 
 def fmt_gb(x: Optional[float]) -> str:
+    """
+
+    :param x:
+    :return:
+    """
     if x is None:
         return "-"
     return f"{x/1024.0:6.2f} GB"
 
 
 def get_recommended_mps_gb() -> Optional[float]:
+    """
+
+    :return:
+    """
     try:
         if torch is not None and hasattr(torch, "mps") and torch.backends.mps.is_available():
             rm = getattr(torch.mps, "recommended_max_memory", None)
@@ -78,6 +91,11 @@ def get_recommended_mps_gb() -> Optional[float]:
 
 
 def get_top_processes(limit: int = 6) -> List[Tuple[int, str, float]]:
+    """
+
+    :param limit:
+    :return:
+    """
     # returns list of (pid, name, rss_mb)
     out: List[Tuple[int, str, float]] = []
     if psutil is not None:
@@ -113,6 +131,11 @@ def get_top_processes(limit: int = 6) -> List[Tuple[int, str, float]]:
 
 
 def ray_status_text(timeout: float = 2.5) -> str:
+    """
+
+    :param timeout:
+    :return:
+    """
     ray_bin = shutil.which("ray")
     if not ray_bin:
         return "ray: not installed"
@@ -151,6 +174,10 @@ def ray_status_text(timeout: float = 2.5) -> str:
 
 
 def ray_stop_force() -> str:
+    """
+
+    :return:
+    """
     ray_bin = shutil.which("ray")
     if not ray_bin:
         return "ray not found"
@@ -164,6 +191,11 @@ def ray_stop_force() -> str:
 
 
 def kill_pid(pid: int) -> str:
+    """
+
+    :param pid:
+    :return:
+    """
     try:
         os.kill(pid, 15)
         time.sleep(0.5)
@@ -179,6 +211,10 @@ def kill_pid(pid: int) -> str:
 
 
 def clear_mps_cache() -> str:
+    """
+
+    :return:
+    """
     try:
         if torch is not None and hasattr(torch, "mps"):
             torch.mps.empty_cache()  # type: ignore[attr-defined]
@@ -202,6 +238,11 @@ class State:
 
 
 def read_stats_csv_tail(path: str) -> tuple[Optional[float], Optional[float]]:
+    """
+
+    :param path:
+    :return:
+    """
     try:
         p = Path(path)
         if not p.exists():
@@ -228,6 +269,12 @@ def read_stats_csv_tail(path: str) -> tuple[Optional[float], Optional[float]]:
 
 
 def read_stats_series(path: str, max_points: int = 24) -> list[float]:
+    """
+
+    :param path:
+    :param max_points:
+    :return:
+    """
     try:
         p = Path(path)
         if not p.exists():
@@ -254,6 +301,12 @@ def read_stats_series(path: str, max_points: int = 24) -> list[float]:
 
 
 def render_sparkline(vals: list[float], width: int = 40) -> str:
+    """
+
+    :param vals:
+    :param width:
+    :return:
+    """
     if not vals:
         return ""
     blocks = "▁▂▃▄▅▆▇█"
@@ -276,6 +329,11 @@ def render_sparkline(vals: list[float], width: int = 40) -> str:
 
 
 def draw_screen(stdscr, st: State):
+    """
+
+    :param stdscr:
+    :param st:
+    """
     stdscr.erase()
     h, w = stdscr.getmaxyx()
     now = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -301,7 +359,7 @@ def draw_screen(stdscr, st: State):
 
     # Top processes
     stdscr.addnstr(5, 0, "Top processes by RSS (MB):".ljust(w), w)
-    procs = get_top_processes(limit=6)
+    procs = get_top_processes()
     for i, (pid, name, rss) in enumerate(procs, start=6):
         stdscr.addnstr(i, 0, f"  {pid:>7}  {rss:8.1f}  {name}".ljust(w), w)
 
@@ -338,6 +396,11 @@ def draw_screen(stdscr, st: State):
 
 
 def curses_main(stdscr, st: State):
+    """
+
+    :param stdscr:
+    :param st:
+    """
     curses.curs_set(0)
     stdscr.nodelay(True)
     next_tick = time.monotonic()
@@ -449,6 +512,9 @@ _CLI_STATS_PATH: Optional[str] = None
 
 
 def print_once():
+    """
+
+    """
     s = snapshot()
     rec_gb = get_recommended_mps_gb()
     print("xltop snapshot")
@@ -466,6 +532,11 @@ def print_once():
 
 
 def loop_print(poll: float):
+    """
+
+    :param poll:
+    :return:
+    """
     try:
         while True:
             print_once()
@@ -477,6 +548,10 @@ def loop_print(poll: float):
 
 
 def snapshot_json() -> Dict[str, Any]:
+    """
+
+    :return:
+    """
     s = snapshot()
     rec_gb = get_recommended_mps_gb()
     top = get_top_processes()
@@ -494,6 +569,12 @@ def snapshot_json() -> Dict[str, Any]:
 
 
 def json_stream(poll: float, count: int = 0):
+    """
+
+    :param poll:
+    :param count:
+    :return:
+    """
     import json as _json
     i = 0
     try:
@@ -508,6 +589,10 @@ def json_stream(poll: float, count: int = 0):
 
 
 def main():
+    """
+
+    :return:
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--no-curses", action="store_true", help="Disable curses UI and print a snapshot (or loop with --poll)")
     ap.add_argument("--poll", type=float, default=0.0, help="Polling interval for --no-curses mode (0 = one-shot)")

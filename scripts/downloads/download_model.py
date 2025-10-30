@@ -16,6 +16,10 @@ from pathlib import Path
 
 
 def main():
+    """
+
+    :return:
+    """
     parser = argparse.ArgumentParser(description="Download xLSTM-7B model from HuggingFace")
     parser.add_argument(
         "--output", "-o",

@@ -7,6 +7,13 @@ from pathlib import Path
 def setup_output_folder(
     output_dir: str = "./outputs_kernel_benchmarks", name_suffix: str | None = None, log_level: int | str | None = None,
 ) -> Path:
+    """
+
+    :param output_dir:
+    :param name_suffix:
+    :param log_level:
+    :return:
+    """
     import logging
     import sys
     from datetime import datetime
@@ -19,7 +26,7 @@ def setup_output_folder(
 
     output_folder = Path(output_dir) / output_folder_name
 
-    output_folder.mkdir(parents=True, exist_ok=False)
+    output_folder.mkdir(parents=True)
 
     logfile = output_folder / "benchmark.log"
     file_handler = logging.FileHandler(filename=logfile)

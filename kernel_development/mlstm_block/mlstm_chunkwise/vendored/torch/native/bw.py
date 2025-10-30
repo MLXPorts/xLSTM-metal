@@ -124,7 +124,7 @@ def _mlstm_chunkwise__parallel_bw_dQKV(
 
     #! intra chunk gradients
     # load / prepare the inputs
-    matDeltaH = matDeltaH / (vecN_out[:, :, :, None] + eps)
+    matDeltaH /= vecN_out[:, :, :, None] + eps
 
     matDeltaH = rearrange(matDeltaH, "b nh (nc l) dh -> b nh nc l dh", l=L)
 
@@ -159,7 +159,7 @@ def _mlstm_chunkwise__parallel_bw_dQKV(
     matDeltaS = matDeltaSbar * matDbar
 
     matDeltaQ_intra = (matDeltaS @ matK) * qk_scale
-    matDeltaK_intra = ((matDeltaS).transpose(-2, -1) @ matQ) * qk_scale
+    matDeltaK_intra = (matDeltaS.transpose(-2, -1) @ matQ) * qk_scale
 
     #! inter chunk gradients
     # load / prepare the inputs
@@ -216,6 +216,30 @@ def mlstm_chunkwise_bw(
     CHUNK_SIZE: int = 64,
     EPS: float = 1e-6,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaM_initial:
+    :param matC_all:
+    :param vecN_all:
+    :param scaM_all:
+    :param vecN_out:
+    :param vecM_out:
+    :param matDeltaH:
+    :param matDeltaC_last:
+    :param vecDeltaN_last:
+    :param scaDeltaM_last:
+    :param qk_scale:
+    :param CHUNK_SIZE:
+    :param EPS:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     DHV = matV.shape[-1]
 

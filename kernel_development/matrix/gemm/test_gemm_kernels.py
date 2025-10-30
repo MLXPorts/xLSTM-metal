@@ -15,11 +15,16 @@ from .mlx_fast_kernels.gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
 
 
 def check(shape=(64, 128, 32), tiles=(16, 16)):
+    """
+
+    :param shape:
+    :param tiles:
+    """
     m, n, k = shape
     set_gemm_tiles(av=tiles, atb=tiles)
     mx.random.seed(0)
-    A = mx.random.normal(shape=(m, n), dtype=mx.float32)
-    V = mx.random.normal(shape=(n, k), dtype=mx.float32)
+    A = mx.random.normal(shape=(m, n))
+    V = mx.random.normal(shape=(n, k))
 
     # AV
     t0 = time.time(); B0 = mx.matmul(A, V); mx.eval(B0); t0 = time.time() - t0

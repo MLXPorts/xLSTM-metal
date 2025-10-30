@@ -217,15 +217,11 @@ class HPCLimbMetalxLSTM:
         self.o_weight = mx.random.normal((num_heads, d_model), dtype=mx.float16) * 0.02
         
         # Compile Metal kernel
-        self.kernel = mx.fast.metal_kernel(
-            name="hpc_limb_xlstm",
-            source=HPC_LIMB_KERNEL,
-            input_names=["input", "q_weight", "k_weight", "v_weight", 
-                        "i_weight", "f_weight", "o_weight", 
-                        "hidden_state", "cell_state", "shape"],
-            output_names=["output", "hidden_state_out", "cell_state_out", "debug"],
-            ensure_row_contiguous=True
-        )
+        self.kernel = mx.fast.metal_kernel(name="hpc_limb_xlstm", source=HPC_LIMB_KERNEL,
+                                           input_names=["input", "q_weight", "k_weight", "v_weight",
+                                                        "i_weight", "f_weight", "o_weight",
+                                                        "hidden_state", "cell_state", "shape"],
+                                           output_names=["output", "hidden_state_out", "cell_state_out", "debug"])
         
     def forward(self, x, hidden_state=None, cell_state=None):
         """Forward pass using HPC limb Metal kernel"""
@@ -246,7 +242,7 @@ class HPCLimbMetalxLSTM:
         # Allocate output
         output_shape = (batch_size, seq_len, self.num_heads * self.head_dim)
         output = mx.zeros(output_shape, dtype=mx.float16)
-        debug = mx.zeros(16, dtype=mx.float32)
+        debug = mx.zeros(16)
         
         # Run kernel with grid configuration
         grid = ((batch_size * self.num_heads + 255) // 256, 1, 1)
@@ -289,7 +285,7 @@ def test_hpc_limb_implementation():
     batch_size = 2
     seq_len = 16
     d_model = 256
-    x = mx.random.normal((batch_size, seq_len, d_model), dtype=mx.float32)
+    x = mx.random.normal((batch_size, seq_len, d_model))
     
     print(f"Input shape: {x.shape}")
     print(f"Input dtype: {x.dtype}")
@@ -337,7 +333,8 @@ def benchmark_vs_standard():
     implementation with a standard implementation. It uses different model
     configurations to test the performance under different conditions.
     """
-    
+
+    global _
     print("\nBenchmarking HPC Limb vs Standard Implementation")
     print("=" * 50)
     
@@ -352,8 +349,8 @@ def benchmark_vs_standard():
         print(f"\nConfig: batch={batch}, seq={seq}, dim={dim}")
         
         # HPC Limb implementation
-        model_hpc = HPCLimbMetalxLSTM(d_model=dim, num_heads=8, head_dim=dim//8)
-        x = mx.random.normal((batch, seq, dim), dtype=mx.float32)
+        model_hpc = HPCLimbMetalxLSTM(d_model=dim, head_dim=dim // 8)
+        x = mx.random.normal((batch, seq, dim))
         
         # Warmup
         for _ in range(3):

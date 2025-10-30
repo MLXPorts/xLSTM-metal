@@ -5,6 +5,9 @@ from xlstm_official_full.blocks.slstm.cell import sLSTMCell, sLSTMCellConfig
 
 
 def main():
+    """
+
+    """
     assert torch.backends.mps.is_available(), "MPS not available; run on Apple Silicon with MPS."
     device = torch.device("mps")
 

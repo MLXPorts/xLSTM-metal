@@ -6,8 +6,9 @@ Maps the flattened NPZ weight structure to MAD block hierarchy.
 Supports both standalone xLSTMBlock lists and WiredMADModel instances.
 """
 
-import mlx.core as mx
 from typing import Dict, TYPE_CHECKING
+
+import mlx.core as mx
 
 from xlstm_metal.blocks.mlx.mlstm import xLSTMBlock
 
@@ -97,7 +98,7 @@ def load_npz_weights_to_block(npz_weights: Dict[str, mx.array], block_idx: int, 
         # Concatenate along output dimension (dim 0)
         up_l = npz_weights[up_l_key]  # [proj_up_dim, embedding_dim]
         up_r = npz_weights[up_r_key]  # [proj_up_dim, embedding_dim]
-        block.ffn.proj_up.weight = mx.concatenate([up_l, up_r], axis=0)
+        block.ffn.proj_up.weight = mx.concatenate([up_l, up_r])
     else:
         print(f"Warning: Missing FFN up projections")
 

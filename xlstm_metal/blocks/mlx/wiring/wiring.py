@@ -11,9 +11,10 @@ Key Concepts:
 - Backend-agnostic block composition
 """
 
-from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional, Tuple, Any
+
 import mlx.core as mx
 import mlx.nn as nn
 
@@ -263,13 +264,7 @@ class MADWiring:
             d_model = spec.params.get('embedding_dim') or spec.params.get('d_model')
             eps = spec.params.get('eps', 1e-6)
             force_float32 = spec.params.get('force_float32_reductions', True)
-            return RMSNorm(
-                num_features=d_model,
-                eps=eps,
-                use_weight=True,
-                use_bias=False,
-                force_float32_reductions=force_float32
-            )
+            return RMSNorm(num_features=d_model, eps=eps, force_float32_reductions=force_float32)
         else:
             raise NotImplementedError(f"MLX backend not yet implemented for {spec.block_type}")
 
@@ -284,7 +279,7 @@ class MADWiring:
 
         for name in self.block_names:
             spec = self.block_specs[name]
-            outgoing = self.get_connections(name, 'outgoing')
+            outgoing = self.get_connections(name)
 
             lines.append(f"\n[{name}] ({spec.block_type.value}, {spec.backend.value})")
 
@@ -640,63 +635,43 @@ def create_xlstm_7b_mlx_wiring(
     specs = {}
 
     # Embedding layer
-    specs['embedding'] = BlockSpec(
-        name='embedding',
-        block_type=BlockType.EMBEDDING,
-        backend=BackendType.MLX,
-        params={
-            'vocab_size': vocab_size,
-            'embedding_dim': embedding_dim
-        }
-    )
+    specs['embedding'] = BlockSpec(name='embedding', block_type=BlockType.EMBEDDING, params={
+        'vocab_size': vocab_size,
+        'embedding_dim': embedding_dim
+    })
 
     # xLSTM blocks (mLSTM + FFN in each block)
     for i in range(num_blocks):
         block_name = f'xlstm_{i}'
-        specs[block_name] = BlockSpec(
-            name=block_name,
-            block_type=BlockType.MLSTM,
-            backend=BackendType.MLX,
-            params={
-                'embedding_dim': embedding_dim,
-                'num_heads': num_heads,
-                'qk_dim_factor': qk_dim_factor,
-                'v_dim_factor': v_dim_factor,
-                'gate_soft_cap': gate_soft_cap,
-                'ffn_proj_factor': ffn_proj_factor,
-                'ffn_act_fn': ffn_act_fn,
-                'use_bias': False,
-                'norm_eps': norm_eps,
-                'norm_reduction_force_float32': True,
-                'eps': 1e-6,
-                'inference_state_dtype': 'float32',
-                'return_last_states': True
-            }
-        )
+        specs[block_name] = BlockSpec(name=block_name, block_type=BlockType.MLSTM, params={
+            'embedding_dim': embedding_dim,
+            'num_heads': num_heads,
+            'qk_dim_factor': qk_dim_factor,
+            'v_dim_factor': v_dim_factor,
+            'gate_soft_cap': gate_soft_cap,
+            'ffn_proj_factor': ffn_proj_factor,
+            'ffn_act_fn': ffn_act_fn,
+            'use_bias': False,
+            'norm_eps': norm_eps,
+            'norm_reduction_force_float32': True,
+            'eps': 1e-6,
+            'inference_state_dtype': 'float32',
+            'return_last_states': True
+        })
 
     # Final normalization
-    specs['final_norm'] = BlockSpec(
-        name='final_norm',
-        block_type=BlockType.NORM,
-        backend=BackendType.MLX,
-        params={
-            'embedding_dim': embedding_dim,
-            'eps': norm_eps,
-            'force_float32_reductions': True
-        }
-    )
+    specs['final_norm'] = BlockSpec(name='final_norm', block_type=BlockType.NORM, params={
+        'embedding_dim': embedding_dim,
+        'eps': norm_eps,
+        'force_float32_reductions': True
+    })
 
     # LM head (Linear layer for token prediction)
-    specs['lm_head'] = BlockSpec(
-        name='lm_head',
-        block_type=BlockType.LINEAR,
-        backend=BackendType.MLX,
-        params={
-            'in_features': embedding_dim,
-            'out_features': vocab_size,
-            'bias': False
-        }
-    )
+    specs['lm_head'] = BlockSpec(name='lm_head', block_type=BlockType.LINEAR, params={
+        'in_features': embedding_dim,
+        'out_features': vocab_size,
+        'bias': False
+    })
 
     # Create sequential wiring
     wiring = MADWiring(specs)

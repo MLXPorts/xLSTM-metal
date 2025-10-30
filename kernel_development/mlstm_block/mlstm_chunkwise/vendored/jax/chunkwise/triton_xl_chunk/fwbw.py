@@ -86,6 +86,18 @@ def _mlstm_chunkwise_fwbw_generator(
         vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
         scaM_initial: jax.Array | None = None,  # (B, NH)
     ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
+        """
+
+        :param matQ:
+        :param matK:
+        :param matV:
+        :param vecI:
+        :param vecF:
+        :param matC_initial:
+        :param vecN_initial:
+        :param scaM_initial:
+        :return:
+        """
         B, NH, S, DHQK = matQ.shape
         qk_scale = DHQK**-0.5
         # Verify shapes to prevent errors in the kernels.

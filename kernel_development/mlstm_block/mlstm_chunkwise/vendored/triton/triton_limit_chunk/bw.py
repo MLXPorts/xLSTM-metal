@@ -37,6 +37,30 @@ def mlstm_chunkwise_bw(
     CHUNK_SIZE: int = 64,
     EPS: float = 1e-6,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaM_initial:
+    :param qk_scale:
+    :param matC_all:
+    :param vecN_all:
+    :param scaM_all:
+    :param vecN_out:
+    :param vecM_out:
+    :param matDeltaH:
+    :param matDeltaC_last:
+    :param vecDeltaN_last:
+    :param scaDeltaM_last:
+    :param CHUNK_SIZE:
+    :param EPS:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     DHV = matV.shape[-1]
 

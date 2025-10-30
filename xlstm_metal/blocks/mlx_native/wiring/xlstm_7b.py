@@ -4,7 +4,8 @@ xLSTM Model Wiring for MLX
 Helper functions to create xLSTM MAD wiring from config dict.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+
 from xlstm_metal.wiring.core import MADWiring, BlockSpec, BlockType, BackendType
 
 

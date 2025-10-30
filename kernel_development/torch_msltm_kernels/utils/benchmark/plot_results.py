@@ -28,6 +28,12 @@ fontsize_delta = 0
 
 
 def rc_context_wrapper(func: Callable, **kwargs):
+    """
+
+    :param func:
+    :param kwargs:
+    :return:
+    """
     with mpl.rc_context(
         rc={
             "text.usetex": False,
@@ -45,6 +51,11 @@ def rc_context_wrapper(func: Callable, **kwargs):
 
 
 def savefig(fig, filename: str):
+    """
+
+    :param fig:
+    :param filename:
+    """
     dir = Path("./plots/")
     dir.mkdir(parents=True, exist_ok=True)
 
@@ -62,11 +73,11 @@ def plot_benchmark_result_table(
     result_df: pd.DataFrame,
     x_axis_param: str,
     title: str = None,
-    legend_args: dict[str, Any] = dict(loc="lower left", bbox_to_anchor=(1.0, 0.0)),
+        legend_args=None,
     legend_order: list[str] = None,
     figsize=FIGSIZE,
     grid_alpha: float = 0.2,
-    plot_kwargs: dict[str, Any] = {"marker": "o", "linestyle": "-"},
+        plot_kwargs=None,
     style_dict: dict[str, Any] = None,
     style_dict_colname_mapping_exact: bool = True,
     linestyle_mapping: dict[str, Any] = None,
@@ -130,6 +141,10 @@ def plot_benchmark_result_table(
         The figure object.
     """
 
+    if legend_args is None:
+        legend_args = dict(loc="lower left", bbox_to_anchor=(1.0, 0.0))
+    if plot_kwargs is None:
+        plot_kwargs = {"marker": "o", "linestyle": "-"}
     if ax is None:
         f, ax = plt.subplots(1, 1, figsize=figsize)
         f.suptitle(title)
@@ -176,6 +191,10 @@ def plot_benchmark_result_table(
     ax.grid(alpha=grid_alpha)
 
     def savefig(file_ending):
+        """
+
+        :param file_ending:
+        """
         dir = Path("./plots/")
         dir.mkdir(parents=True, exist_ok=True)
         file = Path(f"./plots/plot_{filename}.{file_ending}")
@@ -242,7 +261,7 @@ def create_runtime_bar_plot(
     fillna_val: float = -0.2,
     fillna_exclude_cols: list[str] = None,
     fillna_str: str = "NA",
-    legend_args: dict[str, Any] = dict(loc="lower left", bbox_to_anchor=(1.0, 0.0)),
+        legend_args=None,
     legend_order: list[str] = None,
     figsize=FIGSIZE,
     grid_alpha: float = 0.2,
@@ -299,6 +318,8 @@ def create_runtime_bar_plot(
         The figure object.
     """
 
+    if legend_args is None:
+        legend_args = dict(loc="lower left", bbox_to_anchor=(1.0, 0.0))
     group_names = create_group_names_from_cols(
         data_df=data_df,
         colnames=group_col_names,
@@ -387,7 +408,7 @@ def create_runtime_line_plot(
     title: str = None,
     plot_column_order: list[str] = None,
     style_dict: dict[str, Any] = None,
-    legend_args: dict[str, Any] = dict(loc="lower left", bbox_to_anchor=(1.0, 0.0)),
+        legend_args=None,
     legend_order: list[str] = None,
     figsize=FIGSIZE,
     grid_alpha: float = 0.2,
@@ -422,6 +443,8 @@ def create_runtime_line_plot(
 
     """
 
+    if legend_args is None:
+        legend_args = dict(loc="lower left", bbox_to_anchor=(1.0, 0.0))
     group_names = create_group_names_from_cols(
         data_df=data_df, colnames=group_col_names, add_colname=add_colname
     )
@@ -481,13 +504,7 @@ def plot_runtime_results(
     filename: str = None,
     fillna_exclude_cols: list[str] = None,
     style_dict: dict[str, Any] = None,
-    legend_args: dict[str, Any] = dict(
-        loc="lower center",
-        ncol=4,
-        bbox_to_anchor=(0.0, 0.97, 1.0, 0.102),
-        frameon=False,
-        facecolor="white",
-    ),
+        legend_args=None,
     plot_type: Literal["line", "bar"] = "bar",
     ylim: tuple[float, float] | None = None,
     x_label: str = "Sequence Length",
@@ -523,6 +540,14 @@ def plot_runtime_results(
         The figure object.
     """
 
+    if legend_args is None:
+        legend_args = dict(
+            loc="lower center",
+            ncol=4,
+            bbox_to_anchor=(0.0, 0.97, 1.0, 0.102),
+            frameon=False,
+            facecolor="white",
+        )
     with mpl.rc_context(
         rc={
             "text.usetex": False,
@@ -537,24 +562,12 @@ def plot_runtime_results(
         }
     ):
         if plot_type == "bar":
-            f = create_runtime_bar_plot(
-                data_df=data_df,
-                bar_length_df=None,
-                bar_label_font_size=bar_label_fontsize,
-                group_col_names=group_cols,
-                plot_column_order=plot_column_order,
-                style_dict=style_dict,
-                legend_args=legend_args,  # {"loc": "upper right", "bbox_to_anchor": (1.1, 1.0)},
-                legend_order=legend_order,
-                yticks=yticks,
-                figsize=FIGSIZE if figsize is None else figsize,
-                fillna_val=-10,
-                fillna_exclude_cols=fillna_exclude_cols,
-                ylim=ylim,
-                x_label=x_label,
-                ax=ax,
-                add_colname=add_colname,
-            )
+            f = create_runtime_bar_plot(data_df=data_df, bar_label_font_size=bar_label_fontsize,
+                                        group_col_names=group_cols, plot_column_order=plot_column_order,
+                                        style_dict=style_dict, legend_args=legend_args, legend_order=legend_order,
+                                        yticks=yticks, figsize=FIGSIZE if figsize is None else figsize, fillna_val=-10,
+                                        fillna_exclude_cols=fillna_exclude_cols, ylim=ylim, x_label=x_label, ax=ax,
+                                        add_colname=add_colname)
         else:
             f = create_runtime_line_plot(
                 data_df=data_df,
@@ -581,18 +594,12 @@ def plot_runtime_results_fwbw(
     df_right: pd.DataFrame,
     col_order_left: list[str] = None,
     col_order_right: list[str] = None,
-    yticks_left: list[float] = [],
-    yticks_right: list[float] = [],
-    group_cols: list[str] = [],
+        yticks_left=None,
+        yticks_right=None,
+        group_cols=None,
     filename_wo_ending: str = "",
     style_dict: dict[str, Any] = None,
-    legend_args: dict[str, Any] = {
-        "loc": "lower center",
-        "ncol": 3,
-        "bbox_to_anchor": (0.0, 0.97, 1.0, 0.102),
-        "frameon": False,
-        "facecolor": "white",
-    },
+        legend_args=None,
     modify_df_func=None,
     plot_type: Literal["line", "bar"] = "bar",
     ylim_left: tuple[float, float] | None = None,
@@ -628,6 +635,20 @@ def plot_runtime_results_fwbw(
         The figure object.    
     """
 
+    if yticks_left is None:
+        yticks_left = []
+    if yticks_right is None:
+        yticks_right = []
+    if group_cols is None:
+        group_cols = []
+    if legend_args is None:
+        legend_args = {
+            "loc": "lower center",
+            "ncol": 3,
+            "bbox_to_anchor": (0.0, 0.97, 1.0, 0.102),
+            "frameon": False,
+            "facecolor": "white",
+        }
     f, (ax_left, ax_right) = plt.subplots(
         1, 2, figsize=FIGSIZE_2COL, gridspec_kw=GRIDSPEC_KWARGS
     )

@@ -159,7 +159,7 @@ def _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.float16) -> Call
 
 
 _mlstm_chunkwise_fwbw_float32 = _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.float32)
-_mlstm_chunkwise_fwbw_float16 = _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.float16)
+_mlstm_chunkwise_fwbw_float16 = _mlstm_chunkwise_fwbw_generator()
 _mlstm_chunkwise_fwbw_bfloat16 = _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.bfloat16)
 
 
@@ -188,6 +188,22 @@ def mlstm_chunkwise__limit_chunk(
     chunk_size: int = 64,
     autocast_kernel_dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param chunk_size:
+    :param autocast_kernel_dtype:
+    :return:
+    """
     _mlstm_chunkwise_fwbw = _get_chunkwise_fwbw_kernel(autocast_kernel_dtype)
     matH_out, matC_last, vecN_last, scaM_last = _mlstm_chunkwise_fwbw.apply(
         q,

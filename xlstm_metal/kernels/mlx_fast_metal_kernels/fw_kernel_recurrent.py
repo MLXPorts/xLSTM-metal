@@ -9,14 +9,15 @@ This kernel computes inter-chunk states (C, n, m) sequentially across chunks.
 Each threadgroup processes a (siz_b_DHQK, siz_b_DHHV) tile of the C matrix.
 """
 
-import mlx.core as mx
 from typing import Tuple, Optional
 
-_HEADER = """#include <metal_stdlib>
+import mlx.core as mx
+
+HEADER = """#include <metal_stdlib>
 using namespace metal;
 """
 
-_RECURRENT_FW_C_SRC = r"""
+RECURRENT_FW_C_SRC = r"""
     // Thread and threadgroup indices (Triton: tl.program_id)
     uint idx_b_DHQK = threadgroup_position_in_grid.x;
     uint idx_b_DHHV = threadgroup_position_in_grid.y;
@@ -334,15 +335,11 @@ _RECURRENT_FW_C_SRC = r"""
 # Register kernel compiler (lazy compilation on first use)
 def _compile_recurrent_kernel():
     """Compiler function - called once on first kernel access."""
-    return mx.fast.metal_kernel(
-        name="mlstm_recurrent_fw_C",
-        input_names=["matK", "matV", "vecF", "vecI", "matC_initial", "vecN_initial",
-                     "scaMinter_initial", "params", "strides"],
-        output_names=["matC_states", "vecN_states", "scaMinter_states", "dbg"],
-        header=_HEADER,
-        source=_RECURRENT_FW_C_SRC,
-        ensure_row_contiguous=True,
-    )
+    return mx.fast.metal_kernel(name="mlstm_recurrent_fw_C",
+                                input_names=["matK", "matV", "vecF", "vecI", "matC_initial", "vecN_initial",
+                                             "scaMinter_initial", "params", "strides"],
+                                output_names=["matC_states", "vecN_states", "scaMinter_states", "dbg"], header=HEADER,
+                                source=RECURRENT_FW_C_SRC)
 
 # Register with global registry at module import time
 from xlstm_metal.kernels.mlx_fast_metal_kernels.kernel_registry import register_kernel
@@ -434,7 +431,7 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
     dbg_requested = dbg is not None
     if not dbg_requested:
         # Allocate a temporary buffer to satisfy kernel signature
-        dbg = mx.zeros((L * 3 + 1,), dtype=mx.float32)
+        dbg = mx.zeros((L * 3 + 1,))
 
     # Launch pre-compiled kernel: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
     num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK

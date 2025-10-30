@@ -51,7 +51,7 @@ def benchmark():
 
     for size in sizes:
         # Create random data
-        x = mx.random.uniform(-1, 1, shape=(size,), dtype=mx.float32)
+        x = mx.random.uniform(-1, shape=(size,))
 
         # Warmup
         _ = kernel(x, bits=4)

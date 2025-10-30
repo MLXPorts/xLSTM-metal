@@ -16,6 +16,19 @@ def mlstm_parallel_bw(
     vecM: torch.Tensor,
     eps: float = 1e-6,
 ) -> tuple[torch.Tensor, ...]:
+    """
+
+    :param matDeltaHtilde:
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param vecN:
+    :param vecM:
+    :param eps:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     assert matK.shape == (B, NH, S, DHQK)
     assert vecI.shape == (B, NH, S)

@@ -81,11 +81,11 @@ class UltimatexLSTMBlock(nn.Module):
         
         if use_fused_ops:
             # Fused projection for maximum efficiency
-            self.fused_proj = nn.Linear(proj_dim, head_num * 2 + self.hidden_dim * 4, bias=True)
+            self.fused_proj = nn.Linear(proj_dim, head_num * 2 + self.hidden_dim * 4)
         else:
             # Individual projections
-            self.W_i = nn.Linear(proj_dim, head_num, bias=True)
-            self.W_f = nn.Linear(proj_dim, head_num, bias=True)
+            self.W_i = nn.Linear(proj_dim, head_num)
+            self.W_f = nn.Linear(proj_dim, head_num)
             self.W_q = nn.Linear(proj_dim, self.hidden_dim, bias=False)
             self.W_k = nn.Linear(proj_dim, self.hidden_dim, bias=False)
             self.W_v = nn.Linear(proj_dim, self.hidden_dim, bias=False)
@@ -408,15 +408,8 @@ class BenchmarkSuite:
             print("-" * 40)
             
             # Create model
-            model = UltimatexLSTM(
-                vocab_size=50257,
-                num_layers=layers,
-                inp_dim=dim,
-                head_dim=head_dim,
-                head_num=heads,
-                use_fused_ops=True,
-                use_amp=True
-            )
+            model = UltimatexLSTM(vocab_size=50257, num_layers=layers, inp_dim=dim, head_dim=head_dim, head_num=heads,
+                                  use_amp=True)
             
             param_count = sum(p.numel() for p in model.parameters())
             print(f"Parameters: {param_count:,}")

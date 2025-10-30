@@ -10,6 +10,10 @@ from xlstm_metal.kernels.mlstm_metal.fw_kernel_parallel import mlstm_chunkwise_p
 
 @pytest.fixture
 def setup_data():
+    """
+
+    :return:
+    """
     B = 1; NH = 1; S = 32; DHQK = 16; DHHV = 16; NC = 2; L = 16
     qk_scale = 1.0; save_states_every_nth_chunk = 1
     rng_shapes = {

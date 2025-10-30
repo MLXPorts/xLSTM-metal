@@ -20,6 +20,16 @@ def mlstm_parallel_fw(
     vecF: jax.Array,
     eps: float = 1e-6,
 ) -> jax.Array:
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param eps:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     assert matK.shape == (B, NH, S, DHQK)
     assert vecI.shape == (B, NH, S)
@@ -53,4 +63,4 @@ def mlstm_parallel_fw(
     vecN = vecN.squeeze(-1)
     vecM = vecM.squeeze(-1)
 
-    return (matH, vecN, vecM)
+    return matH, vecN, vecM

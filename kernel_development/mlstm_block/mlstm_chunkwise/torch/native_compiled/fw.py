@@ -7,6 +7,10 @@ try:
     from torch._dynamo import graph_break  # type: ignore
 except Exception:  # pragma: no cover
     def graph_break():
+        """
+
+        :return:
+        """
         return None
 
 
@@ -22,25 +26,12 @@ def _chunk_step_eager(
     eps: float,
 ):
     # Single-chunk compiled inner: returns h_seg and updated states
-    return mlstm_recurrent_sequence__native_fw(
-        q=q_chunk,
-        k=k_chunk,
-        v=v_chunk,
-        i=i_chunk,
-        f=f_chunk,
-        c_initial=c_state,
-        n_initial=n_state,
-        m_initial=m_state,
-        return_last_states=True,
-        eps=eps,
-        dtype_state=torch.float32,
-    )
+    return mlstm_recurrent_sequence__native_fw(q=q_chunk, k=k_chunk, v=v_chunk, i=i_chunk, f=f_chunk, c_initial=c_state,
+                                               n_initial=n_state, m_initial=m_state, return_last_states=True, eps=eps)
 
 
 try:
-    _chunk_step_compiled = torch.compile(
-        _chunk_step_eager, backend="inductor", mode="default"
-    )
+    _chunk_step_compiled = torch.compile(_chunk_step_eager, mode="default")
 except Exception as e:
     raise RuntimeError(
         f"torch.compile failed for chunkwise inner compiled kernel: {e}. No fallback allowed."

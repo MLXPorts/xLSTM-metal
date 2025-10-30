@@ -4,9 +4,9 @@ Tests basic compilation, execution, and output shape correctness.
 """
 
 import mlx.core as mx
-import numpy as np
-from fw_kernel_recurrent import mlstm_chunkwise_recurrent_fw_C_metal
+
 from fw_kernel_parallel import mlstm_chunkwise_parallel_fw_Hintra_metal
+from fw_kernel_recurrent import mlstm_chunkwise_recurrent_fw_C_metal
 
 
 def test_recurrent_kernel_smoke():
@@ -22,10 +22,10 @@ def test_recurrent_kernel_smoke():
     print(f"Chunks: NC={NC}, L={L}")
 
     # Create input tensors
-    matK = mx.random.normal((B, NH, S, DHQK), dtype=mx.float32)
-    matV = mx.random.normal((B, NH, S, DHHV), dtype=mx.float32)
-    vecF = mx.random.normal((B, NH, S), dtype=mx.float32)
-    vecI = mx.random.normal((B, NH, S), dtype=mx.float32)
+    matK = mx.random.normal((B, NH, S, DHQK))
+    matV = mx.random.normal((B, NH, S, DHHV))
+    vecF = mx.random.normal((B, NH, S))
+    vecI = mx.random.normal((B, NH, S))
 
     # Initial states (optional - testing without initial states first)
     matC_initial = None
@@ -34,20 +34,12 @@ def test_recurrent_kernel_smoke():
 
     print("\nRunning kernel without initial states...")
     try:
-        matC_states, vecN_states, scaMinter_states = mlstm_chunkwise_recurrent_fw_C_metal(
-            matK=matK,
-            matV=matV,
-            vecF=vecF,
-            vecI=vecI,
-            matC_initial=matC_initial,
-            vecN_initial=vecN_initial,
-            scaMinter_initial=scaMinter_initial,
-            NC=NC,
-            L=L,
-            siz_b_DHQK=16,
-            siz_b_DHHV=16,
-            save_states_every_nth_chunk=1,
-        )
+        matC_states, vecN_states, scaMinter_states = mlstm_chunkwise_recurrent_fw_C_metal(matK=matK, matV=matV,
+                                                                                          vecF=vecF, vecI=vecI,
+                                                                                          matC_initial=matC_initial,
+                                                                                          vecN_initial=vecN_initial,
+                                                                                          scaMinter_initial=scaMinter_initial,
+                                                                                          NC=NC, L=L)
 
         # Force evaluation
         mx.eval(matC_states, vecN_states, scaMinter_states)
@@ -88,24 +80,16 @@ def test_recurrent_kernel_smoke():
     # Test with initial states
     print("\nRunning kernel with initial states...")
     try:
-        matC_initial = mx.random.normal((B, NH, DHQK, DHHV), dtype=mx.float32) * 0.01
-        vecN_initial = mx.random.normal((B, NH, DHQK), dtype=mx.float32) * 0.01
-        scaMinter_initial = mx.random.normal((B, NH), dtype=mx.float32) * 0.01
+        matC_initial = mx.random.normal((B, NH, DHQK, DHHV)) * 0.01
+        vecN_initial = mx.random.normal((B, NH, DHQK)) * 0.01
+        scaMinter_initial = mx.random.normal((B, NH)) * 0.01
 
-        matC_states, vecN_states, scaMinter_states = mlstm_chunkwise_recurrent_fw_C_metal(
-            matK=matK,
-            matV=matV,
-            vecF=vecF,
-            vecI=vecI,
-            matC_initial=matC_initial,
-            vecN_initial=vecN_initial,
-            scaMinter_initial=scaMinter_initial,
-            NC=NC,
-            L=L,
-            siz_b_DHQK=16,
-            siz_b_DHHV=16,
-            save_states_every_nth_chunk=1,
-        )
+        matC_states, vecN_states, scaMinter_states = mlstm_chunkwise_recurrent_fw_C_metal(matK=matK, matV=matV,
+                                                                                          vecF=vecF, vecI=vecI,
+                                                                                          matC_initial=matC_initial,
+                                                                                          vecN_initial=vecN_initial,
+                                                                                          scaMinter_initial=scaMinter_initial,
+                                                                                          NC=NC, L=L)
 
         mx.eval(matC_states, vecN_states, scaMinter_states)
 
@@ -137,18 +121,18 @@ def test_parallel_kernel_smoke():
     print(f"Chunks: NC={NC}, L={L}, qk_scale={qk_scale}")
 
     # Create input tensors
-    matQ = mx.random.normal((B, NH, S, DHQK), dtype=mx.float32) * 0.1
-    matK = mx.random.normal((B, NH, S, DHQK), dtype=mx.float32) * 0.1
-    matV = mx.random.normal((B, NH, S, DHHV), dtype=mx.float32) * 0.1
+    matQ = mx.random.normal((B, NH, S, DHQK)) * 0.1
+    matK = mx.random.normal((B, NH, S, DHQK)) * 0.1
+    matV = mx.random.normal((B, NH, S, DHHV)) * 0.1
 
     # Create states from recurrent kernel (simulated)
-    matC_states = mx.random.normal((B, NH, (NC + 1) * DHQK, DHHV), dtype=mx.float32) * 0.01
-    vecN_states = mx.random.normal((B, NH, (NC + 1) * DHQK), dtype=mx.float32) * 0.01
-    scaMinter_states = mx.random.normal((B, NH, NC + 1), dtype=mx.float32) * 0.01
+    matC_states = mx.random.normal((B, NH, (NC + 1) * DHQK, DHHV)) * 0.01
+    vecN_states = mx.random.normal((B, NH, (NC + 1) * DHQK)) * 0.01
+    scaMinter_states = mx.random.normal((B, NH, NC + 1)) * 0.01
 
     # Gates (reshaped to (B, NH, NC, L))
-    vecI = mx.random.normal((B, NH, NC, L), dtype=mx.float32)
-    vecF = mx.random.normal((B, NH, NC, L), dtype=mx.float32)
+    vecI = mx.random.normal((B, NH, NC, L))
+    vecF = mx.random.normal((B, NH, NC, L))
 
     # Compute vecB = cumsum(logsigmoid(vecF))
     vecF_logsig = -mx.log(1.0 + mx.exp(-vecF))
@@ -156,25 +140,13 @@ def test_parallel_kernel_smoke():
 
     print("\nRunning parallel kernel...")
     try:
-        matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(
-            matQ=matQ,
-            matK=matK,
-            matV=matV,
-            matC_states=matC_states,
-            vecN_states=vecN_states,
-            scaMinter_states=scaMinter_states,
-            vecI=vecI,
-            vecB=vecB,
-            NC=NC,
-            L=L,
-            qk_scale=qk_scale,
-            siz_b_LQ=16,
-            siz_b_LKV=16,
-            siz_b_DHQK=16,
-            siz_b_DHHV=16,
-            eps=1e-6,
-            minimum_max_val=-10.0,
-        )
+        matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(matQ=matQ, matK=matK, matV=matV,
+                                                                             matC_states=matC_states,
+                                                                             vecN_states=vecN_states,
+                                                                             scaMinter_states=scaMinter_states,
+                                                                             vecI=vecI, vecB=vecB, NC=NC, L=L,
+                                                                             qk_scale=qk_scale, siz_b_LQ=16,
+                                                                             siz_b_LKV=16, siz_b_DHQK=16, siz_b_DHHV=16)
 
         # Force evaluation
         mx.eval(matHout, vecNout, vecMout)
@@ -233,10 +205,10 @@ def test_different_tile_sizes():
         print(f"\nTesting with tile size: ({siz_b_DHQK}, {siz_b_DHHV})")
 
         try:
-            matK = mx.random.normal((B, NH, S, DHQK), dtype=mx.float32) * 0.1
-            matV = mx.random.normal((B, NH, S, DHHV), dtype=mx.float32) * 0.1
-            vecF = mx.random.normal((B, NH, S), dtype=mx.float32)
-            vecI = mx.random.normal((B, NH, S), dtype=mx.float32)
+            matK = mx.random.normal((B, NH, S, DHQK)) * 0.1
+            matV = mx.random.normal((B, NH, S, DHHV)) * 0.1
+            vecF = mx.random.normal((B, NH, S))
+            vecI = mx.random.normal((B, NH, S))
 
             matC_states, vecN_states, scaMinter_states = mlstm_chunkwise_recurrent_fw_C_metal(
                 matK=matK,

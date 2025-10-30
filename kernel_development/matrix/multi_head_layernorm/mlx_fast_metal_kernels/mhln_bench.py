@@ -17,6 +17,13 @@ from mhln_kernels import mh_layernorm_simd  # type: ignore
 
 
 def mh_layernorm_mlx(x, num_heads, eps=1e-6):
+    """
+
+    :param x:
+    :param num_heads:
+    :param eps:
+    :return:
+    """
     B, F = x.shape
     assert F % num_heads == 0
     DH = F // num_heads
@@ -30,8 +37,15 @@ def mh_layernorm_mlx(x, num_heads, eps=1e-6):
 
 
 def run_once(B=64, NH=8, DH=128):
+    """
+
+    :param B:
+    :param NH:
+    :param DH:
+    :return:
+    """
     mx.random.seed(0)
-    x = mx.random.normal((B, NH * DH), dtype=mx.float32)
+    x = mx.random.normal((B, NH * DH))
     # MLX ops
     t0 = time.time()
     y_mlx = mh_layernorm_mlx(x, NH)
@@ -50,5 +64,5 @@ def run_once(B=64, NH=8, DH=128):
 
 if __name__ == "__main__":
     for DH in (64, 96, 128, 192):
-        diff, t_mlx, t_k = run_once(B=64, NH=8, DH=DH)
+        diff, t_mlx, t_k = run_once(DH=DH)
         print(f"B=64 NH=8 DH={DH:3d}  max|Δ|={diff:.3e}  mlx={t_mlx*1e3:.2f} ms  kernel={t_k*1e3:.2f} ms")

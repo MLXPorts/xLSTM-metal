@@ -87,6 +87,12 @@ def _mlstm_recurrent_sequence_loop_scan_fw(
 
     # for jax.lax.scan, time dimension must be the first dimension
     def scan_fn(carry, inputs):
+        """
+
+        :param carry:
+        :param inputs:
+        :return:
+        """
         matC_state, vecN_state, scaM_state = carry
         vecQ, vecK, vecV, scaI, scaF = inputs
         matH, carry = mlstm_step_fn(matC_state, vecN_state, scaM_state, vecQ, vecK, vecV, scaI, scaF, eps=eps)
@@ -147,20 +153,10 @@ def mlstm_recurrent_sequence__native_fw(
         Tuple of hidden states tensor and tuple of last states tensors if `return_last_states` is True.
     """
 
-    return _mlstm_recurrent_sequence_loop_scan_fw(
-        mlstm_step_fn=mlstm_recurrent_step__native_fw,
-        matQ=q,
-        matK=k,
-        matV=v,
-        vecI=i,
-        vecF=f,
-        matC_initial=c_initial,
-        vecN_initial=n_initial,
-        scaM_initial=m_initial,
-        return_last_states=return_last_states,
-        eps=eps,
-        state_dtype=state_dtype,
-    )
+    return _mlstm_recurrent_sequence_loop_scan_fw(matQ=q, matK=k, matV=v, vecI=i, vecF=f, matC_initial=c_initial,
+                                                  vecN_initial=n_initial, scaM_initial=m_initial,
+                                                  return_last_states=return_last_states, eps=eps,
+                                                  state_dtype=state_dtype)
     
 
 

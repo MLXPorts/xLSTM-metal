@@ -58,6 +58,11 @@ else:
 
 
 def keep(conf):
+    """
+
+    :param conf:
+    :return:
+    """
     BLOCK_M = conf.kwargs["BLOCK_Q"]
     BLOCK_N = conf.kwargs["BLOCK_KV"]
     if BLOCK_M * BLOCK_N < 128 * 128 and conf.num_warps == 8:
@@ -111,6 +116,45 @@ def mlstm_parallel_fw_kernel(
     MINIMUM_MAX_VAL: tl.constexpr,
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF_cs:
+    :param qk_scale:
+    :param matH:
+    :param vecM:
+    :param vecN:
+    :param stride_qz:
+    :param stride_qh:
+    :param stride_qm:
+    :param stride_qk:
+    :param stride_kz:
+    :param stride_kh:
+    :param stride_kn:
+    :param stride_kk:
+    :param stride_vz:
+    :param stride_vh:
+    :param stride_vk:
+    :param stride_vn:
+    :param stride_hz:
+    :param stride_hh:
+    :param stride_hm:
+    :param stride_hn:
+    :param stride_ifmn_z:
+    :param stride_ifmn_h:
+    :param stride_ifmn_m:
+    :param Z:
+    :param H:
+    :param N_CTX:
+    :param HEAD_DIM:
+    :param BLOCK_Q:
+    :param BLOCK_KV:
+    :param MINIMUM_MAX_VAL:
+    :param EPS:
+    """
     tl.static_assert(BLOCK_KV <= HEAD_DIM)
     start_m_idx = tl.program_id(0)
     off_hz = tl.program_id(1)

@@ -6,10 +6,11 @@ Loads HuggingFace safetensors directly into WiredMADModel without conversion.
 Uses the canonical match_dict from xlstm-jax.
 """
 
-import mlx.core as mx
 import json
 from pathlib import Path
-from typing import Dict, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
+import mlx.core as mx
 
 if TYPE_CHECKING:
     from mad.wiring import WiredMADModel

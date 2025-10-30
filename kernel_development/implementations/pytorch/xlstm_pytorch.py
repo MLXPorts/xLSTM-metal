@@ -77,6 +77,11 @@ class CausalConv1d(nn.Module):
                               padding=self.padding, dilation=dilation)
     
     def forward(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         # x shape: (batch, channels, length)
         out = self.conv(x)
         # Remove future positions for causality
@@ -94,6 +99,11 @@ class BlockLinear(nn.Module):
             self.blocks.append(nn.Linear(in_dim, out_dim))
     
     def forward(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         # Split input and apply block-wise linear transformation
         block_size = x.shape[-1] // len(self.blocks)
         outputs = []
@@ -143,6 +153,10 @@ class sLSTMBlock(nn.Module):
     
     @property
     def device(self):
+        """
+
+        :return:
+        """
         return next(self.parameters()).device
     
     def init_hidden(self, batch_size):
@@ -258,6 +272,10 @@ class mLSTMBlock(nn.Module):
     
     @property
     def device(self):
+        """
+
+        :return:
+        """
         return next(self.parameters()).device
     
     def init_hidden(self, batch_size):
@@ -608,14 +626,7 @@ def sample_token(logits: torch.Tensor, temperature: float = 1.0, do_sample: bool
 if __name__ == "__main__":
     # Example usage
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    config = xLSTMConfig(
-        vocab_size=1000,
-        num_layers=4,
-        signature=(1, 1),
-        inp_dim=256,
-        head_dim=32,
-        head_num=8
-    )
+    config = xLSTMConfig(vocab_size=1000, num_layers=4, signature=(1, 1), inp_dim=256, head_dim=32)
     model = create_xlstm_model(config, device=device)
     
     # Test forward pass

@@ -10,7 +10,6 @@ ZERO TOLERANCE: No Python operators! Use MLX operators for all math.
 
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Optional
 
 
 def round_up_to_next_multiple_of(value: float, multiple_of: int) -> int:

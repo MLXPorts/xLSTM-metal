@@ -20,6 +20,11 @@ except ImportError:
 
 
 def dtype2str(dtype: torch.dtype) -> str:
+    """
+
+    :param dtype:
+    :return:
+    """
     if dtype == torch.float32:
         return "fp32"
     elif dtype == torch.float16:
@@ -33,8 +38,20 @@ def dtype2str(dtype: torch.dtype) -> str:
 
 
 def contiguous(fn):
+    """
+
+    :param fn:
+    :return:
+    """
     @functools.wraps(fn)
     def wrapper(ctx, *args, **kwargs):
+        """
+
+        :param ctx:
+        :param args:
+        :param kwargs:
+        :return:
+        """
         return fn(
             ctx,
             *(i if not isinstance(i, torch.Tensor) else i.contiguous() for i in args),
@@ -48,8 +65,19 @@ def contiguous(fn):
 
 
 def contiguous_noctx(fn):
+    """
+
+    :param fn:
+    :return:
+    """
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        """
+
+        :param args:
+        :param kwargs:
+        :return:
+        """
         return fn(
             *(i if not isinstance(i, torch.Tensor) else i.contiguous() for i in args),
             **{
@@ -62,15 +90,35 @@ def contiguous_noctx(fn):
 
 
 def torch2triton_dtype(dtype):
+    """
+
+    :param dtype:
+    :return:
+    """
     return _torch_to_triton_dtype[dtype]
 
 
 def to_numpy(tensor: torch.Tensor) -> np.ndarray:
+    """
+
+    :param tensor:
+    :return:
+    """
     return tensor.detach().cpu().to(dtype=torch.float64).numpy()
 
 
 def tensor_or_none(x):
+    """
+
+    :param x:
+    :return:
+    """
     return x if x is None else torch.tensor(x)
 
 def int_or_none(x):
+    """
+
+    :param x:
+    :return:
+    """
     return x if x is None else int(x)

@@ -3,9 +3,11 @@
 Demonstrates the speedup from using O(T/C + C) chunkwise algorithm vs O(T) sequential.
 """
 
-import mlx.core as mx
-import time
 import sys
+import time
+
+import mlx.core as mx
+
 sys.path.insert(0, '/Volumes/emberstuff/xLSTM/mad/blocks')
 
 from mlstm_mlx.kernel import mlstm_chunkwise, mlstm_sequential
@@ -72,11 +74,11 @@ def test_performance_comparison():
         print(f"{'='*70}")
 
         # Create inputs
-        q = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-        k = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-        v = mx.random.normal((B, NH, S, V_DH), dtype=mx.float32) * 0.1
-        i_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
-        f_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
+        q = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+        k = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+        v = mx.random.normal((B, NH, S, V_DH)) * 0.1
+        i_preact = mx.random.normal((B, NH, S))
+        f_preact = mx.random.normal((B, NH, S))
 
         # Benchmark sequential
         seq_inputs = {
@@ -138,11 +140,11 @@ def test_correctness_comparison():
     print(f"Chunk size: {chunk_size}")
 
     # Create inputs
-    q = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-    k = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-    v = mx.random.normal((B, NH, S, V_DH), dtype=mx.float32) * 0.1
-    i_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
-    f_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
+    q = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+    k = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+    v = mx.random.normal((B, NH, S, V_DH)) * 0.1
+    i_preact = mx.random.normal((B, NH, S))
+    f_preact = mx.random.normal((B, NH, S))
 
     # Run sequential
     print("\nRunning sequential...")

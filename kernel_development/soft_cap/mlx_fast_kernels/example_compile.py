@@ -36,10 +36,10 @@ def example_usage():
 
     print("\nExample 3: Manual compilation check")
     custom_kernel = SoftCapMLXFastKernel()
-    print(f"Before compile: kernel is None = {custom_kernel._kernel is None}")
+    print(f"Before compile: kernel is None = {custom_kernel.kernel is None}")
 
     compiled = custom_kernel.compile()
-    print(f"After compile: kernel is None = {custom_kernel._kernel is None}")
+    print(f"After compile: kernel is None = {custom_kernel.kernel is None}")
     print(f"Compiled kernel object: {compiled}")
 
     # Calling compile() again returns the same cached kernel

@@ -5,6 +5,7 @@ Tests the complete mLSTMLayer and mLSTMBlock with forward passes.
 """
 
 import mlx.core as mx
+
 from block import mLSTMLayer, mLSTMBlock, mLSTMConfig
 
 
@@ -41,7 +42,7 @@ def test_mlstm_layer_shapes():
     print(f"\nInput shape: {x.shape}")
 
     # Forward pass
-    y, state = layer(x, state=None)
+    y, state = layer(x)
 
     print(f"Output shape: {y.shape}")
     print(f"State tuple:")
@@ -125,7 +126,7 @@ def test_mlstm_layer_state_carryover():
 
     # First sequence
     x1 = mx.random.normal(shape=(1, 4, config.embedding_dim))
-    y1, state1 = layer(x1, state=None)
+    y1, state1 = layer(x1)
 
     print(f"First call:")
     print(f"  Input: {x1.shape}")

@@ -43,6 +43,23 @@ def mlstm_chunkwise__recurrent_fw_C(
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1))
+    """
+
+    :param matK:
+    :param matV:
+    :param vecB:
+    :param vecI:
+    :param matC_states:
+    :param vecN_states:
+    :param scaMinter_states:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaMinter_initial:
+    :param qk_scale:
+    :param chunk_size:
+    :param num_chunks:
+    :return:
+    """
     B, NH, S, DHQK, DHHV = *matK.shape, matV.shape[-1]
     NC = num_chunks
     _dtype, _device = matK.dtype, matK.device
@@ -110,7 +127,7 @@ def mlstm_chunkwise__recurrent_fw_C(
         # NOTE: no update in-place (i.e. +=) as this gives error for autograd backward
         matC_k_next = scaGbar_k[..., None] * matC_k + matK_chunk_gated.transpose(
             -2, -1
-        ) @ (matV_chunk)
+        ) @ matV_chunk
 
         # n_k update
         vecN_k_next = scaGbar_k * vecN_k + matK_chunk_gated.transpose(-2, -1).sum(-1)
@@ -145,6 +162,22 @@ def mlstm_chunkwise__parallel_fw_H(
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matH_out (B, NH, S, DHHV), vecN_out (B, NH, S), vecM_out (B, NH, S)
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param matC_states:
+    :param vecN_states:
+    :param scaMinter_states:
+    :param vecI:
+    :param vecB:
+    :param qk_scale:
+    :param chunk_size:
+    :param num_chunks:
+    :param eps:
+    :return:
+    """
     _device = matQ.device
     NC, L = num_chunks, chunk_size
     matC_k_states = rearrange(
@@ -248,6 +281,23 @@ def mlstm_chunkwise_fw(
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ),  # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
 ]:
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaM_initial:
+    :param qk_scale:
+    :param return_last_states:
+    :param return_all_states:
+    :param chunk_size:
+    :param eps:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     assert (
         S % chunk_size == 0
@@ -334,21 +384,27 @@ def mlstm_chunkwise(
 ) -> (
     torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):  # matH_out (B, NH, S, DHHV), optional(last_states (matC_states (B, NH, DHQK, DHHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH, 1)))
-    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(
-        matQ=matQ,
-        matK=matK,
-        matV=matV,
-        vecI=vecI,
-        vecF=vecF,
-        matC_initial=matC_initial,
-        vecN_initial=vecN_initial,
-        scaM_initial=scaM_initial,
-        qk_scale=qk_scale,
-        return_last_states=return_last_states,
-        return_all_states=False,
-        eps=eps,
-        chunk_size=chunk_size,
-    )
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaM_initial:
+    :param qk_scale:
+    :param return_last_states:
+    :param chunk_size:
+    :param eps:
+    :return:
+    """
+    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(matQ=matQ, matK=matK, matV=matV, vecI=vecI, vecF=vecF,
+                                                        matC_initial=matC_initial, vecN_initial=vecN_initial,
+                                                        scaM_initial=scaM_initial, qk_scale=qk_scale,
+                                                        return_last_states=return_last_states, eps=eps,
+                                                        chunk_size=chunk_size)
     if return_last_states:
         return matH_out, last_states
     else:

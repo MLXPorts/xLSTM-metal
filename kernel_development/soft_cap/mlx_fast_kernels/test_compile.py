@@ -11,15 +11,15 @@ def test_early_compilation():
     kernel = SoftCapMLXFastKernel()
 
     # Verify kernel is None before compilation
-    assert kernel._kernel is None
+    assert kernel.kernel is None
     print("  ✓ Kernel starts as None")
 
     # Compile explicitly
     compiled = kernel.compile()
 
     # Verify kernel is now set
-    assert kernel._kernel is not None
-    assert kernel._kernel is compiled
+    assert kernel.kernel is not None
+    assert kernel.kernel is compiled
     print("  ✓ Kernel compiled successfully")
 
     # Verify calling compile again returns same object
@@ -49,7 +49,7 @@ def test_lazy_compilation():
     kernel = SoftCapMLXFastKernel()
 
     # Verify kernel is None before first use
-    assert kernel._kernel is None
+    assert kernel.kernel is None
     print("  ✓ Kernel starts as None")
 
     # Use kernel without explicit compile()
@@ -61,7 +61,7 @@ def test_lazy_compilation():
     y = kernel(x, 2.0)
 
     # Verify kernel was compiled on first use
-    assert kernel._kernel is not None
+    assert kernel.kernel is not None
     print("  ✓ Kernel compiled on first use (lazy)")
 
     # Verify against hand-calculated values

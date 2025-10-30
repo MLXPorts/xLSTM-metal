@@ -20,6 +20,12 @@ from mlstm_kernels.torch.recurrent.__init__ import registry_sequence as _seq_reg
 
 
 def max_err(a: torch.Tensor, b: torch.Tensor):
+    """
+
+    :param a:
+    :param b:
+    :return:
+    """
     diff = (a - b).abs()
     mae = diff.max().item()
     denom = (a.abs().max() + 1e-8)
@@ -41,9 +47,8 @@ def test_step():
     N0 = torch.zeros(B,NH,DHQK, device=device, dtype=torch.float32)
     M0 = torch.zeros(B,NH,1, device=device, dtype=torch.float32)
 
-    h_nat,(C_nat,N_nat,M_nat) = mlstm_recurrent_step__native_fw(
-        matC_old=C0, vecN_old=N0, scaM_old=M0, vecQ=q, vecK=k, vecV=v, scaI=i, scaF=f, eps=1e-6
-    )
+    h_nat,(C_nat,N_nat,M_nat) = mlstm_recurrent_step__native_fw(matC_old=C0, vecN_old=N0, scaM_old=M0, vecQ=q, vecK=k,
+                                                                vecV=v, scaI=i, scaF=f)
     h_mtl,(C_mtl,N_mtl,M_mtl) = mlstm_recurrent_step__metal_fw(
         matC_old=C0, vecN_old=N0, scaM_old=M0.squeeze(-1), vecQ=q, vecK=k, vecV=v, scaI=i, scaF=f, eps=1e-6
     )
@@ -91,7 +96,7 @@ def test_sequence():
     i = torch.randn(B,NH,S, device=device, dtype=torch.float32)
     f = torch.randn(B,NH,S, device=device, dtype=torch.float32)
 
-    h_nat,_ = mlstm_recurrent_sequence__native_fw(q=q,k=k,v=v,i=i,f=f,return_last_states=True,eps=1e-6)
+    h_nat,_ = mlstm_recurrent_sequence__native_fw(q=q, k=k, v=v, i=i, f=f, return_last_states=True)
     # native_sequence__metal is registered via registry; fetch and call
     seq_metal = _seq_reg["native_sequence__metal"]
     h_mtl,_ = seq_metal(q=q,k=k,v=v,i=i,f=f,return_last_states=True,eps=1e-6)
@@ -102,6 +107,9 @@ def test_sequence():
 
 
 def main():
+    """
+
+    """
     assert torch.backends.mps.is_available(), "MPS required"
     test_step()
     test_sequence()

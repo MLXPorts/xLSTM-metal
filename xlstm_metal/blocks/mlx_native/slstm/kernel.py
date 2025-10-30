@@ -11,8 +11,9 @@ Key differences from mLSTM:
 - Exponential gating: i_t = exp(ĩ_t), f_t = exp(f̃_t)
 """
 
-import mlx.core as mx
 from typing import Tuple, Optional
+
+import mlx.core as mx
 
 
 def slstm_recurrent_step(

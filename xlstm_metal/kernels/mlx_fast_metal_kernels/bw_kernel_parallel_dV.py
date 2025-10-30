@@ -8,15 +8,15 @@ Ported from Triton to Metal C++ using mx.fast.metal_kernel().
 This kernel computes ∂Loss/∂V using intra-chunk and inter-chunk contributions.
 """
 
-import mlx.core as mx
-from typing import Tuple
 import struct
 
-_HEADER = """#include <metal_stdlib>
+import mlx.core as mx
+
+HEADER = """#include <metal_stdlib>
 using namespace metal;
 """
 
-_PARALLEL_BW_DV_SRC = r"""
+PARALLEL_BW_DV_SRC = r"""
     // Thread and threadgroup indices
     uint idx_b_DHHV = threadgroup_position_in_grid.x;
     uint idx_b_LKV = threadgroup_position_in_grid.y;
@@ -383,17 +383,12 @@ def mlstm_chunkwise_parallel_bw_dV_metal(
     matDeltaV = mx.zeros((B, NH, S, DHHV), dtype=matQ.dtype)
 
     # Build kernel
-    kernel = mx.fast.metal_kernel(
-        name="mlstm_parallel_bw_dV",
-        input_names=["matQ", "matK", "matV", "vecI", "vecB", "vecA",
-                     "matCstate_all", "vecNstate_all", "scaMstate_all",
-                     "vecN_out", "vecM_out", "matDeltaH_out", "matDeltaC_states",
-                     "params", "strides"],
-        output_names=["matDeltaV"],
-        header=_HEADER,
-        source=_PARALLEL_BW_DV_SRC,
-        ensure_row_contiguous=True,
-    )
+    kernel = mx.fast.metal_kernel(name="mlstm_parallel_bw_dV",
+                                  input_names=["matQ", "matK", "matV", "vecI", "vecB", "vecA",
+                                               "matCstate_all", "vecNstate_all", "scaMstate_all",
+                                               "vecN_out", "vecM_out", "matDeltaH_out", "matDeltaC_states",
+                                               "params", "strides"], output_names=["matDeltaV"], header=HEADER,
+                                  source=PARALLEL_BW_DV_SRC)
 
     # Launch: grid over (DHHV/siz_b_DHHV, L/siz_b_LKV, NC * B*NH)
     num_tiles_DHHV = (DHHV + siz_b_DHHV - 1) // siz_b_DHHV

@@ -68,6 +68,19 @@ def plot_numerical_diffs(
     figsize=(10, 6),
     convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
 ):
+    """
+
+    :param pt_fp32_baseline:
+    :param cu_fp32:
+    :param cu_bf16:
+    :param cu_half:
+    :param title:
+    :param vmin:
+    :param vmax:
+    :param figsize:
+    :param convert_to_diff_imarray_fn:
+    :return:
+    """
     fig, (ax1, ax2, ax3) = plt.subplots(figsize=figsize, ncols=3)
 
     pos1 = ax1.imshow(
@@ -104,6 +117,17 @@ def plot_numerical_diffs_single(
     figsize=(10, 6),
     convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
 ):
+    """
+
+    :param baseline:
+    :param target:
+    :param title:
+    :param vmin:
+    :param vmax:
+    :param figsize:
+    :param convert_to_diff_imarray_fn:
+    :return:
+    """
     fig, ax1 = plt.subplots(figsize=figsize)
     pos1 = ax1.imshow(
         convert_to_diff_imarray_fn(baseline=baseline, target=target),
@@ -127,6 +151,20 @@ def plot_numerical_diffs_per_batchhead(
     max_num_batchhead_plots: int = -1,  # -1 means all
     convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
 ):
+    """
+
+    :param baseline:
+    :param target:
+    :param title:
+    :param vmin:
+    :param vmax:
+    :param figsize:
+    :param rtol:
+    :param atol:
+    :param max_num_batchhead_plots:
+    :param convert_to_diff_imarray_fn:
+    :return:
+    """
     baseline = baseline.reshape(-1, baseline.shape[-2], baseline.shape[-1])
     if target is not None:
         target = target.reshape(-1, target.shape[-2], target.shape[-1])

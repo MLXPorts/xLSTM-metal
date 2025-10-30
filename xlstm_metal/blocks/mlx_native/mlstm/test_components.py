@@ -9,7 +9,10 @@ Tests:
 """
 
 import mlx.core as mx
+import numpy as np
+
 from components import soft_cap, RMSNorm, MultiHeadLayerNorm
+
 
 # Helper to convert MLX arrays to Python for assertions
 def to_scalar(x):
@@ -70,7 +73,7 @@ def test_rmsnorm_correctness():
 
     # Create RMSNorm layer
     d_model = 512
-    norm = RMSNorm(num_features=d_model, eps=1e-6)
+    norm = RMSNorm(num_features=d_model)
 
     # Test input
     batch_size = 2
@@ -116,13 +119,13 @@ def test_rmsnorm_weight_and_bias():
     d_model = 128
 
     # Test with weight only
-    norm_weight = RMSNorm(num_features=d_model, use_weight=True, use_bias=False)
+    norm_weight = RMSNorm(num_features=d_model)
 
     # Test with weight and bias
-    norm_both = RMSNorm(num_features=d_model, use_weight=True, use_bias=True)
+    norm_both = RMSNorm(num_features=d_model, use_bias=True)
 
     # Test without weight or bias
-    norm_none = RMSNorm(num_features=d_model, use_weight=False, use_bias=False)
+    norm_none = RMSNorm(num_features=d_model, use_weight=False)
 
     x = mx.random.normal(shape=(2, 10, d_model))
 
@@ -187,7 +190,7 @@ def test_multihead_layernorm_per_head_independence():
     batch_size = 1
     seq_len = 8
 
-    mhln = MultiHeadLayerNorm(num_heads=num_heads, head_dim=head_dim, eps=1e-6)
+    mhln = MultiHeadLayerNorm(num_heads=num_heads, head_dim=head_dim)
 
     # Create input with different statistics per head
     x = mx.zeros((batch_size, seq_len, num_heads, head_dim))
@@ -277,10 +280,7 @@ def test_dtype_handling():
     d_model = 256
 
     # Test with float32 reductions
-    norm_f32 = RMSNorm(
-        num_features=d_model,
-        force_float32_reductions=True
-    )
+    norm_f32 = RMSNorm(num_features=d_model)
 
     # Test with native dtype reductions
     norm_native = RMSNorm(

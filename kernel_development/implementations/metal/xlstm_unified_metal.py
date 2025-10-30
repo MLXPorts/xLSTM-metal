@@ -39,6 +39,11 @@ class RMSNorm(nn.Module):
         self.variance_epsilon = eps
     
     def forward(self, hidden_states):
+        """
+
+        :param hidden_states:
+        :return:
+        """
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
@@ -54,6 +59,11 @@ class CausalConv1d(nn.Module):
         self.conv = nn.Conv1d(in_channels, out_channels, kernel_size, bias=bias)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         x = x.transpose(1, 2)
         x = F.pad(x, (self.padding, 0))
         x = self.conv(x)
@@ -90,9 +100,21 @@ class mLSTMBlock(nn.Module):
             self.layer_norm = nn.LayerNorm(config.d_model, eps=config.norm_eps)
     
     def soft_cap(self, x: torch.Tensor, cap_value: float) -> torch.Tensor:
+        """
+
+        :param x:
+        :param cap_value:
+        :return:
+        """
         return cap_value * torch.tanh(x / cap_value)
     
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
         x = self.layer_norm(x)
@@ -160,9 +182,21 @@ class sLSTMBlock(nn.Module):
             self.layer_norm = nn.LayerNorm(config.d_model, eps=config.norm_eps)
     
     def soft_cap(self, x: torch.Tensor, cap_value: float) -> torch.Tensor:
+        """
+
+        :param x:
+        :param cap_value:
+        :return:
+        """
         return cap_value * torch.tanh(x / cap_value)
     
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
         x = self.layer_norm(x)
@@ -233,13 +267,18 @@ class xLSTMModel(nn.Module):
     
     def _init_weights(self, module):
         if isinstance(module, nn.Linear):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            torch.nn.init.normal_(module.weight, std=0.02)
             if module.bias is not None:
                 torch.nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
-            torch.nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            torch.nn.init.normal_(module.weight, std=0.02)
     
     def init_hidden(self, batch_size: int):
+        """
+
+        :param batch_size:
+        :return:
+        """
         hidden_states = []
         for block in self.blocks:
             if isinstance(block, mLSTMBlock):
@@ -256,6 +295,12 @@ class xLSTMModel(nn.Module):
         return hidden_states
     
     def forward(self, tokens: torch.Tensor, hidden_states: Optional[List] = None) -> Tuple[torch.Tensor, List]:
+        """
+
+        :param tokens:
+        :param hidden_states:
+        :return:
+        """
         x = self.embedding(tokens)
         
         if self.dropout and self.training:
@@ -294,6 +339,12 @@ class MetalOptimizedxLSTM(xLSTMModel):
             print("CPU backend enabled")
     
     def forward(self, tokens: torch.Tensor, hidden_states: Optional[List] = None) -> Tuple[torch.Tensor, List]:
+        """
+
+        :param tokens:
+        :param hidden_states:
+        :return:
+        """
         if hasattr(self, 'device_type') and self.device_type in ["mps", "cuda"]:
             with torch.autocast(device_type=self.device_type, dtype=torch.float16):
                 return super().forward(tokens, hidden_states)
@@ -311,6 +362,17 @@ class MetalOptimizedxLSTM(xLSTMModel):
         do_sample: bool = True,
         eos_token_id: Optional[int] = None
     ) -> torch.Tensor:
+        """
+
+        :param input_ids:
+        :param max_new_tokens:
+        :param temperature:
+        :param top_k:
+        :param top_p:
+        :param do_sample:
+        :param eos_token_id:
+        :return:
+        """
         batch_size = input_ids.shape[0]
         device = input_ids.device
         
@@ -330,12 +392,12 @@ class MetalOptimizedxLSTM(xLSTMModel):
             
             # Apply top-k filtering
             if top_k is not None and top_k > 0:
-                indices_to_remove = logits < torch.topk(logits, top_k, dim=-1)[0][..., -1, None]
+                indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
                 logits[indices_to_remove] = float('-inf')
             
             # Apply top-p (nucleus) filtering
             if top_p is not None and top_p < 1.0:
-                sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
                 cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
                 
                 sorted_indices_to_remove = cumulative_probs > top_p
@@ -375,7 +437,19 @@ def create_xlstm_model(
     use_metal_optimization: bool = True,
     device: str = "auto"
 ) -> Union[xLSTMModel, MetalOptimizedxLSTM]:
-    
+    """
+
+    :param vocab_size:
+    :param num_layers:
+    :param d_model:
+    :param signature:
+    :param head_dim:
+    :param head_num:
+    :param dropout:
+    :param use_metal_optimization:
+    :param device:
+    :return:
+    """
     if device == "auto":
         if torch.backends.mps.is_available():
             device = "mps"
@@ -410,16 +484,8 @@ if __name__ == "__main__":
     print("Creating unified Metal-optimized xLSTM...")
     
     # Create model with Metal optimization
-    model = create_xlstm_model(
-        vocab_size=1000,
-        num_layers=4,
-        d_model=256,
-        signature=(1, 0, 1, 0),
-        head_dim=32,
-        head_num=8,
-        dropout=0.0,
-        use_metal_optimization=True
-    )
+    model = create_xlstm_model(vocab_size=1000, num_layers=4, d_model=256, signature=(1, 0, 1, 0), head_num=8,
+                               dropout=0.0)
     
     model.eval()
     
@@ -438,13 +504,7 @@ if __name__ == "__main__":
     # Benchmark generation
     start_time = time.time()
     with torch.no_grad():
-        generated = model.generate(
-            prompt,
-            max_new_tokens=50,
-            temperature=0.8,
-            top_k=40,
-            do_sample=True
-        )
+        generated = model.generate(prompt, max_new_tokens=50, temperature=0.8, top_k=40)
     
     gen_time = time.time() - start_time
     tokens_generated = generated.shape[1] - prompt.shape[1]

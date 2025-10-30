@@ -45,6 +45,10 @@ def _load_params() -> dict:
 
 
 def device_key() -> Tuple[str, str]:
+    """
+
+    :return:
+    """
     backend = "metal" if metal is not None else "cpu"
     name = ""
     if metal is not None:

@@ -139,15 +139,11 @@ class HPCLimbMetalxLSTM:
         self.o_weight = mx.random.normal((num_heads, d_model)) * 0.02
         
         # Compile Metal kernel
-        self.kernel = mx.fast.metal_kernel(
-            name="hpc_limb_xlstm",
-            source=HPC_LIMB_KERNEL,
-            input_names=["input", "q_weight", "k_weight", "v_weight", 
-                        "i_weight", "f_weight", "o_weight", 
-                        "hidden_state", "cell_state", "shape"],
-            output_names=["output", "hidden_state_out", "cell_state_out", "debug"],
-            ensure_row_contiguous=True
-        )
+        self.kernel = mx.fast.metal_kernel(name="hpc_limb_xlstm", source=HPC_LIMB_KERNEL,
+                                           input_names=["input", "q_weight", "k_weight", "v_weight",
+                                                        "i_weight", "f_weight", "o_weight",
+                                                        "hidden_state", "cell_state", "shape"],
+                                           output_names=["output", "hidden_state_out", "cell_state_out", "debug"])
         
     def forward(self, x, hidden_state=None, cell_state=None):
         """Forward pass using HPC limb Metal kernel"""

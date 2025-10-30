@@ -26,6 +26,17 @@ def _count_ln_flops(d):
 def count_flops_slstm_block_fw(
     S, d, Nh, conv1d_kernel_size=4, pf_ffn=1.3, factor_exp=1, count_ln_flops: Callable[[int], int] = _count_ln_flops
 ):
+    """
+
+    :param S:
+    :param d:
+    :param Nh:
+    :param conv1d_kernel_size:
+    :param pf_ffn:
+    :param factor_exp:
+    :param count_ln_flops:
+    :return:
+    """
     slstm_cell_flops = count_flops_slstm_cell_fw(S=S, d=d, Nh=Nh)
     dh = d // Nh
     conv1d_flops = 2 * conv1d_kernel_size * (S + conv1d_kernel_size - 1) * dh * Nh + S * dh * Nh
@@ -39,6 +50,11 @@ def count_flops_slstm_block_fw(
 
 
 def get_slstm_fw_flop_dict(sequence_length: int) -> dict[str, tuple[int, int, int]]:
+    """
+
+    :param sequence_length:
+    :return:
+    """
     slstm_size_dict = {
         "125M": dict(d=768, Nh=4),
         "350M": dict(d=1024, Nh=4),

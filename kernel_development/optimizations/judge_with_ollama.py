@@ -45,6 +45,12 @@ SCHEMA_HINT = {
 
 
 def build_prompt(prompt_text: str, cont_text: str) -> str:
+    """
+
+    :param prompt_text:
+    :param cont_text:
+    :return:
+    """
     schema = json.dumps(SCHEMA_HINT, indent=2)
     return (
         f"SYSTEM:\n{SYSTEM_INSTRUCTIONS}\n\n"
@@ -56,6 +62,14 @@ def build_prompt(prompt_text: str, cont_text: str) -> str:
 
 
 def call_ollama(api: str, model: str, prompt: str, stream: bool = False) -> str:
+    """
+
+    :param api:
+    :param model:
+    :param prompt:
+    :param stream:
+    :return:
+    """
     url = f"{api.rstrip('/')}/api/generate"
     payload = {"model": model, "prompt": prompt, "stream": stream}
     resp = requests.post(url, json=payload, timeout=600)
@@ -65,6 +79,12 @@ def call_ollama(api: str, model: str, prompt: str, stream: bool = False) -> str:
 
 
 def maybe_truncate(text: str, max_chars: int) -> str:
+    """
+
+    :param text:
+    :param max_chars:
+    :return:
+    """
     if max_chars <= 0 or len(text) <= max_chars:
         return text
     head = max_chars // 2
@@ -73,6 +93,11 @@ def maybe_truncate(text: str, max_chars: int) -> str:
 
 
 def parse_params_from_name(name: str) -> Dict[str, str]:
+    """
+
+    :param name:
+    :return:
+    """
     params: Dict[str, str] = {}
     for part in name.split("__"):
         if "=" in part:
@@ -82,6 +107,9 @@ def parse_params_from_name(name: str) -> Dict[str, str]:
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", type=str, default=None, help="Optional JSON config to override CLI")
     ap.add_argument("--model", type=str, default="qwen3-coder:30b")
@@ -129,11 +157,11 @@ def main():
             cont_text = maybe_truncate(cont_text_full, args.max_cont_chars)
             prompt = build_prompt(prompt_text, cont_text)
             try:
-                resp = call_ollama(args.api, args.model, prompt, stream=False)
+                resp = call_ollama(args.api, args.model, prompt)
                 text = resp.strip()
                 start = text.find("{")
                 end = text.rfind("}")
-                if start >= 0 and end > start:
+                if 0 <= start < end:
                     text = text[start:end+1]
                 data = json.loads(text)
             except Exception as e:

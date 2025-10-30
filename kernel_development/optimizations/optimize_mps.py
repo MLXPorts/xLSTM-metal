@@ -47,6 +47,13 @@ from scripts.run_local_xlstm_mps import load_local_config, load_local_weights
 
 @torch.no_grad()
 def greedy_gen_timed(model: xLSTMLarge, prefill_tokens: torch.Tensor, max_len: int) -> Tuple[float, float]:
+    """
+
+    :param model:
+    :param prefill_tokens:
+    :param max_len:
+    :return:
+    """
     device = prefill_tokens.device
     state = None
     B = prefill_tokens.size(0)
@@ -72,6 +79,11 @@ def greedy_gen_timed(model: xLSTMLarge, prefill_tokens: torch.Tensor, max_len: i
 
 
 def set_chunk_size(model: xLSTMLarge, chunk_size: int) -> None:
+    """
+
+    :param model:
+    :param chunk_size:
+    """
     for blk in model.backbone.blocks:
         try:
             blk.mlstm_layer.mlstm_backend.config.chunk_size = chunk_size
@@ -80,6 +92,13 @@ def set_chunk_size(model: xLSTMLarge, chunk_size: int) -> None:
 
 
 def build_model(model_path: str, chunkwise_backend: str, chunk_size: int) -> tuple[xLSTMLarge, AutoTokenizer]:
+    """
+
+    :param model_path:
+    :param chunkwise_backend:
+    :param chunk_size:
+    :return:
+    """
     model_dir = Path(model_path)
     os.environ["XLSTM_CHUNKWISE_BACKEND"] = chunkwise_backend
     mcfg = load_local_config(model_dir / "config.json")
@@ -92,6 +111,12 @@ def build_model(model_path: str, chunkwise_backend: str, chunk_size: int) -> tup
 
 
 def make_input(tok: AutoTokenizer, prompt: str) -> torch.Tensor:
+    """
+
+    :param tok:
+    :param prompt:
+    :return:
+    """
     x = tok(prompt, return_tensors="pt")["input_ids"].to("mps")
     if tok.bos_token_id is not None:
         bos = torch.tensor([[tok.bos_token_id]], device="mps", dtype=x.dtype)
@@ -107,6 +132,16 @@ def eval_params(
     params: Dict[str, int],
     repeats: int,
 ) -> Dict[str, float]:
+    """
+
+    :param model:
+    :param prefill_tokens:
+    :param new_tokens:
+    :param backend:
+    :param params:
+    :param repeats:
+    :return:
+    """
     # Apply env knobs based on backend
     if backend == "ray":
         os.environ["XLSTM_MPS_HEADS_PER_BAND"] = str(params["heads_per_band"])
@@ -144,6 +179,12 @@ class Bounds:
 
 
 def random_params(backend: str, b: Bounds) -> Dict[str, int]:
+    """
+
+    :param backend:
+    :param b:
+    :return:
+    """
     p = {
         "heads_per_band": random.randint(b.heads_min, b.heads_max),
         "chunk_size": random.choice([b.chunks_min, (b.chunks_min + b.chunks_max)//2, b.chunks_max])
@@ -155,6 +196,14 @@ def random_params(backend: str, b: Bounds) -> Dict[str, int]:
 
 
 def mutate(backend: str, p: Dict[str, int], b: Bounds, mut_prob: float) -> Dict[str, int]:
+    """
+
+    :param backend:
+    :param p:
+    :param b:
+    :param mut_prob:
+    :return:
+    """
     q = dict(p)
     if random.random() < mut_prob:
         q["heads_per_band"] = max(b.heads_min, min(b.heads_max, q["heads_per_band"] + random.choice([-2, -1, 1, 2])))
@@ -167,6 +216,13 @@ def mutate(backend: str, p: Dict[str, int], b: Bounds, mut_prob: float) -> Dict[
 
 
 def crossover(backend: str, a: Dict[str, int], c: Dict[str, int]) -> Dict[str, int]:
+    """
+
+    :param backend:
+    :param a:
+    :param c:
+    :return:
+    """
     r = {
         "heads_per_band": random.choice([a["heads_per_band"], c["heads_per_band"]]),
         "chunk_size": random.choice([a["chunk_size"], c["chunk_size"]]),
@@ -189,6 +245,21 @@ def optimize_ga(
     elite_frac: float = 0.3,
     mut_prob: float = 0.4,
 ) -> Tuple[Dict[str, int], Dict[str, float]]:
+    """
+
+    :param backend:
+    :param model:
+    :param tok:
+    :param prompt:
+    :param new_tokens:
+    :param bounds:
+    :param generations:
+    :param population:
+    :param repeats:
+    :param elite_frac:
+    :param mut_prob:
+    :return:
+    """
     pop = [random_params(backend, bounds) for _ in range(population)]
     best_p, best_m = None, None
     for g in range(generations):
@@ -224,6 +295,18 @@ def optimize_random(
     trials: int,
     repeats: int,
 ) -> Tuple[Dict[str, int], Dict[str, float]]:
+    """
+
+    :param backend:
+    :param model:
+    :param tok:
+    :param prompt:
+    :param new_tokens:
+    :param bounds:
+    :param trials:
+    :param repeats:
+    :return:
+    """
     best_p, best_m = None, None
     for t in range(trials):
         p = random_params(backend, bounds)
@@ -235,6 +318,9 @@ def optimize_random(
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", type=str, choices=["ray", "queued"], default="ray")
     ap.add_argument("--config", type=str, default=None, help="Optional JSON config with tunables to override CLI")
@@ -345,6 +431,11 @@ def main():
 
     # Helper to log a trial
     def log_trial(p: Dict[str, int], m: Dict[str, float]):
+        """
+
+        :param p:
+        :param m:
+        """
         rec = {
             "backend": args.backend,
             "workers": p.get("workers"),

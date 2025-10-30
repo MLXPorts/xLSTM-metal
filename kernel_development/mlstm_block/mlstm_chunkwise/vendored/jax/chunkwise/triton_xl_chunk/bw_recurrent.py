@@ -101,7 +101,7 @@ def mlstm_chunkwise__recurrent_bw_dC(
         vecN_out,
         matDeltaC_last,
         matDeltaC_states,
-        out_shape=(matDeltaC_states),
+        out_shape=matDeltaC_states,
         qk_scale=qk_scale,
         str_matQ_B_NH=get_stride(matQ, axis=1),
         str_matQ_S=get_stride(matQ, axis=2),

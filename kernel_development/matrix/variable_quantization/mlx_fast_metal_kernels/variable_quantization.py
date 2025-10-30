@@ -241,14 +241,9 @@ class VariableQuantizationMLXKernel:
             use_db = self._use_double_buffer or _select_use_double_buffer()
             kernel_source = _QUANTIZE_TILED_KERNEL_DB if use_db else _QUANTIZE_TILED_KERNEL
 
-            self._kernel = mx.fast.metal_kernel(
-                name="variable_quantization_tiled",
-                input_names=["inp", "params", "shape"],
-                output_names=["out"],
-                header=_HEADER,
-                source=kernel_source,
-                ensure_row_contiguous=True,
-            )
+            self._kernel = mx.fast.metal_kernel(name="variable_quantization_tiled",
+                                                input_names=["inp", "params", "shape"], output_names=["out"],
+                                                header=_HEADER, source=kernel_source)
         return self._kernel
 
     def __call__(self, x: mx.array, bits: int) -> mx.array:
@@ -295,7 +290,7 @@ class VariableQuantizationMLXKernel:
 
 
 # Global instance (single buffer by default)
-variable_quantization = VariableQuantizationMLXKernel(use_double_buffer=False)
+variable_quantization = VariableQuantizationMLXKernel()
 
 
 def quantize(x: mx.array, bits: int) -> mx.array:

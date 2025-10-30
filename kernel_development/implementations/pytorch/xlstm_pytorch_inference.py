@@ -159,7 +159,7 @@ class xLSTMInference(nn.Module):
         device = input_ids.device
         
         # Prefill: Process input sequence
-        _, hidden_states = self.forward_sequence(input_ids, use_cache=True)
+        _, hidden_states = self.forward_sequence(input_ids)
         
         # Initialize generation
         generated = input_ids
@@ -226,7 +226,7 @@ class xLSTMInference(nn.Module):
         top_k: int
     ) -> torch.Tensor:
         """Filter logits to keep only top-k tokens"""
-        indices_to_remove = logits < torch.topk(logits, top_k, dim=-1)[0][..., -1, None]
+        indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
         logits[indices_to_remove] = float('-inf')
         return logits
     
@@ -236,7 +236,7 @@ class xLSTMInference(nn.Module):
         top_p: float
     ) -> torch.Tensor:
         """Filter logits using nucleus (top-p) filtering"""
-        sorted_logits, sorted_indices = torch.sort(logits, descending=True, dim=-1)
+        sorted_logits, sorted_indices = torch.sort(logits, descending=True)
         cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
         
         # Remove tokens with cumulative probability above the threshold
@@ -283,7 +283,7 @@ class xLSTMInference(nn.Module):
             generation_config = GenerationConfig(**kwargs)
         
         # Prefill
-        _, hidden_states = self.forward_sequence(input_ids, use_cache=True)
+        _, hidden_states = self.forward_sequence(input_ids)
         
         # Yield tokens one by one
         last_token = input_ids[:, -1]
@@ -330,21 +330,12 @@ def create_inference_model(base_model_or_config, device='cpu'):
 if __name__ == "__main__":
     import time
     from xlstm_pytorch import create_xlstm_model
-    
+
     print("Creating xLSTM model for inference...")
-    
+
     # Create base model
-    base_model = create_xlstm_model(
-        vocab_size=1000,
-        num_layers=2,
-        signature=(1, 1),
-        inp_dim=128,
-        head_dim=32,
-        head_num=4,
-        dropout=0.0,
-        device='cpu'
-    )
-    
+    base_model = create_xlstm_model()
+
     # Wrap with inference capabilities
     model = xLSTMInference(base_model)
     model.eval()
@@ -393,7 +384,7 @@ if __name__ == "__main__":
     long_sequence = torch.randint(0, 1000, (1, 100))
     
     start_time = time.time()
-    logits, states = model.forward_sequence(long_sequence, use_cache=True)
+    logits, states = model.forward_sequence(long_sequence)
     prefill_time = time.time() - start_time
     
     print(f"Prefill shape: {logits.shape}")

@@ -80,6 +80,57 @@ def mlstm_chunkwise__parallel_bw_dQKV_kernel(
     DTYPE: tl.constexpr = tl.float32,
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecB:
+    :param vecI:
+    :param vecM_combine:
+    :param scaM_inter:
+    :param matC_states:
+    :param matDeltaH:
+    :param vecN_out:
+    :param matDeltaC_states:
+    :param matDeltaQ:
+    :param matDeltaK:
+    :param matDeltaV:
+    :param qk_scale:
+    :param str_matQK_B_NH:
+    :param str_matQK_S:
+    :param str_matQK_DHQK:
+    :param str_matDV_num_b_DHQK:
+    :param str_matHV_B_NH:
+    :param str_matHV_S:
+    :param str_matHV_DHHV:
+    :param str_vecBI_B_NH:
+    :param str_vecBI_NC:
+    :param str_vecBI_L:
+    :param str_vecM_combine_B_NH:
+    :param str_vecM_combine_S:
+    :param str_scaM_inter_B_NH:
+    :param str_scaM_inter_NC:
+    :param str_matC_states_B_NH:
+    :param str_matC_states_NCDHQK:
+    :param str_matC_states_DHHV:
+    :param str_vecN_out_B_NH:
+    :param str_vecN_out_S:
+    :param str_matDeltaC_states_B_NH:
+    :param str_matDeltaC_states_NCDHQK:
+    :param str_matDeltaC_states_DHHV:
+    :param B:
+    :param NH:
+    :param S:
+    :param DHQK:
+    :param DHHV:
+    :param NC:
+    :param L:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param DTYPE:
+    :param EPS:
+    """
     idx_b_DHQK, idx_b_NC, idx_b_BNH = (
         tl.program_id(0),
         tl.program_id(1),
@@ -205,7 +256,7 @@ def mlstm_chunkwise__parallel_bw_dQKV_kernel(
 
         # [inter] matDeltaQ += matDeltaH @ matC_km1.transpose() * vecBbar
         matC_km1_val = tl.load(matC_km1_ptr, boundary_check=(0, 1)).to(DTYPE)  # (siz_b_DHHV, siz_b_DHQK)
-        matDeltaQ_inter_val += tl.dot((matDeltaH_val).to(DTYPE), matC_km1_val) * qk_scale  # (L, siz_b_DHQK)
+        matDeltaQ_inter_val += tl.dot(matDeltaH_val.to(DTYPE), matC_km1_val) * qk_scale  # (L, siz_b_DHQK)
 
         # [intra] matDeltaS += (matDeltaH @ matV.transpose()) * matDbar
         matDeltaSbar_val += tl.dot(
@@ -230,7 +281,7 @@ def mlstm_chunkwise__parallel_bw_dQKV_kernel(
     matDeltaS_val = (matDeltaSbar_val * matDbar_val).to(DTYPE)
 
     # [intra] matDeltaK = matDeltaS.transpose() @ matQ * qk_scale
-    matDeltaK_val = matDeltaK_inter_val + (tl.dot(tl.trans(matDeltaS_val), (matQ_val).to(DTYPE)) * qk_scale)
+    matDeltaK_val = matDeltaK_inter_val + (tl.dot(tl.trans(matDeltaS_val), matQ_val.to(DTYPE)) * qk_scale)
     # [intra] matDeltaQ = matDeltaS @ matK * qk_scale
     matDeltaQ_val = matDeltaQ_inter_val + ((tl.dot(matDeltaS_val, matK_val)) * qk_scale)
 

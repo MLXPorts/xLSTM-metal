@@ -27,8 +27,10 @@ Critical details from canonical mLSTM:
 """
 
 from __future__ import annotations
-import mlx.core as mx
+
 from typing import Tuple, Optional
+
+import mlx.core as mx
 
 
 def _mlstm_chunkwise_recurrent_fw_C(
@@ -63,7 +65,7 @@ def _mlstm_chunkwise_recurrent_fw_C(
     m_k = mx.zeros((B, NH), dtype=k.dtype) if m_initial is None else m_initial
 
     # Compute vecA and scaG from vecB and vecI (Triton lines 91-93, 166-172)
-    vec_a = vec_b[:, :, :, -1:] - vec_b + vec_i  # (B, NH, NC, L)
+    vec_a = mx.add(mx.subtract(vec_b[:, :, :, -1:], vec_b), vec_i)  # (B, NH, NC, L)
     sca_g = vec_b[:, :, :, -1]  # (B, NH, NC)
     sca_a_max = mx.max(vec_a, axis=-1)  # (B, NH, NC)
 
@@ -77,7 +79,7 @@ def _mlstm_chunkwise_recurrent_fw_C(
         # Update m_inter (Triton lines 175-176)
         sca_a_max_k = sca_a_max[:, :, chunk_idx]
         sca_g_k = sca_g[:, :, chunk_idx]
-        m_k_next = mx.maximum(sca_g_k + m_k, sca_a_max_k)
+        m_k_next = mx.maximum(mx.add(sca_g_k, m_k), sca_a_max_k)
 
         # Load chunk data
         k_chunk = k[:, :, chunk_idx * L:(chunk_idx + 1) * L, :]  # (B, NH, L, DHQK)
@@ -85,19 +87,20 @@ def _mlstm_chunkwise_recurrent_fw_C(
         vec_a_k = vec_a[:, :, chunk_idx, :]  # (B, NH, L)
 
         # Compute normalized gates (Triton lines 183-184)
-        vec_abar_k = mx.exp(vec_a_k - m_k_next[:, :, None])  # (B, NH, L)
-        sca_gbar_k = mx.exp(sca_g_k + m_k - m_k_next)  # (B, NH)
+        vec_abar_k = mx.exp(mx.subtract(vec_a_k, m_k_next[:, :, None]))  # (B, NH, L)
+        sca_gbar_k = mx.exp(mx.subtract(mx.add(sca_g_k, m_k), m_k_next))  # (B, NH)
 
         # Update C state: C_k = scaGbar * C_{k-1} + K^T @ (Abar ⊙ V) (Triton lines 187-191)
         # k_chunk: (B, NH, L, DHQK), vec_abar_k: (B, NH, L)
-        k_gated = k_chunk * vec_abar_k[:, :, :, None]  # (B, NH, L, DHQK)
+        k_gated = mx.multiply(k_chunk, vec_abar_k[:, :, :, None])  # (B, NH, L, DHQK)
         # k_gated^T @ v_chunk: (B, NH, DHQK, L) @ (B, NH, L, DHHV) = (B, NH, DHQK, DHHV)
-        c_k = sca_gbar_k[:, :, None, None] * c_k + mx.matmul(
-            k_gated.transpose(0, 1, 3, 2), v_chunk
+        c_k = mx.add(
+            mx.multiply(sca_gbar_k[:, :, None, None], c_k),
+            mx.matmul(k_gated.transpose(0, 1, 3, 2), v_chunk)
         )
 
         # Update n state: n_k = scaGbar * n_{k-1} + sum(K_gated, axis=2) (Triton lines 194-195)
-        n_k = sca_gbar_k[:, :, None] * n_k + mx.sum(k_gated, axis=2)
+        n_k = mx.add(mx.multiply(sca_gbar_k[:, :, None], n_k), mx.sum(k_gated, axis=2))
 
         # Move to next iteration
         m_k = m_k_next
@@ -157,7 +160,7 @@ def mlstm_chunkwise_mlx(
 
     assert S % chunk_size == 0, f"Sequence length {S} must be divisible by chunk_size {chunk_size}"
     NC = S // chunk_size
-    qk_scale = mx.rsqrt(mx.array(QK_DH, dtype=mx.float32))
+    qk_scale = mx.rsqrt(mx.array(QK_DH, dtype=q.dtype))
 
     # Reshape to chunks: (B, NH, S) -> (B, NH, NC, L)
     i_preact = i_preact.reshape(B, NH, NC, chunk_size)
@@ -165,7 +168,7 @@ def mlstm_chunkwise_mlx(
 
     # Compute vecB = cumsum(logsigmoid(f)) (Triton line 157, 313)
     one = mx.array(1.0, dtype=f_preact.dtype)
-    f_logsig = -mx.log(one + mx.exp(-f_preact))  # logsigmoid
+    f_logsig = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(f_preact)))))  # logsigmoid
     vec_b = mx.cumsum(f_logsig, axis=-1)  # (B, NH, NC, L)
 
     # Phase 1: Recurrent computation of inter-chunk states
@@ -199,8 +202,8 @@ def mlstm_chunkwise_mlx(
 
     # matDtilde = vecB[:, None] - vecB[None, :] + vecI[None, :] (Triton line 133)
     # vec_b, vec_i shape: (B, NH, NC, L)
-    matF_logsig_chunk = vec_b[:, :, :, :, None] - vec_b[:, :, :, None, :]  # (B, NH, NC, L, L)
-    matLogD_chunk = matF_logsig_chunk + i_preact[:, :, :, None, :]  # (B, NH, NC, L, L)
+    matF_logsig_chunk = mx.subtract(vec_b[:, :, :, :, None], vec_b[:, :, :, None, :])  # (B, NH, NC, L, L)
+    matLogD_chunk = mx.add(matF_logsig_chunk, i_preact[:, :, :, None, :])  # (B, NH, NC, L, L)
 
     # Apply causal mask (Triton lines 137-140)
     # Create lower triangular mask
@@ -214,14 +217,14 @@ def mlstm_chunkwise_mlx(
     vecM_intra = mx.maximum(vecM_intra, min_max_val)  # MINIMUM_MAX_VAL
 
     # Compute vecM_combine (Triton lines 177-182)
-    vecM_b_inter = vec_b + scaM_k_states[:, :, :, None]  # (B, NH, NC, L)
+    vecM_b_inter = mx.add(vec_b, scaM_k_states[:, :, :, None])  # (B, NH, NC, L)
     vecM_combine = mx.maximum(vecM_b_inter, vecM_intra)  # (B, NH, NC, L)
 
     # Compute matD = exp(matLogD - vecM_combine) (Triton line 150)
-    matD_chunk = mx.exp(matLogD_chunk - vecM_combine[:, :, :, :, None])  # (B, NH, NC, L, L)
+    matD_chunk = mx.exp(mx.subtract(matLogD_chunk, vecM_combine[:, :, :, :, None]))  # (B, NH, NC, L, L)
 
     # Compute matS = matG * qk_scale * matD (Triton line 153)
-    matS_chunk = matG_chunk * qk_scale * matD_chunk  # (B, NH, NC, L, L)
+    matS_chunk = mx.multiply(mx.multiply(matG_chunk, qk_scale), matD_chunk)  # (B, NH, NC, L, L)
 
     # Compute H_intra = matS @ V (Triton lines 169-171)
     # This is accumulated in the Triton kernel, but we compute it directly here
@@ -232,31 +235,31 @@ def mlstm_chunkwise_mlx(
 
     # Compute inter-chunk contribution (Triton lines 176-233)
     # vecBbar = exp(vecB + scaM_inter - vecM_combine) (Triton line 184)
-    vecBbar = mx.exp(vecM_b_inter - vecM_combine)  # (B, NH, NC, L)
+    vecBbar = mx.exp(mx.subtract(vecM_b_inter, vecM_combine))  # (B, NH, NC, L)
 
     # matQbar = Q * vecBbar * qk_scale (Triton line 221)
-    matQbar = q_chunks * vecBbar[:, :, :, :, None] * qk_scale  # (B, NH, NC, L, DHQK)
+    matQbar = mx.multiply(mx.multiply(q_chunks, vecBbar[:, :, :, :, None]), qk_scale)  # (B, NH, NC, L, DHQK)
 
     # matH_inter = matQbar @ matC_{k-1} (Triton line 227)
     matH_inter = mx.matmul(matQbar, matC_k_states)  # (B, NH, NC, L, DHHV)
 
     # vecN_inter = matQbar @ vecN_{k-1} (Triton line 233)
-    vecN_inter = mx.sum(matQbar * vecN_k_states[:, :, :, None, :], axis=-1)  # (B, NH, NC, L)
+    vecN_inter = mx.sum(mx.multiply(matQbar, vecN_k_states[:, :, :, None, :]), axis=-1)  # (B, NH, NC, L)
 
     # Combine intra and inter contributions (Triton lines 235-250)
     # vecM_comb_ratio = exp(vecM_intra - vecM_combine) (Triton line 238)
-    vecM_comb_ratio = mx.exp(vecM_intra - vecM_combine)  # (B, NH, NC, L)
+    vecM_comb_ratio = mx.exp(mx.subtract(vecM_intra, vecM_combine))  # (B, NH, NC, L)
 
     # matH_comb_num = matH_inter + vecM_comb_ratio * matH_intra (Triton line 241)
-    matH_comb_num = matH_inter + vecM_comb_ratio[:, :, :, :, None] * matH_intra  # (B, NH, NC, L, DHHV)
+    matH_comb_num = mx.add(matH_inter, mx.multiply(vecM_comb_ratio[:, :, :, :, None], matH_intra))  # (B, NH, NC, L, DHHV)
 
     # vecN_comb_denom = max(|vecN_inter + vecM_comb_ratio * vecN_intra|, exp(-vecM_combine)) (Triton lines 244-247)
-    vecN_comb = vecN_inter + vecM_comb_ratio * vecN_intra  # (B, NH, NC, L)
-    vecN_comb_denom = mx.maximum(mx.abs(vecN_comb), mx.exp(-vecM_combine))  # (B, NH, NC, L)
+    vecN_comb = mx.add(vecN_inter, mx.multiply(vecM_comb_ratio, vecN_intra))  # (B, NH, NC, L)
+    vecN_comb_denom = mx.maximum(mx.abs(vecN_comb), mx.exp(mx.negative(vecM_combine)))  # (B, NH, NC, L)
 
     # matH_out = matH_comb_num / (vecN_comb_denom + eps) (Triton line 250)
     eps_a = mx.array(eps, dtype=vecN_comb_denom.dtype)
-    matH_out = matH_comb_num / (vecN_comb_denom[:, :, :, :, None] + eps_a)  # (B, NH, NC, L, DHHV)
+    matH_out = mx.divide(matH_comb_num, mx.add(vecN_comb_denom[:, :, :, :, None], eps_a))  # (B, NH, NC, L, DHHV)
 
     # Reshape output back to (B, NH, S, DHHV)
     h = matH_out.reshape(B, NH, S, V_DH)

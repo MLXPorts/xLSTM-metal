@@ -27,7 +27,7 @@ class SoftCapMLXFastKernel:
 
     def __init__(self):
         """Initialize the SoftCapMLXFastKernel with no compiled kernel."""
-        self._kernel: Optional[mx.fast.metal_kernel] = None
+        self.kernel: Optional[mx.fast.metal_kernel] = None
 
     def compile(self) -> mx.fast.metal_kernel:
         """
@@ -39,16 +39,10 @@ class SoftCapMLXFastKernel:
         Returns:
             mx.fast.metal_kernel: The compiled Metal kernel.
         """
-        if self._kernel is None:
-            self._kernel = mx.fast.metal_kernel(
-                name="soft_cap",
-                input_names=["inp", "cap", "shape"],
-                output_names=["out"],
-                header=_HEADER,
-                source=_KERNEL,
-                ensure_row_contiguous=True,
-            )
-        return self._kernel
+        if self.kernel is None:
+            self.kernel = mx.fast.metal_kernel(name="soft_cap", input_names=["inp", "cap", "shape"],
+                                               output_names=["out"], header=_HEADER, source=_KERNEL)
+        return self.kernel
 
     def __call__(self, x: mx.array, cap_value: float) -> mx.array:
         """

@@ -15,6 +15,22 @@ def compute_total_model_flops(
     total_fw_block2_flops: int = None,
     num_blocks2: int = None,
 ) -> int:
+    """
+
+    :param total_fw_block_flops:
+    :param batch_size:
+    :param num_blocks:
+    :param vocab_size:
+    :param embedding_dim:
+    :param sequence_length:
+    :param num_train_steps:
+    :param include_embedding_flops:
+    :param include_logits_flops:
+    :param backward_flop_factor:
+    :param total_fw_block2_flops:
+    :param num_blocks2:
+    :return:
+    """
     total_flops = 0
 
     total_block_flops = total_fw_block_flops * num_blocks
@@ -43,13 +59,32 @@ def compute_total_model_flops_for_block_flops_dict(
     embedding_dim: int = None,
     sequence_length: int = None,
     num_train_steps: int = None,
-    sizes_dict: dict[str, dict[str, int | float]] = {},
+        sizes_dict=None,
     include_embedding_flops: bool = True,
     include_logits_flops: bool = True,
     backward_flop_factor: float = 2.0,
     block2_flops_dict: dict[str, tuple[int, ...]] = None,
     num_blocks2: int = None,
 ) -> dict[str, tuple[int]]:
+    """
+
+    :param block_flops_dict:
+    :param batch_size:
+    :param num_blocks:
+    :param vocab_size:
+    :param embedding_dim:
+    :param sequence_length:
+    :param num_train_steps:
+    :param sizes_dict:
+    :param include_embedding_flops:
+    :param include_logits_flops:
+    :param backward_flop_factor:
+    :param block2_flops_dict:
+    :param num_blocks2:
+    :return:
+    """
+    if sizes_dict is None:
+        sizes_dict = {}
     total_flops_dict = {}
     for model_size in sizes_dict.keys():
         block_flops = block_flops_dict[model_size]

@@ -55,6 +55,50 @@ def mlstm_chunkwise__recurrent_bw_dC_kernel(
     DTYPE: tl.constexpr = tl.float32,
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param matQ:
+    :param vecF:
+    :param scaM_inter:
+    :param vecM_combine:
+    :param matDeltaH:
+    :param vecN_out:
+    :param matDeltaC_last:
+    :param matDeltaC_states:
+    :param qk_scale:
+    :param str_matQ_B_NH:
+    :param str_matQ_S:
+    :param str_matQ_DHQK:
+    :param str_vecF_B_NH:
+    :param str_scaM_inter_B_NH:
+    :param str_scaM_inter_NC:
+    :param str_vecM_combine_B_NH:
+    :param str_vecM_combine_S:
+    :param str_matDeltaH_B_NH:
+    :param str_matDeltaH_S:
+    :param str_matDeltaH_DHHV:
+    :param str_vecN_out_B_NH:
+    :param str_vecN_out_S:
+    :param str_matDeltaC_last_B_NH:
+    :param str_matDeltaC_last_DHQK:
+    :param str_matDeltaC_last_DHHV:
+    :param str_matDeltaC_states_B_NH:
+    :param str_matDeltaC_states_NCDHQK:
+    :param str_matDeltaC_states_DHHV:
+    :param B:
+    :param NH:
+    :param S:
+    :param DHQK:
+    :param DHHV:
+    :param NC:
+    :param L:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param save_states_every_nth_chunk:
+    :param USE_LAST_STATE:
+    :param DTYPE:
+    :param EPS:
+    """
     idx_b_DHQK, idx_b_DHHV, idx_b_NH = (
         tl.program_id(0),
         tl.program_id(1),

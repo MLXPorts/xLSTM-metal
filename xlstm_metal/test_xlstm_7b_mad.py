@@ -5,9 +5,10 @@ Test xLSTM-7B MAD Integration
 Verifies that the MAD wiring system can instantiate and run xLSTM-7B.
 """
 
-import mlx.core as mx
 import sys
 from pathlib import Path
+
+import mlx.core as mx
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -21,12 +22,7 @@ def test_wiring_creation():
     print("Test 1: Create xLSTM-7B Wiring")
     print("=" * 80)
 
-    wiring = create_xlstm_7b_wiring(
-        embedding_dim=4096,
-        num_heads=8,
-        num_blocks=32,
-        vocab_size=50304
-    )
+    wiring = create_xlstm_7b_wiring()
 
     print(f"✓ Created wiring with {wiring.num_blocks} blocks")
     print(f"  Block names: {wiring.block_names[:5]}... (showing first 5)")

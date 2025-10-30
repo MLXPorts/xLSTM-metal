@@ -101,6 +101,15 @@ def _mlstm_parallel_fwbw_generator(
         vecI: jax.Array,  # (B, NH, S)
         vecF: jax.Array,  # (B, NH, S)
     ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
+        """
+
+        :param matQ:
+        :param matK:
+        :param matV:
+        :param vecI:
+        :param vecF:
+        :return:
+        """
         B, NH, S, DHQK = matQ.shape
         # Verify shapes to prevent errors in the kernels.
         assert matK.shape == (B, NH, S, DHQK), f"matK shape {matK.shape} does not match matQ shape {matQ.shape}."

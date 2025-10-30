@@ -19,6 +19,16 @@ def mlstm_parallel_fw(
     # BLOCK_Q: int = BLOCK_Q,
     # BLOCK_KV: int = BLOCK_KV,
 ) -> torch.Tensor:
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param eps:
+    :return:
+    """
     # batch size, number of heads, sequence length, head dimension
     BS, NH, SL, DH = matQ.shape
     assert vecI.shape == (BS, NH, SL)
@@ -38,6 +48,11 @@ def mlstm_parallel_fw(
     }, f"Only head dimensions 16, 32, 64, 128, 256 are supported, got {HEAD_DIM_K}"
 
     def grid(args):
+        """
+
+        :param args:
+        :return:
+        """
         return triton.cdiv(matQ.shape[2], args["BLOCK_Q"]), matQ.shape[0] * matQ.shape[1], 1
 
     # fix grid for debugging

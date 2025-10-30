@@ -186,13 +186,13 @@ class StreamingmLSTMBlock(nn.Module):
             
         else:
             # Standard projections
-            self.W_i = nn.Linear(int(p_factor * config.inp_dim), config.head_num, bias=True)
-            self.W_f = nn.Linear(int(p_factor * config.inp_dim), config.head_num, bias=True)
+            self.W_i = nn.Linear(int(p_factor * config.inp_dim), config.head_num)
+            self.W_f = nn.Linear(int(p_factor * config.inp_dim), config.head_num)
             self.W_o = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim, bias=False)
             self.W_q = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim, bias=False)
             self.W_k = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim, bias=False)
             self.W_v = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim, bias=False)
-        
+
         # Output processing
         if config.fuse_ffn:
             # Fused multi-head norm + down projection
@@ -203,21 +203,21 @@ class StreamingmLSTMBlock(nn.Module):
         else:
             self.hid_norm = nn.LayerNorm(self.hidden_dim, eps=config.norm_eps)
             self.down_proj = nn.Linear(self.hidden_dim, config.inp_dim, bias=False)
-    
+
     def soft_cap_fused(self, gates: Dict[str, torch.Tensor]) -> Dict[str, torch.Tensor]:
         """Apply soft capping to gates in fused manner"""
         if self.config.gate_soft_cap <= 0:
             return gates
-        
+
         capped = {}
         for name, gate in gates.items():
             if 'gate' in name:  # Only cap gate activations
                 capped[name] = self.config.gate_soft_cap * torch.tanh(gate / self.config.gate_soft_cap)
             else:
                 capped[name] = gate
-        
+
         return capped
-    
+
     def streaming_conv(self, x: torch.Tensor) -> torch.Tensor:
         """Streaming causal convolution with state management"""
         if self.training or self.conv_state is None:
@@ -485,27 +485,7 @@ if __name__ == "__main__":
     print("Creating Streaming xLSTM with Advanced Optimizations...")
     
     # Configuration optimized for streaming inference
-    config = StreamingxLSTMConfig(
-        vocab_size=50257,
-        num_layers=8,
-        signature=(8, 0),  # Only mLSTM for maximum optimization
-        inp_dim=768,
-        head_dim=96,
-        head_num=8,
-        
-        # Streaming optimizations
-        max_cache_length=4096,
-        streaming_chunk_size=1,
-        weight_mode="streaming",
-        fuse_qkv=True,
-        fuse_gates=True,
-        fuse_ffn=True,
-        
-        # Performance
-        use_mixed_precision=True,
-        enable_torch_compile=True,
-        memory_efficient_attention=True
-    )
+    config = StreamingxLSTMConfig(num_layers=8, signature=(8, 0), max_cache_length=4096, streaming_chunk_size=1)
     
     model = create_streaming_xlstm(config)
     
@@ -528,7 +508,7 @@ if __name__ == "__main__":
     
     # Test streaming inference
     print("\nTesting streaming inference...")
-    states = model.init_streaming(batch_size=1)
+    states = model.init_streaming()
     
     single_token = torch.randint(0, config.vocab_size, (1,))
     start_time = time.time()
@@ -544,7 +524,7 @@ if __name__ == "__main__":
     
     # Run comprehensive benchmark
     print("\nRunning streaming performance benchmark...")
-    tokens_per_sec = model.benchmark_streaming(num_tokens=500, batch_size=1)
+    tokens_per_sec = model.benchmark_streaming(num_tokens=500)
     
     print(f"\n🚀 Streaming xLSTM Optimization Complete!")
     print(f"Key Features Implemented:")

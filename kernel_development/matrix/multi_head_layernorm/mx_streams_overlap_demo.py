@@ -13,12 +13,21 @@ from docs.components.kernels.mlx_streams import on_stream_complete
 
 
 def heavy_op(n=1_000_000):
+    """
+
+    :param n:
+    :return:
+    """
     a = mx.random.normal((n,))
     b = mx.random.normal((n,))
     return mx.sum(a * b)
 
 
 def log_done(tag):
+    """
+
+    :param tag:
+    """
     print(f"[{time.strftime('%H:%M:%S')}] Stream '{tag}' completed.")
 
 

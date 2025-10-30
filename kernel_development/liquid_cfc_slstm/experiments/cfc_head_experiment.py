@@ -74,7 +74,7 @@ def cfc_head_step(
     # Lambda mask
     lam = lambda_vec
     if lambda_mask is not None:
-        lam = lam * lambda_mask
+        lam *= lambda_mask
 
     # Continuous-time smoothing update for hidden
     denom = 1.0 + neural_clock * lam
@@ -96,7 +96,7 @@ def cfc_head_step(
             # Use atomic-style emulation: scatter_add into ring[0]
             # (No real atomics in ATen for MPS; this is best-effort and compiled)
             if not_finite.item() > 0:
-                telemetry_ring[0] = telemetry_ring[0] + int(not_finite.item())
+                telemetry_ring[0] += int(not_finite.item())
         except Exception:
             pass
 
@@ -118,7 +118,7 @@ def compiled_cfc_head():
     fn = cfc_head_step
     try:
         compile = torch.compile  # type: ignore[attr-defined]
-        fn = compile(fn, fullgraph=False)
+        fn = compile(fn)
     except Exception:
         pass
     return fn

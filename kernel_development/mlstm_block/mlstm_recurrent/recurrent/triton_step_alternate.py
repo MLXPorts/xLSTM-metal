@@ -35,6 +35,23 @@ def mlstm_recurrent_step__triton_alternate_fw(
     # BLOCK_DQK_H: int = 16,
     # BLOCK_DV_H: int = 16,
 ):
+    """
+
+    :param matC_old:
+    :param vecN_old:
+    :param scaM_old:
+    :param vecQ:
+    :param vecK:
+    :param vecV:
+    :param scaI:
+    :param scaF:
+    :param matC_new:
+    :param vecN_new:
+    :param scaM_new:
+    :param qk_scale:
+    :param eps:
+    :return:
+    """
     B, NH, DHQK = vecQ.shape
     _, _, DHV = vecV.shape
     assert vecQ.shape == vecK.shape, "q and k must have the same shape"
@@ -69,6 +86,11 @@ def mlstm_recurrent_step__triton_alternate_fw(
         scaM_new = torch.empty_like(scaM_old)
 
     def grid_fn_C(args):
+        """
+
+        :param args:
+        :return:
+        """
         NUM_BLOCKS_DQK = triton.cdiv(DHQK, args["BLOCK_DQK"])
         NUM_BLOCKS_DV = triton.cdiv(DHV, args["BLOCK_DV"])
         NUM_BATCH_HEAD = B * NH
@@ -128,6 +150,11 @@ def mlstm_recurrent_step__triton_alternate_fw(
     )
 
     def grid_fn_h(args):
+        """
+
+        :param args:
+        :return:
+        """
         NUM_BLOCKS_DV_H = triton.cdiv(DHV, args["BLOCK_DV"])
         NUM_BATCH_HEAD = B * NH
         grid = (1, NUM_BLOCKS_DV_H, NUM_BATCH_HEAD)

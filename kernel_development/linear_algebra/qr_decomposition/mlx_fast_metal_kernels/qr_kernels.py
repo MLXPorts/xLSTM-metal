@@ -92,32 +92,14 @@ _UPDATE_SRC = r"""
     out[gid] = v[gid] - acc;
 """
 
-_KERNEL_COL_DOT = mx.fast.metal_kernel(
-    name="qr_col_dot",
-    input_names=["Q", "v", "shape"],
-    output_names=["out"],
-    source=_COL_DOT_SRC,
-    header=_HEADER,
-    ensure_row_contiguous=True,
-)
+_KERNEL_COL_DOT = mx.fast.metal_kernel(name="qr_col_dot", input_names=["Q", "v", "shape"], output_names=["out"],
+                                       source=_COL_DOT_SRC, header=_HEADER)
 
-_KERNEL_COL_DOT_SIMD = mx.fast.metal_kernel(
-    name="qr_col_dot_simd",
-    input_names=["Q", "v", "shape"],
-    output_names=["out"],
-    source=_COL_DOT_SIMD_SRC,
-    header=_HEADER,
-    ensure_row_contiguous=True,
-)
+_KERNEL_COL_DOT_SIMD = mx.fast.metal_kernel(name="qr_col_dot_simd", input_names=["Q", "v", "shape"],
+                                            output_names=["out"], source=_COL_DOT_SIMD_SRC, header=_HEADER)
 
-_KERNEL_UPDATE = mx.fast.metal_kernel(
-    name="qr_update_vec",
-    input_names=["Q", "c", "v", "shape"],
-    output_names=["out"],
-    source=_UPDATE_SRC,
-    header=_HEADER,
-    ensure_row_contiguous=True,
-)
+_KERNEL_UPDATE = mx.fast.metal_kernel(name="qr_update_vec", input_names=["Q", "c", "v", "shape"], output_names=["out"],
+                                      source=_UPDATE_SRC, header=_HEADER)
 
 
 def project_coeffs(Q: mx.array, v: mx.array) -> mx.array:

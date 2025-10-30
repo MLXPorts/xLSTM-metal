@@ -5,9 +5,9 @@ GGUF checkpoint loader and config inference.
 Parses GGUF format to extract model configuration and weights.
 """
 
+import struct
 from pathlib import Path
 from typing import Dict, Any, Optional
-import struct
 
 
 class GGUFReader:

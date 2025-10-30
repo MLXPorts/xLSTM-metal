@@ -6,7 +6,6 @@ Implements RMSNorm, MultiHeadLayerNorm, and soft-cap using MLX.
 
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Optional
 
 
 def soft_cap(x: mx.array, cap_value: float) -> mx.array:

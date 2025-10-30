@@ -69,9 +69,7 @@ def _mlstm_step_eager(
 
 try:
     _mode = os.environ.get("XLSTM_COMPILE_MODE", "reduce-overhead")
-    _mlstm_step_compiled_fn = torch.compile(
-        _mlstm_step_eager, backend="inductor", mode=_mode
-    )
+    _mlstm_step_compiled_fn = torch.compile(_mlstm_step_eager, mode=_mode)
 except Exception as e:
     raise RuntimeError(
         f"torch.compile failed for mLSTM metal step on this platform: {e}. "
@@ -91,6 +89,20 @@ def mlstm_recurrent_step__metal_fw(
     eps: float = 1e-6,
     dtype_state: torch.dtype = torch.float32,
 ):
+    """
+
+    :param matC_old:
+    :param vecN_old:
+    :param scaM_old:
+    :param vecQ:
+    :param vecK:
+    :param vecV:
+    :param scaI:
+    :param scaF:
+    :param eps:
+    :param dtype_state:
+    :return:
+    """
     # Strict device check: Metal backend must run on MPS
     dev = vecQ.device if 'vecQ' in locals() else q.device  # defensive
     if dev.type != 'mps':
@@ -110,6 +122,20 @@ def mlstm_recurrent_step__metal(
     eps: float = 1e-6,
     dtype_state: torch.dtype = torch.float32,
 ):
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c:
+    :param n:
+    :param m:
+    :param eps:
+    :param dtype_state:
+    :return:
+    """
     # Strict device check: Metal backend must run on MPS
     if q.device.type != 'mps':
         raise RuntimeError("mLSTM 'metal' step requires MPS device; CPU/CUDA not allowed.")

@@ -6,10 +6,11 @@ Provides text generation interface for xLSTM using PyTorch backend.
 Compatible with MLX runner but uses pure PyTorch computation.
 """
 
+from pathlib import Path
+from typing import Optional, List
+
 import torch
 import torch.nn.functional as F
-from typing import Optional, List
-from pathlib import Path
 
 from xlstm_metal.blocks.mlx.wiring import WiredMADModel, create_xlstm_wiring
 from xlstm_metal.inference.utils import load_config
@@ -134,7 +135,7 @@ class PyTorchxLSTMRunner:
 
             # Apply temperature
             if temperature != 1.0:
-                next_token_logits = next_token_logits / temperature
+                next_token_logits /= temperature
 
             # Apply top-k filtering
             if top_k is not None:

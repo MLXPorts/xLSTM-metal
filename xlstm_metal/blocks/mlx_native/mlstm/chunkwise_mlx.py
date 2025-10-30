@@ -27,8 +27,10 @@ Critical details from canonical mLSTM:
 """
 
 from __future__ import annotations
-import mlx.core as mx
+
 from typing import Tuple, Optional
+
+import mlx.core as mx
 
 
 def _mlstm_chunkwise_recurrent_fw_C(

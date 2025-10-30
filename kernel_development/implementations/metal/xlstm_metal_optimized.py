@@ -12,12 +12,15 @@ Based on:
 - Metal optimizations from ember-ml orthogonal operations
 """
 
-from dataclasses import dataclass, field
-import torch
-from torch import nn
-import torch.nn.functional as F
+from dataclasses import dataclass
 from typing import Literal, Optional, Union, Tuple, List
-import math
+
+import torch
+import torch.nn.functional as F
+from torch import nn
+
+from kernel_development.implementations.metal.xlstm_jit_simple import MetalSoftCap
+from scripts.benchmarks.xlstm_ultimate_benchmark import MPS_AVAILABLE
 
 # Import official xLSTM components
 try:
@@ -76,7 +79,7 @@ def soft_cap_metal(values: torch.Tensor, cap_value: Optional[Union[float, torch.
     """
     if cap_value is None:
         return values
-    
+
     # Use Metal acceleration when tensor is on MPS device
     if values.is_mps and isinstance(cap_value, (int, float)):
         try:
@@ -84,9 +87,10 @@ def soft_cap_metal(values: torch.Tensor, cap_value: Optional[Union[float, torch.
             return metal_soft_cap.forward(values, float(cap_value))
         except Exception as e:
             raise RuntimeError(f"Metal soft_cap acceleration failed: {e}")
-    
+
     # Original implementation from NX-AI xLSTM
     return cap_value * torch.tanh(values / cap_value)
+
 
 @dataclass
 class xLSTMLargeConfig:
@@ -314,15 +318,15 @@ class mLSTMBackend(nn.Module):
         # Initialize states if not provided
         if c_initial is None or n_initial is None or m_initial is None:
             c_initial, n_initial, m_initial = self._init_state(B, NH, S, DH, q.device)
-        
+
         # Process sequence through Metal-optimized mLSTM
         h_out = torch.zeros(B, NH, S, DH, device=q.device, dtype=q.dtype)
-        
+
         # Current states
         c_state = c_initial
         n_state = n_initial
         m_state = m_initial
-        
+
         for t in range(S):
             # Get current timestep
             q_t = q[:, :, t, :]  # [B, NH, DH]
@@ -330,7 +334,7 @@ class mLSTMBackend(nn.Module):
             v_t = v[:, :, t, :]  # [B, NH, DH]
             i_t = i[:, :, t]     # [B, NH]
             f_t = f[:, :, t]     # [B, NH]
-            
+
             # Exponential gating with numerical stability
             m_new = torch.maximum(f_t + m_state, i_t)
             i_exp = torch.exp(i_t - m_new)

@@ -9,12 +9,20 @@ import torch.nn.functional as F
 
 
 def device_auto() -> torch.device:
+    """
+
+    :return:
+    """
     if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return torch.device("mps")
     return torch.device("cpu")
 
 
 def make_vocab():
+    """
+
+    :return:
+    """
     vowels = set("AEIOU")
     punctuation = set("!?.,;")
     consonants = set("BCDFGHJKLMNPQRSTVWXYZ")
@@ -68,6 +76,11 @@ class SLSTMHead(nn.Module):
         self.input_scale = input_scale
 
     def forward(self, x_codes: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x_codes:
+        :return:
+        """
         # x: (B, S)
         B, S = x_codes.shape
         h = torch.zeros(B, self.hidden, device=x_codes.device)
@@ -86,7 +99,7 @@ class SLSTMHead(nn.Module):
             o_t = torch.exp(pre_o - n)
             g_t = torch.sigmoid(pre_g)
             c = f_t * c + i_t * g_t
-            n = n + 1e-2 * (i_t + f_t + o_t - 3.0)
+            n += 1e-2 * (i_t + f_t + o_t - 3.0)
             h = torch.sigmoid(c) * o_t
             outs.append(self.proj(h))
         return torch.stack(outs, dim=1)
@@ -115,9 +128,20 @@ class CfCHead(nn.Module):
 
     @staticmethod
     def lecun_tanh(x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         return 1.7159 * torch.tanh(0.666 * x)
 
     def forward(self, x_codes: torch.Tensor, dt: float = 0.01) -> torch.Tensor:
+        """
+
+        :param x_codes:
+        :param dt:
+        :return:
+        """
         B, S = x_codes.shape
         h = torch.zeros(B, self.hidden, device=x_codes.device)
         c = torch.zeros_like(h)
@@ -144,7 +168,7 @@ class CfCHead(nn.Module):
             else:
                 ff = o_t * torch.sigmoid(c)
             h = (h + dt * ff) / (1.0 + dt * lam)
-            n = n + 1e-2 * (i_t + f_t + o_t - 3.0)
+            n += 1e-2 * (i_t + f_t + o_t - 3.0)
             outs.append(self.proj(h))
         return torch.stack(outs, dim=1)
 
@@ -157,7 +181,7 @@ class ReversibleTauAccumulator(nn.Module):
         self.hidden = hidden
         self.env = env
         self.W_in = nn.Linear(1, hidden)
-        self.W_h = nn.Linear(hidden, hidden, bias=True)
+        self.W_h = nn.Linear(hidden, hidden)
         nn.init.eye_(self.W_h.weight)
         self.W_env = nn.Linear(hidden, env)
         self.W_out = nn.Linear(env, 2)
@@ -168,13 +192,28 @@ class ReversibleTauAccumulator(nn.Module):
 
     @staticmethod
     def softsign(x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         return x / (1 + x.abs())
 
     def compute_tau(self, xt: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param xt:
+        :return:
+        """
         # xt: (B,1) scaled input
         return torch.sigmoid(self.tau_base + torch.tanh(self.tau_w * xt))
 
     def forward(self, x_codes: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x_codes:
+        :return:
+        """
         B, S = x_codes.shape
         h = torch.zeros(B, self.hidden, device=x_codes.device)
         outs = []
@@ -238,6 +277,11 @@ class CfCTorch(nn.Module):
 
     @staticmethod
     def lecun_tanh(x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         return 1.7159 * torch.tanh(0.666 * x)
 
     def _backbone(self, feat: torch.Tensor) -> torch.Tensor:
@@ -254,6 +298,13 @@ class CfCTorch(nn.Module):
         return x
 
     def forward(self, x_codes: torch.Tensor, h0: torch.Tensor | None = None, timespans: torch.Tensor | None = None) -> torch.Tensor:
+        """
+
+        :param x_codes:
+        :param h0:
+        :param timespans:
+        :return:
+        """
         # x_codes: (B,S,input_size=1) or (B,S)
         if x_codes.dim() == 2:
             x_codes = x_codes.unsqueeze(-1)
@@ -298,6 +349,13 @@ class TrainConfig:
 
 
 def train_one(model: nn.Module, cfg: TrainConfig, device: torch.device) -> Dict[str, float]:
+    """
+
+    :param model:
+    :param cfg:
+    :param device:
+    :return:
+    """
     model.to(device)
     opt = torch.optim.Adam(model.parameters(), lr=cfg.lr)
     loss_hist = []
@@ -314,6 +372,12 @@ def train_one(model: nn.Module, cfg: TrainConfig, device: torch.device) -> Dict[
 
 
 def quick_eval(model: nn.Module, device: torch.device) -> Dict[str, float]:
+    """
+
+    :param model:
+    :param device:
+    :return:
+    """
     model.eval()
     with torch.no_grad():
         x, y = generate_batch(64, 9, device)

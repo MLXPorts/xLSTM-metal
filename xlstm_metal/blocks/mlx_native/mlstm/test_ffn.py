@@ -3,6 +3,7 @@ Unit tests for Gated FFN Block
 """
 
 import mlx.core as mx
+
 from ffn import GatedFFN, FFNBlock, FFNConfig
 
 

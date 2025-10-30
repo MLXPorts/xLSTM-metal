@@ -29,15 +29,8 @@ class CfCLogitCalibrator(nn.Module):
         super().__init__()
         self.vocab_size = vocab_size
         self.topk_bias = topk_bias
-        self.core = CfCTorch(
-            input_size=4,  # entropy, max_prob, spread, token_id_scaled
-            units=hidden,
-            mode=mode,
-            backbone_units=backbone_units,
-            backbone_layers=backbone_layers,
-            backbone_dropout=0.0,
-            activation=activation,
-        )
+        self.core = CfCTorch(input_size=4, units=hidden, mode=mode, backbone_units=backbone_units,
+                             backbone_layers=backbone_layers, activation=activation)
         self.head = nn.Linear(hidden, 2)
         self.head_k = nn.Linear(hidden, topk_bias) if topk_bias and topk_bias > 0 else None
         # Initialize to identity: temp ≈ 1, bias ≈ 0
@@ -54,7 +47,7 @@ class CfCLogitCalibrator(nn.Module):
         entropy = -(probs * logp).sum(dim=-1, keepdim=True)  # (B,1)
         max_prob, _ = probs.max(dim=-1, keepdim=True)
         # spread: (p_max - p_2nd)
-        top2 = torch.topk(probs, k=2, dim=-1).values
+        top2 = torch.topk(probs, k=2).values
         spread = (top2[:, :1] - top2[:, 1:2])
         if token_ids is None:
             tok = torch.zeros_like(entropy)
@@ -63,6 +56,13 @@ class CfCLogitCalibrator(nn.Module):
         return torch.cat([entropy, max_prob, spread, tok], dim=-1)
 
     def forward(self, logits: torch.Tensor, h: torch.Tensor | None, token_ids: torch.Tensor | None = None):
+        """
+
+        :param logits:
+        :param h:
+        :param token_ids:
+        :return:
+        """
         # logits: (B, V); h: (B, H) or None
         B = logits.size(0)
         feats = self._features_from_logits(logits, token_ids).unsqueeze(1)  # (B,1,4)
@@ -76,7 +76,7 @@ class CfCLogitCalibrator(nn.Module):
         # Optional top-k sparse bias over current top tokens
         if self.topk_bias and self.topk_bias > 0 and self.head_k is not None:
             with torch.no_grad():
-                topk = torch.topk(logits, k=min(self.topk_bias, logits.size(-1)), dim=-1).indices  # (B,K)
+                topk = torch.topk(logits, k=min(self.topk_bias, logits.size(-1))).indices  # (B,K)
             k_bias = self.head_k(h1)  # (B,K)
             # Scatter-add into logits_adj
             logits_adj.scatter_add_(dim=-1, index=topk, src=k_bias)

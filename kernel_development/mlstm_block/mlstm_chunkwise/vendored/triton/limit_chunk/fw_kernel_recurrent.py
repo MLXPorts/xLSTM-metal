@@ -75,6 +75,52 @@ def mlstm_chunkwise__recurrent_fw_C_kernel(
     USE_INITIAL_STATE: tl.constexpr,
     DTYPE: tl.constexpr = tl.float32,
 ):
+    """
+
+    :param matK:
+    :param matV:
+    :param vecB:
+    :param vecI:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaMinter_initial:
+    :param matC_states:
+    :param vecN_states:
+    :param scaMinter_states:
+    :param str_matK_B_NH:
+    :param str_matK_S:
+    :param str_matK_DHQK:
+    :param str_matV_B_NH:
+    :param str_matV_S:
+    :param str_matV_DHHV:
+    :param str_vecBI_B_NH:
+    :param str_vecBI_NC:
+    :param str_vecBI_L:
+    :param str_matCstates_B_NH:
+    :param str_matCstates_NCDHQK:
+    :param str_matCstates_DHHV:
+    :param str_vecNstates_B_NH:
+    :param str_vecNstates_NCDHQK:
+    :param str_scaMinterstates_B_NH:
+    :param str_scaMinterstates_NC:
+    :param str_matCinitial_B_NH:
+    :param str_matCinitial_DHQK:
+    :param str_matCinitial_DHHV:
+    :param str_vecNinitial_B_NH:
+    :param str_vecNinitial_DHQK:
+    :param str_scaMinterinitial_B_NH:
+    :param B:
+    :param NH:
+    :param S:
+    :param DHQK:
+    :param DHHV:
+    :param NC:
+    :param L:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param USE_INITIAL_STATE:
+    :param DTYPE:
+    """
     idx_b_DHQK, idx_b_DHHV, idx_b_BNH = (
         tl.program_id(0),
         tl.program_id(1),

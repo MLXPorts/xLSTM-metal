@@ -28,6 +28,10 @@ def on_stream_complete(
     """
 
     def wait_and_call() -> Any:
+        """
+
+        :return:
+        """
         mx.synchronize(stream)
         return callback(*args, **kwargs)
 
@@ -53,6 +57,10 @@ async def on_stream_complete_async(
         loop = asyncio.get_running_loop()
 
     def wait_and_call() -> Any:
+        """
+
+        :return:
+        """
         mx.synchronize(stream)
         return callback(*args, **kwargs)
 
@@ -75,6 +83,10 @@ def after_eval(
         executor = ThreadPoolExecutor(max_workers=1)
 
     def wait_and_call() -> Any:
+        """
+
+        :return:
+        """
         mx.eval(*arrays)
         return callback(*args, **kwargs)
 

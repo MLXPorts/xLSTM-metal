@@ -66,6 +66,53 @@ def mlstm_chunkwise__parallel_bw_dK_kernel(
     OUTPUT_DTYPE: tl.constexpr = tl.float32,
     EPS: tl.constexpr = 0.0,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecB:
+    :param vecA:
+    :param matCstate_all:
+    :param vecNstate_all:
+    :param scaMstate_all:
+    :param vecN_out:
+    :param vecM_out:
+    :param matDeltaH_out:
+    :param matDeltaC_states:
+    :param matDeltaK:
+    :param qk_scale:
+    :param str_matQK_B_NH:
+    :param str_matQK_S:
+    :param str_matQK_DHQK:
+    :param str_matHV_B_NH:
+    :param str_matHV_S:
+    :param str_matHV_DHHV:
+    :param str_vecABI_B_NH:
+    :param str_vecABI_NC:
+    :param str_matCstate_B_NH:
+    :param str_matCstate_NCDHQK:
+    :param str_matCstate_DHHV:
+    :param str_vecNstate_B_NH:
+    :param str_scaMstate_B_NH:
+    :param str_vecMN_B_NH:
+    :param str_vecMN_S:
+    :param B:
+    :param NH:
+    :param S:
+    :param DHQK:
+    :param DHHV:
+    :param NC:
+    :param L:
+    :param siz_b_LQ:
+    :param siz_b_LKV:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param DTYPE:
+    :param OUTPUT_DTYPE:
+    :param EPS:
+    """
     # our grid has 4 dimensions: (num_b_DHQK, num_b_LKV, NC, B * NH)
     idx_b_DHQK, idx_b_LKV, idx_b_NC_BNH = (
         tl.program_id(0),

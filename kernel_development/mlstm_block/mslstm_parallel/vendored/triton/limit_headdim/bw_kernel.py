@@ -64,6 +64,48 @@ def mlstm_parallel_bw_dQ_kernel(
     BLOCK_KV: tl.constexpr,  #
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param matDeltaHtilde:
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF_cs:
+    :param vecM:
+    :param vecN:
+    :param qk_scale:
+    :param matDeltaQ:
+    :param matDeltaK:
+    :param matDeltaV:
+    :param vecDeltaI:
+    :param stride_dhtz:
+    :param stride_dhth:
+    :param stride_dhts:
+    :param stride_dhtd:
+    :param stride_qz:
+    :param stride_qh:
+    :param stride_qs:
+    :param stride_qd:
+    :param stride_kz:
+    :param stride_kh:
+    :param stride_ks:
+    :param stride_kd:
+    :param stride_vz:
+    :param stride_vh:
+    :param stride_vs:
+    :param stride_vd:
+    :param stride_ifmn_z:
+    :param stride_ifmn_h:
+    :param stride_ifmn_s:
+    :param Z:
+    :param H:
+    :param N_CTX:
+    :param HEAD_DIM:
+    :param BLOCK_Q:
+    :param BLOCK_KV:
+    :param EPS:
+    """
     ## Notation
     # z: batch size
     # h: number of heads
@@ -269,6 +311,48 @@ def mlstm_parallel_bw_dKdV_kernel(
     BLOCK_KV: tl.constexpr,  #
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param matDeltaHtilde:
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF_cs:
+    :param vecM:
+    :param vecN:
+    :param qk_scale:
+    :param matDeltaQ:
+    :param matDeltaK:
+    :param matDeltaV:
+    :param vecDeltaI:
+    :param stride_dhtz:
+    :param stride_dhth:
+    :param stride_dhts:
+    :param stride_dhtd:
+    :param stride_qz:
+    :param stride_qh:
+    :param stride_qs:
+    :param stride_qd:
+    :param stride_kz:
+    :param stride_kh:
+    :param stride_ks:
+    :param stride_kd:
+    :param stride_vz:
+    :param stride_vh:
+    :param stride_vs:
+    :param stride_vd:
+    :param stride_ifmn_z:
+    :param stride_ifmn_h:
+    :param stride_ifmn_s:
+    :param Z:
+    :param H:
+    :param N_CTX:
+    :param HEAD_DIM:
+    :param BLOCK_Q:
+    :param BLOCK_KV:
+    :param EPS:
+    """
     ## Notation
     # z: batch size
     # h: number of heads

@@ -11,14 +11,15 @@ This kernel computes outputs H within each chunk in parallel using:
 3. Combine: H = (H_inter + ratio * H_intra) / denom
 """
 
-import mlx.core as mx
 from typing import Tuple
 
-_HEADER = """#include <metal_stdlib>
+import mlx.core as mx
+
+HEADER = """#include <metal_stdlib>
 using namespace metal;
 """
 
-_PARALLEL_FW_HINTRA_SRC = r"""
+PARALLEL_FW_HINTRA_SRC = r"""
     // Thread and threadgroup indices
     uint idx_b_DHHV = threadgroup_position_in_grid.x;
     uint idx_b_LQ = threadgroup_position_in_grid.y;
@@ -406,15 +407,11 @@ _PARALLEL_FW_HINTRA_SRC = r"""
 # Register kernel compiler (lazy compilation on first use)
 def _compile_parallel_kernel():
     """Compiler function - called once on first kernel access."""
-    return mx.fast.metal_kernel(
-        name="mlstm_parallel_fw_Hintra",
-        input_names=["matQ", "matK", "matV", "matC_states", "vecN_states",
-                     "scaMinter_states", "vecI", "vecB", "params", "strides"],
-        output_names=["matHout", "vecNout", "vecMout"],
-        header=_HEADER,
-        source=_PARALLEL_FW_HINTRA_SRC,
-        ensure_row_contiguous=True,
-    )
+    return mx.fast.metal_kernel(name="mlstm_parallel_fw_Hintra",
+                                input_names=["matQ", "matK", "matV", "matC_states", "vecN_states",
+                                             "scaMinter_states", "vecI", "vecB", "params", "strides"],
+                                output_names=["matHout", "vecNout", "vecMout"], header=HEADER,
+                                source=PARALLEL_FW_HINTRA_SRC)
 
 # Register with global registry at module import time
 from xlstm_metal.kernels.mlx_fast_metal_kernels.kernel_registry import register_kernel

@@ -46,12 +46,12 @@ def pure_mlx_qr(X: mx.array) -> Tuple[mx.array, mx.array]:
         for i in range(j):
             rij = mx.sum(Q[:, i] * v)
             R = R.at[i, j].set(rij)
-            v = v - rij * Q[:, i]
+            v -= rij * Q[:, i]
         # Second pass
         for i in range(j):
             rij2 = mx.sum(Q[:, i] * v)
             R = R.at[i, j].set(R[i, j] + rij2)
-            v = v - rij2 * Q[:, i]
+            v -= rij2 * Q[:, i]
         rjj = _safe_norm(v)
         R = R.at[j, j].set(rjj)
         qj = v / rjj
@@ -92,9 +92,9 @@ def complete_basis(Q: mx.array) -> mx.array:
         v = mx.random.normal(shape=(m,), dtype=R.dtype)
         # Two-pass MGS projection against existing columns in R
         c1 = mx.matmul(mx.transpose(R), v)
-        v = v - mx.matmul(R, c1)
+        v -= mx.matmul(R, c1)
         c2 = mx.matmul(mx.transpose(R), v)
-        v = v - mx.matmul(R, c2)
+        v -= mx.matmul(R, c2)
         nrm = _safe_norm(v)
         u = v / nrm
         R = mx.concatenate([R, u.reshape((m, 1))], axis=1)

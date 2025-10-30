@@ -16,6 +16,14 @@ def compute_chunkwise_log_gates_vecB_vecA(
     chunk_size: int,
     return_vecB_only: bool = False,
 ):
+    """
+
+    :param vecI:
+    :param vecF:
+    :param chunk_size:
+    :param return_vecB_only:
+    :return:
+    """
     B, NH, S = vecI.shape
     assert S % chunk_size == 0, f"S={S} is not divisible by chunk_size={chunk_size}"
     NC = S // chunk_size

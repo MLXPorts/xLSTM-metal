@@ -61,22 +61,16 @@ def _parallel_native_stablef_compiled_autograd_eager(
 
 
 try:
-    mlstm_parallel__native_compiled_autograd = torch.compile(
-        _parallel_native_compiled_autograd_eager,
-        backend="inductor",
-        mode="reduce-overhead",
-    )
+    mlstm_parallel__native_compiled_autograd = torch.compile(_parallel_native_compiled_autograd_eager,
+                                                             mode="reduce-overhead")
 except Exception as e:
     raise RuntimeError(
         f"torch.compile failed for parallel native compiled kernel: {e}. No fallback allowed."
     )
 
 try:
-    mlstm_parallel__native_stablef_compiled_autograd = torch.compile(
-        _parallel_native_stablef_compiled_autograd_eager,
-        backend="inductor",
-        mode="reduce-overhead",
-    )
+    mlstm_parallel__native_stablef_compiled_autograd = torch.compile(_parallel_native_stablef_compiled_autograd_eager,
+                                                                     mode="reduce-overhead")
 except Exception as e:
     raise RuntimeError(
         f"torch.compile failed for parallel native stablef compiled kernel: {e}. No fallback allowed."

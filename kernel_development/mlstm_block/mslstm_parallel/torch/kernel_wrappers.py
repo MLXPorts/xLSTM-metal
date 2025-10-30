@@ -74,7 +74,7 @@ def wrap_chunkwise__arbitrary_sequence_length(
     kcs = chunk_size
     while kcs >= 16:
         chunk_sizes.append(kcs)
-        kcs = kcs // 2
+        kcs //= 2
 
     # Note: we are in a compiled region, so we cannot log without a graph break
     # therefore we make this optional
@@ -219,6 +219,24 @@ def wrap_chunkwise__pad_zeros(
 ) -> (
     torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):
+    """
+
+    :param mlstm_chunkwise_kernel:
+    :param q:
+    :param k:
+    :param v:
+    :param f:
+    :param i:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param autocast_kernel_dtype:
+    :param chunk_size:
+    :param kwargs:
+    :return:
+    """
     assert not return_last_states, (
         "We are padding zeros, so we cannot return last states,",
         "as they would be not the true last states.",

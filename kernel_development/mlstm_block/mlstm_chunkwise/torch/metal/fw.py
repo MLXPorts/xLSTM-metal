@@ -51,12 +51,8 @@ def _load_metal_backend() -> None:
             root = root.parent
         if mm_path is None:
             return
-        _METAL_BACKEND = load(
-            name="mlstm_metal_backend",
-            sources=[str(mm_path)],
-            extra_ldflags=["-framework", "Metal", "-framework", "Foundation"],
-            verbose=False,
-        )
+        _METAL_BACKEND = load(name="mlstm_metal_backend", sources=[str(mm_path)],
+                              extra_ldflags=["-framework", "Metal", "-framework", "Foundation"])
     except Exception:
         _METAL_BACKEND = None
 

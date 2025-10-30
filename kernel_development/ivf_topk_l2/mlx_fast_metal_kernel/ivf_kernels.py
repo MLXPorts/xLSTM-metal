@@ -119,14 +119,8 @@ _SRC_TOPK_L2 = r"""
     }
 """
 
-_KERNEL_TOPK_L2 = mx.fast.metal_kernel(
-    name="ivf_list_topk_l2",
-    input_names=["Q", "X", "ids", "shape"],
-    output_names=["out_vals", "out_ids"],
-    header=_HEADER,
-    source=_SRC_TOPK_L2,
-    ensure_row_contiguous=True,
-)
+_KERNEL_TOPK_L2 = mx.fast.metal_kernel(name="ivf_list_topk_l2", input_names=["Q", "X", "ids", "shape"],
+                                       output_names=["out_vals", "out_ids"], header=_HEADER, source=_SRC_TOPK_L2)
 
 _SRC_TOPK_L2_BATCH = r"""
     // Batched variant: grid.x selects the query index qidx; one threadgroup per query.
@@ -201,14 +195,9 @@ _SRC_TOPK_L2_BATCH = r"""
     }
 """
 
-_KERNEL_TOPK_L2_BATCH = mx.fast.metal_kernel(
-    name="ivf_list_topk_l2_batch",
-    input_names=["Q", "X", "ids", "shape"],
-    output_names=["out_vals", "out_ids"],
-    header=_HEADER,
-    source=_SRC_TOPK_L2_BATCH,
-    ensure_row_contiguous=True,
-)
+_KERNEL_TOPK_L2_BATCH = mx.fast.metal_kernel(name="ivf_list_topk_l2_batch", input_names=["Q", "X", "ids", "shape"],
+                                             output_names=["out_vals", "out_ids"], header=_HEADER,
+                                             source=_SRC_TOPK_L2_BATCH)
 
 _SRC_TOPK_MERGE = r"""
     // Merge P partial top-k lists (vals_parts, ids_parts) into final top-k.
@@ -242,14 +231,8 @@ _SRC_TOPK_MERGE = r"""
     }
 """
 
-_KERNEL_TOPK_MERGE = mx.fast.metal_kernel(
-    name="ivf_topk_merge",
-    input_names=["vals_parts", "ids_parts", "shape"],
-    output_names=["out_vals", "out_ids"],
-    header=_HEADER,
-    source=_SRC_TOPK_MERGE,
-    ensure_row_contiguous=True,
-)
+_KERNEL_TOPK_MERGE = mx.fast.metal_kernel(name="ivf_topk_merge", input_names=["vals_parts", "ids_parts", "shape"],
+                                          output_names=["out_vals", "out_ids"], header=_HEADER, source=_SRC_TOPK_MERGE)
 
 
 def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
@@ -428,6 +411,11 @@ def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, ro
     best_ids = mx.zeros((kk,), dtype=mx.int32)
 
     def merge(vals, ids):
+        """
+
+        :param vals:
+        :param ids:
+        """
         nonlocal best_vals, best_ids
         # Combine best and new vals/ids
         combined_vals = mx.concatenate([best_vals, vals])

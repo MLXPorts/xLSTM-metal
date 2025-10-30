@@ -50,6 +50,15 @@ def head_split_linear(x, W_list):
 
 
 def run_once(B=32, H=8, Di=64, Do=64, dtype=mx.float32):
+    """
+
+    :param B:
+    :param H:
+    :param Di:
+    :param Do:
+    :param dtype:
+    :return:
+    """
     mx.random.seed(0)
     x = mx.random.normal((B, H*Di), dtype=dtype)
     W_list = [mx.random.normal((Do, Di), dtype=dtype) for _ in range(H)]

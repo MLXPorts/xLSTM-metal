@@ -123,7 +123,7 @@ def mlstm_chunkwise__recurrent_fw_C(
         scaGbar_k = jnp.exp(scaG_k + scaM_inter_k - scaM_inter_k_next)[:, :, None]
 
         # NOTE: no update in-place (i.e. +=) as this gives error for autograd backward
-        matC_k_next = scaGbar_k[..., None] * matC_k + matK_chunk_gated.swapaxes(-2, -1) @ (matV_chunk)
+        matC_k_next = scaGbar_k[..., None] * matC_k + matK_chunk_gated.swapaxes(-2, -1) @ matV_chunk
 
         # n_k update
         vecN_k_next = scaGbar_k * vecN_k + matK_chunk_gated.swapaxes(-2, -1).sum(-1)
@@ -406,21 +406,11 @@ def mlstm_chunkwise(
         Returns the output of the mLSTM, the maximum state of the n vector and the maximum state of the m vector. Shapes are (B, NH, S, DHHV), (B, NH, S), (B, NH, S).
         If return_last_states is True, it also returns the last states of the mLSTM. Shapes are (B, NH, DHQK, DHHV), (B, NH, DHQK), (B, NH).
     """
-    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(
-        matQ=matQ,
-        matK=matK,
-        matV=matV,
-        vecI=vecI,
-        vecF=vecF,
-        matC_initial=matC_initial,
-        vecN_initial=vecN_initial,
-        scaM_initial=scaM_initial,
-        qk_scale=qk_scale,
-        return_last_states=return_last_states,
-        return_all_states=False,
-        eps=eps,
-        chunk_size=chunk_size,
-    )
+    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(matQ=matQ, matK=matK, matV=matV, vecI=vecI, vecF=vecF,
+                                                        matC_initial=matC_initial, vecN_initial=vecN_initial,
+                                                        scaM_initial=scaM_initial, qk_scale=qk_scale,
+                                                        return_last_states=return_last_states, eps=eps,
+                                                        chunk_size=chunk_size)
     if return_last_states:
         return matH_out, last_states
     else:

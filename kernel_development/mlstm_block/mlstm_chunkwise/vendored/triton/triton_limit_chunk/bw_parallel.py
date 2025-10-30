@@ -28,6 +28,25 @@ def mlstm_chunkwise__parallel_bw_dQKV(
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matDeltaQ (B,NH,S,DHQK), matDeltaK (B,NH,S,DHQK), matDeltaV (B,NH,S,DHHV)
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecB:
+    :param vecI:
+    :param vecM_combine:
+    :param scaM_inter:
+    :param matC_states:
+    :param matDeltaH:
+    :param vecN_out:
+    :param matDeltaC_states:
+    :param qk_scale:
+    :param CHUNK_SIZE:
+    :param NUM_CHUNKS:
+    :param EPS:
+    :return:
+    """
     B, NH, S, DHQK, DHHV = *matQ.shape, matV.shape[-1]
     NC = NUM_CHUNKS
     L = CHUNK_SIZE

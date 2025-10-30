@@ -25,10 +25,26 @@ def check_correctness(
     rtol: float = 1e-2,
     vmax: float = None,
     max_num_batchhead_plots: int = -1,
-    percentiles: list = [50, 90],
+        percentiles=None,
     savepath: str = None,
     dtype_str: str = "NAtype",
 ) -> bool:
+    """
+
+    :param test_specifier:
+    :param baseline:
+    :param target:
+    :param atol:
+    :param rtol:
+    :param vmax:
+    :param max_num_batchhead_plots:
+    :param percentiles:
+    :param savepath:
+    :param dtype_str:
+    :return:
+    """
+    if percentiles is None:
+        percentiles = [50, 90]
     assert isinstance(baseline, np.ndarray)
     assert isinstance(target, np.ndarray)
 
@@ -46,6 +62,12 @@ def check_correctness(
     error_percentiles = np.percentile(errors, percentiles)
 
     def make_percentile_str(error_percentiles: np.ndarray, percentiles: int) -> str:
+        """
+
+        :param error_percentiles:
+        :param percentiles:
+        :return:
+        """
         percentile_str = ""
         for i, percentile in enumerate(percentiles):
             percentile_str += f"p{percentile:<3}: {error_percentiles[i]:>5.5e}"
@@ -64,29 +86,16 @@ def check_correctness(
         savepath = Path(savepath) / f"{test_specifier}--{dtype_str}"
         savepath.mkdir(parents=True, exist_ok=True)
 
-        figs = plot_numerical_diffs_per_batchhead(
-            baseline=baseline,
-            target=target,
-            title=f"{test_specifier}|{dtype_str}",
-            vmin=0,
-            vmax=vmax,
-            rtol=rtol,
-            atol=atol,
-            max_num_batchhead_plots=max_num_batchhead_plots,
-            convert_to_diff_imarray_fn=convert_to_diff_imarray_numpy,
-        )
+        figs = plot_numerical_diffs_per_batchhead(baseline=baseline, target=target,
+                                                  title=f"{test_specifier}|{dtype_str}", vmin=0, vmax=vmax, rtol=rtol,
+                                                  atol=atol, max_num_batchhead_plots=max_num_batchhead_plots)
         for i, fig in enumerate(figs):
             fig.savefig(savepath / f"diff_imshow--batchhead_{i}.pdf")
             plt.close()
 
         figs = plot_error_statistics_over_time_per_batchhead(
-            errors=compute_errors_per_batchhead(baseline=baseline, target=target),
-            percentiles=[50, 90, 100],
-            add_mean=True,
-            title=f"{test_specifier}|{dtype_str}",
-            ema_alpha=0.02,
-            max_num_batchhead_plots=max_num_batchhead_plots,
-        )
+            errors=compute_errors_per_batchhead(baseline=baseline, target=target), percentiles=[50, 90, 100],
+            add_mean=True, title=f"{test_specifier}|{dtype_str}", max_num_batchhead_plots=max_num_batchhead_plots)
 
         for i, fig in enumerate(figs):
             fig.savefig(savepath / f"diff_lineplot--batchhead_{i}.pdf")
@@ -103,14 +112,17 @@ def verify_output(
     rtol: float = 1e-2,
     vmax: float = 1e-2,
 ):
+    """
+
+    :param name:
+    :param baseline:
+    :param target:
+    :param atol:
+    :param rtol:
+    :param vmax:
+    :return:
+    """
     check_correctness(name, baseline=baseline, target=target, rtol=rtol, atol=atol)
-    fig = plot_numerical_diffs_per_batchhead(
-        baseline=baseline,
-        target=target,
-        title=name,
-        rtol=rtol,
-        atol=atol,
-        vmax=vmax,
-        convert_to_diff_imarray_fn=convert_to_diff_imarray_numpy,
-    )
+    fig = plot_numerical_diffs_per_batchhead(baseline=baseline, target=target, title=name, rtol=rtol, atol=atol,
+                                             vmax=vmax)
     return fig

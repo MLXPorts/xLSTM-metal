@@ -296,32 +296,34 @@ class mLSTMLayer(nn.Module):
             self.k = nn.Linear(config.embedding_dim, self.qk_dim, bias=config.use_bias)
             self.v = nn.Linear(config.embedding_dim, self.v_dim, bias=config.use_bias)
             self.ogate_preact = nn.Linear(config.embedding_dim, self.v_dim, bias=config.use_bias)
-            self.igate_preact = nn.Linear(config.embedding_dim, config.num_heads, bias=True)
-            self.fgate_preact = nn.Linear(config.embedding_dim, config.num_heads, bias=True)
+            self.igate_preact = nn.Linear(config.embedding_dim, config.num_heads)
+            self.fgate_preact = nn.Linear(config.embedding_dim, config.num_heads)
         elif self.config.weight_mode == "fused":
             self.qkv_opreact = nn.Linear(
                 config.embedding_dim,
                 2 * self.qk_dim + 2 * self.v_dim,
                 bias=config.use_bias
             )
-            self.ifgate_preact = nn.Linear(config.embedding_dim, 2 * config.num_heads, bias=True)
+            self.ifgate_preact = nn.Linear(config.embedding_dim, 2 * config.num_heads)
         
         self.ogate_act_fn = nn.Sigmoid()
         self.mlstm_backend = mLSTMBackend(config=self.config.mlstm_backend)
         
-        self.multihead_norm = MultiHeadLayerNorm(
-            num_heads=config.num_heads,
-            head_dim=self.v_dim // config.num_heads,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32,
-        )
+        self.multihead_norm = MultiHeadLayerNorm(num_heads=config.num_heads, head_dim=self.v_dim // config.num_heads,
+                                                 eps=config.norm_eps, use_bias=config.use_bias,
+                                                 force_float32_reductions=config.norm_reduction_force_float32)
         self.out_proj = nn.Linear(self.v_dim, config.embedding_dim, bias=config.use_bias)
     
     def forward(
         self, x: torch.Tensor, state: mLSTMLayerStateType | None = None
     ) -> tuple[torch.Tensor, mLSTMLayerStateType | None]:
+        """
+
+        :param x:
+        :param state:
+        :return:
+        """
+        global o_preact, f_preact, i_preact, v, k, q
         assert x.ndim == 3, f"Input must have shape [B, S, D], got {x.shape}"
         B, S, _ = x.shape
         
@@ -395,6 +397,11 @@ class FeedForward(nn.Module):
         self.act_fn = nn.SiLU()
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         if self.config.weight_mode == "single":
             x = self.act_fn(self.proj_up_gate(x)) * self.proj_up(x)
         elif self.config.weight_mode == "fused":
@@ -418,13 +425,8 @@ class mLSTMBlock(nn.Module):
     def __init__(self, config: xLSTMLargeConfig):
         super().__init__()
         self.config = config
-        self.norm_mlstm = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32,
-        )
+        self.norm_mlstm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                  force_float32_reductions=config.norm_reduction_force_float32)
         self.mlstm_layer = mLSTMLayer(
             mLSTMLayerConfig(
                 embedding_dim=config.embedding_dim,
@@ -449,18 +451,19 @@ class mLSTMBlock(nn.Module):
                 ),
             )
         )
-        self.norm_ffn = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32,
-        )
+        self.norm_ffn = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                force_float32_reductions=config.norm_reduction_force_float32)
         self.ffn = FeedForward(config)
     
     def forward(
         self, x: torch.Tensor, state: mLSTMStateType | None = None
     ) -> tuple[torch.Tensor, mLSTMStateType]:
+        """
+
+        :param x:
+        :param state:
+        :return:
+        """
         x_mlstm = self.norm_mlstm(x)
         x_mlstm, state = self.mlstm_layer(x_mlstm, state)
         x = x + x_mlstm
@@ -489,19 +492,20 @@ class xLSTMLargeBlockStack(nn.Module):
         )
         
         if self.config.add_out_norm:
-            self.out_norm = RMSNorm(
-                num_features=config.embedding_dim,
-                eps=config.norm_eps,
-                use_weight=True,
-                use_bias=config.use_bias,
-                force_float32_reductions=config.norm_reduction_force_float32,
-            )
+            self.out_norm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                    force_float32_reductions=config.norm_reduction_force_float32)
         else:
             self.out_norm = nn.Identity()
     
     def forward(
         self, x: torch.Tensor, state: mLSTMStateType | None = None
     ) -> tuple[torch.Tensor, mLSTMStateType]:
+        """
+
+        :param x:
+        :param state:
+        :return:
+        """
         if state is None:
             state = {i: None for i in range(len(self.blocks))}
         

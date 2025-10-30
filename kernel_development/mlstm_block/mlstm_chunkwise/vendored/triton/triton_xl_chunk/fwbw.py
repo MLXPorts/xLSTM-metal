@@ -225,9 +225,7 @@ _mlstm_chunkwise_fwbw_float32 = _mlstm_chunkwise_fwbw_generator(
 _mlstm_chunkwise_fwbw_float16 = _mlstm_chunkwise_fwbw_generator(
     autocast_kernel_dtype=torch.float16
 )
-_mlstm_chunkwise_fwbw_bfloat16 = _mlstm_chunkwise_fwbw_generator(
-    autocast_kernel_dtype=torch.bfloat16
-)
+_mlstm_chunkwise_fwbw_bfloat16 = _mlstm_chunkwise_fwbw_generator()
 
 
 def _get_chunkwise_fwbw_kernel(autocast_kernel_dtype: torch.dtype) -> Callable:
@@ -268,6 +266,33 @@ def mlstm_chunkwise__xl_chunk(
 ) -> (
     torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param chunk_size:
+    :param chunk_size_inter:
+    :param chunk_size_intra:
+    :param siz_b_L_parallel:
+    :param siz_b_L_loop:
+    :param siz_b_DH_parallel:
+    :param siz_b_DH_loop:
+    :param num_warps_intra:
+    :param num_warps_inter:
+    :param num_stages_intra:
+    :param num_stages_inter:
+    :param recompute_states_in_bw:
+    :param autocast_kernel_dtype:
+    :return:
+    """
     _mlstm_chunkwise_fwbw = _get_chunkwise_fwbw_kernel(autocast_kernel_dtype)
     matH_out, matC_last, vecN_last, scaM_last = _mlstm_chunkwise_fwbw.apply(
         q,

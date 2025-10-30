@@ -5,9 +5,9 @@ Defines the core wiring system without any framework dependencies.
 Backend-specific implementations provide their own WiredMADModel.
 """
 
-from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from typing import Dict, List, Optional
 
 
 class BackendType(Enum):
@@ -203,7 +203,7 @@ class MADWiring:
 
         for name in self.block_names:
             spec = self.block_specs[name]
-            outgoing = self.get_connections(name, 'outgoing')
+            outgoing = self.get_connections(name)
 
             lines.append(f"\n[{name}] ({spec.block_type.value}, {spec.backend.value})")
 

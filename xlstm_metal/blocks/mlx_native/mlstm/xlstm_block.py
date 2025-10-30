@@ -6,14 +6,15 @@ Combines mLSTM + FFN blocks matching canonical xLSTM structure:
     x -> ffn_norm -> FFN -> (+) residual
 """
 
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Optional, Tuple
-from dataclasses import dataclass
 
 from .block import mLSTMLayer, mLSTMConfig
-from .ffn import GatedFFN, FFNConfig
 from .components import RMSNorm
+from .ffn import GatedFFN, FFNConfig
 
 
 @dataclass
@@ -94,25 +95,15 @@ class xLSTMBlock(nn.Module):
         self.config = config
 
         # Pre-normalization for mLSTM
-        self.xlstm_norm = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.xlstm_norm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                  force_float32_reductions=config.norm_reduction_force_float32)
 
         # mLSTM layer (without its own norm - we handle that here)
         self.xlstm = mLSTMLayer(config.mlstm_config)
 
         # Pre-normalization for FFN
-        self.ffn_norm = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.ffn_norm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                force_float32_reductions=config.norm_reduction_force_float32)
 
         # FFN (GatedFFN - no separate norm inside)
         self.ffn = GatedFFN(config.ffn_config)

@@ -35,12 +35,8 @@ def _load_backend() -> None:
     if mm is None:
         raise ImportError("Metal backend source not found (kernels/metal/pytorch_ext/mlstm_metal_backend.mm)")
     from torch.utils.cpp_extension import load
-    _BACKEND = load(
-        name="mlstm_metal_backend",
-        sources=[str(mm)],
-        extra_ldflags=["-framework", "Metal", "-framework", "Foundation"],
-        verbose=False,
-    )
+    _BACKEND = load(name="mlstm_metal_backend", sources=[str(mm)],
+                    extra_ldflags=["-framework", "Metal", "-framework", "Foundation"])
 
 def mlstm_recurrent_step__metal_fw(
     matC_old: torch.Tensor,  # (B, NH, DHQK, DHV)
@@ -54,6 +50,20 @@ def mlstm_recurrent_step__metal_fw(
     eps: float = 1e-6,
     dtype_state: torch.dtype = torch.float32,
 ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    """
+
+    :param matC_old:
+    :param vecN_old:
+    :param scaM_old:
+    :param vecQ:
+    :param vecK:
+    :param vecV:
+    :param scaI:
+    :param scaF:
+    :param eps:
+    :param dtype_state:
+    :return:
+    """
     if not torch.backends.mps.is_available():
         raise RuntimeError("MPS not available; Metal backend required")
     device = vecQ.device
@@ -123,6 +133,20 @@ def mlstm_recurrent_step__metal(
     eps: float = 1e-6,
     dtype_state: torch.dtype = torch.float32,
 ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c:
+    :param n:
+    :param m:
+    :param eps:
+    :param dtype_state:
+    :return:
+    """
     # Use the fw function with mapped arguments
     return mlstm_recurrent_step__metal_fw(
         matC_old=c,

@@ -28,6 +28,24 @@ def mlstm_recurrent_step__triton_fw(
     eps: float = 1e-6,
     dtype_state: jnp.dtype = jnp.float32,
 ):
+    """
+
+    :param matC_state:
+    :param vecN_state:
+    :param scaM_state:
+    :param vecQ:
+    :param vecK:
+    :param vecV:
+    :param scaI:
+    :param scaF:
+    :param matC_new:
+    :param vecN_new:
+    :param scaM_new:
+    :param qk_scale:
+    :param eps:
+    :param dtype_state:
+    :return:
+    """
     B, NH, DHQK, DHHV = matC_state.shape
 
     DTYPE = matC_state.dtype

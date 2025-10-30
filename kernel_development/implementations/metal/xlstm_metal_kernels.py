@@ -514,13 +514,10 @@ class MetalxLSTMModel(nn.Module):
         hidden_states = []
         for block in self.blocks:
             if block.is_mlstm:
-                hidden_states.append(mx.zeros(
-                    (batch_size, block.num_heads, block.head_dim, block.head_dim),
-                    dtype=mx.float32
-                ))
+                hidden_states.append(mx.zeros((batch_size, block.num_heads, block.head_dim, block.head_dim)))
             else:
                 proj_dim = int(self.config.d_model * self.config.slstm_proj_factor)
-                hidden_states.append(mx.zeros((batch_size, proj_dim), dtype=mx.float32))
+                hidden_states.append(mx.zeros((batch_size, proj_dim)))
         return hidden_states
     
     def __call__(self, tokens: mx.array, hidden_states: Optional[List] = None) -> Tuple[mx.array, List]:
@@ -570,14 +567,7 @@ if __name__ == "__main__":
     print("Creating xLSTM model with Metal kernels...")
     
     # Create model
-    model = create_metal_xlstm_model(
-        vocab_size=1000,
-        num_layers=4,
-        d_model=256,
-        signature=(1, 0, 1, 0),
-        head_dim=32,
-        head_num=8
-    )
+    model = create_metal_xlstm_model(vocab_size=1000, num_layers=4, d_model=256, signature=(1, 0, 1, 0), head_num=8)
     
     # Test generation
     batch_size = 1

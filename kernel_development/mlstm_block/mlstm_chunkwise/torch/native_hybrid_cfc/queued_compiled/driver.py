@@ -75,18 +75,9 @@ def _process_head_band(
             for t in range(pos, pos + seg):
                 if monitor is not None:
                     monitor.check()
-                H, (C, N, M) = mlstm_recurrent_step__metal(
-                        q=q[:, hs:he, t],
-                        k=k[:, hs:he, t],
-                        v=v[:, hs:he, t],
-                        i=i[:, hs:he, t : t + 1],
-                        f=f[:, hs:he, t : t + 1],
-                        c=C,
-                        n=N,
-                        m=M,
-                        eps=eps,
-                        dtype_state=torch.float32,
-                    )
+                H, (C, N, M) = mlstm_recurrent_step__metal(q=q[:, hs:he, t], k=k[:, hs:he, t], v=v[:, hs:he, t],
+                                                           i=i[:, hs:he, t: t + 1], f=f[:, hs:he, t: t + 1], c=C, n=N,
+                                                           m=M, eps=eps)
                 if cfc_on:
                     ff = torch.sigmoid(H) if cfc_act == "sigmoid" else (1.7159 * torch.tanh(0.666 * H))
                     try:
@@ -134,13 +125,10 @@ def mlstm_chunkwise__queued_compiled_steps(
     # Optional warm-up to compile tiny step kernel variants (one-time)
     if os.environ.get("XLSTM_MPS_WARMUP", "1") != "0":
         try:
-            _ = mlstm_recurrent_step__metal(
-                q[:, :1, 0], k[:, :1, 0], v[:, :1, 0], i[:, :1, 0:1], f[:, :1, 0:1],
-                c_initial[:, :1] if c_initial is not None else None,
-                n_initial[:, :1] if n_initial is not None else None,
-                m_initial[:, :1] if m_initial is not None else None,
-                eps=eps, dtype_state=torch.float32,
-            )
+            _ = mlstm_recurrent_step__metal(q[:, :1, 0], k[:, :1, 0], v[:, :1, 0], i[:, :1, 0:1], f[:, :1, 0:1],
+                                            c_initial[:, :1] if c_initial is not None else None,
+                                            n_initial[:, :1] if n_initial is not None else None,
+                                            m_initial[:, :1] if m_initial is not None else None, eps=eps)
         except Exception:
             pass
 
@@ -164,22 +152,13 @@ def mlstm_chunkwise__queued_compiled_steps(
     if autoscale and NH >= 4:
         probe_hpb = max(1, min(heads_per_band, NH))
         t0 = time.perf_counter()
-        _ = _process_head_band(
-            q[:, :probe_hpb, : min(8, S)],
-            k[:, :probe_hpb, : min(8, S)],
-            v[:, :probe_hpb, : min(8, S)],
-            i[:, :probe_hpb, : min(8, S)],
-            f[:, :probe_hpb, : min(8, S)],
-            0,
-            probe_hpb,
-            min(8, chunk_size),
-            eps,
-            torch.empty(B, probe_hpb, min(8, S), DHHV, device=q.device, dtype=q.dtype),
-            c_initial[:, :probe_hpb] if c_initial is not None else None,
-            n_initial[:, :probe_hpb] if n_initial is not None else None,
-            m_initial[:, :probe_hpb] if m_initial is not None else None,
-            None,
-        )
+        _ = _process_head_band(q[:, :probe_hpb, : min(8, S)], k[:, :probe_hpb, : min(8, S)],
+                               v[:, :probe_hpb, : min(8, S)], i[:, :probe_hpb, : min(8, S)],
+                               f[:, :probe_hpb, : min(8, S)], 0, probe_hpb, min(8, chunk_size), eps,
+                               torch.empty(B, probe_hpb, min(8, S), DHHV, device=q.device, dtype=q.dtype),
+                               c_initial[:, :probe_hpb] if c_initial is not None else None,
+                               n_initial[:, :probe_hpb] if n_initial is not None else None,
+                               m_initial[:, :probe_hpb] if m_initial is not None else None)
         t_probe = time.perf_counter() - t0
         # Heuristic: if probe is slow, reduce heads per band to increase parallelism
         if t_probe > 0.010 and heads_per_band > 2:

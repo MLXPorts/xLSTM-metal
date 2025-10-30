@@ -6,10 +6,11 @@ Derives model architecture parameters directly from tensor shapes in the checkpo
 making the model loading fully model-agnostic.
 """
 
-from pathlib import Path
 import json
-import mlx.core as mx
+from pathlib import Path
 from typing import Dict, Any, Optional, Tuple
+
+import mlx.core as mx
 
 
 def _shape_of(tensor_name: str, index: Dict, shards: Dict[str, mx.array]) -> Optional[Tuple[int, ...]]:
@@ -102,6 +103,11 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
 
     # Helper to get shape
     def get_shape(name: str) -> Tuple[int, ...]:
+        """
+
+        :param name:
+        :return:
+        """
         shape = _shape_of(name, index, shards)
         if shape is None:
             raise ValueError(f"Required tensor not found: {name}")

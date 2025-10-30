@@ -36,17 +36,17 @@ _BODY_AT_A_V = r"""
     Z[rowN * k + col] = acc;
 """
 
-_KERNEL_AT_A_V = mx.fast.metal_kernel(
-    name="svd_at_a_v",
-    input_names=["A", "V", "shape"],
-    output_names=["Z"],
-    header=_HEADER,
-    source=_BODY_AT_A_V,
-    ensure_row_contiguous=True,
-)
+_KERNEL_AT_A_V = mx.fast.metal_kernel(name="svd_at_a_v", input_names=["A", "V", "shape"], output_names=["Z"],
+                                      header=_HEADER, source=_BODY_AT_A_V)
 
 
 def power_iter_step_naive(A: mx.array, V: mx.array) -> mx.array:
+    """
+
+    :param A:
+    :param V:
+    :return:
+    """
     m, n = int(A.shape[0]), int(A.shape[1])
     k = int(V.shape[1])
     shape = mx.array([m, n, k], dtype=mx.uint32)

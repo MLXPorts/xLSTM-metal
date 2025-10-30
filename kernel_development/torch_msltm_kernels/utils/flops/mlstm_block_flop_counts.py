@@ -32,6 +32,18 @@ def count_flops_fw_H(L, Nc, dqk, dv, Nh, factor_exp, factor_max, factor_mask) ->
 
 
 def count_flops_mlstm_chunkwise_fw(L, Nc, dqk, dv, Nh, factor_exp, factor_max, factor_mask) -> tuple[int, int, int]:
+    """
+
+    :param L:
+    :param Nc:
+    :param dqk:
+    :param dv:
+    :param Nh:
+    :param factor_exp:
+    :param factor_max:
+    :param factor_mask:
+    :return:
+    """
     flops_fw_C = count_flops_fw_C(L, Nc, dqk, dv, Nh, factor_exp, factor_max, factor_mask)
     flops_fw_H = count_flops_fw_H(L, Nc, dqk, dv, Nh, factor_exp, factor_max, factor_mask)
     flops_fw_total = flops_fw_C + flops_fw_H
@@ -63,6 +75,21 @@ def count_flops_mlstm_v1_layer_fw(
     factor_mask=1,
     count_ln_flops: Callable[[int], int] = _count_ln_flops,
 ) -> int:
+    """
+
+    :param S:
+    :param d:
+    :param dqk:
+    :param dv:
+    :param Nh:
+    :param chunk_size:
+    :param factor_sig:
+    :param factor_exp:
+    :param factor_max:
+    :param factor_mask:
+    :param count_ln_flops:
+    :return:
+    """
     L = chunk_size
     Nc = S // L
     qkvif_flops = 2 * S * d * Nh * (2 * dqk + dv + 2)
@@ -84,6 +111,15 @@ def count_flops_mlstm_v1_layer_fw(
 
 
 def count_flops_ffn_layer_fw(S, d, pf, factor_gelu=1, count_ln_flops: Callable[[int], int] = _count_ln_flops) -> int:
+    """
+
+    :param S:
+    :param d:
+    :param pf:
+    :param factor_gelu:
+    :param count_ln_flops:
+    :return:
+    """
     upproj_flops = 2 * S * d * d * pf + S * d * pf * factor_gelu
     downproj_flops = 2 * S * d * d * pf
     ln_flops = count_ln_flops(d)
@@ -108,6 +144,25 @@ def count_flops_mlstm_v1_block_fw(
     return_detailed_flops=False,
     **kwargs,
 ):
+    """
+
+    :param S:
+    :param d:
+    :param dqk:
+    :param dv:
+    :param Nh:
+    :param chunk_size:
+    :param pf_ffn:
+    :param factor_sig:
+    :param factor_exp:
+    :param factor_gelu:
+    :param factor_max:
+    :param factor_mask:
+    :param count_ln_flops:
+    :param return_detailed_flops:
+    :param kwargs:
+    :return:
+    """
     mlstm_v1_layer_flops = count_flops_mlstm_v1_layer_fw(
         S=S,
         d=d,
@@ -153,6 +208,29 @@ def count_flops_mlstm_v2_block_fw(
     return_detailed_flops=False,
     **kwargs,
 ):
+    """
+
+    :param S:
+    :param d:
+    :param dqk:
+    :param dv:
+    :param Nh:
+    :param qk_block_size:
+    :param qk_pf:
+    :param v_block_size:
+    :param v_pf:
+    :param conv1d_kernel_size:
+    :param pf:
+    :param chunk_size:
+    :param factor_exp:
+    :param factor_swish:
+    :param factor_max:
+    :param factor_mask:
+    :param count_ln_flops:
+    :param return_detailed_flops:
+    :param kwargs:
+    :return:
+    """
     linear_layer_flops = 6 * S * d * d * pf + S * d * pf * factor_swish
     qkv_proj_flops = 2 * pf * d * (2 * S * qk_block_size * qk_pf + S * v_block_size * v_pf)
     conv1d_flops = (
@@ -214,6 +292,12 @@ def count_fw_flops(
     flop_computations: FLOPsComputation | list[FLOPsComputation],
     multiply_by_2: bool = False,
 ) -> FLOPsComputation | list[FLOPsComputation]:
+    """
+
+    :param flop_computations:
+    :param multiply_by_2:
+    :return:
+    """
     out = []
     if isinstance(flop_computations, FLOPsComputation):
         flop_computations = [flop_computations]
@@ -272,6 +356,14 @@ embedding_dims = {
 def get_mlstm_v1_fw_flops(
     sequence_length: int, chunk_size: int, batch_size: int = 1, **kwargs
 ) -> dict[str, FLOPsComputation]:
+    """
+
+    :param sequence_length:
+    :param chunk_size:
+    :param batch_size:
+    :param kwargs:
+    :return:
+    """
     # num heads mlstm v1
     num_heads_mlstm_v1 = {
         "125M": 4,  # 12,  # 4,
@@ -307,6 +399,14 @@ def get_mlstm_v1_fw_flops(
 def get_mlstm_v2_fw_flops(
     sequence_length: int, chunk_size: int, batch_size: int = 1, multiply_by_2: bool = True
 ) -> dict[str, FLOPsComputation]:
+    """
+
+    :param sequence_length:
+    :param chunk_size:
+    :param batch_size:
+    :param multiply_by_2:
+    :return:
+    """
     # num heads mlstm v2
     num_heads_mlstm_v2 = {
         "125M": 4,

@@ -5,9 +5,9 @@ MLX-based mLSTM blocks (high-level operations, runs on CPU/Metal/CUDA).
 """
 
 from .block import mLSTMBlock, mLSTMConfig
+from .chunkwise_mlx import mlstm_chunkwise_mlx
 from .components import MultiHeadLayerNorm, RMSNorm, soft_cap
 from .kernel import mlstm_recurrent_step, mlstm_sequential
-from .chunkwise_mlx import mlstm_chunkwise_mlx
 
 __all__ = [
     'mLSTMBlock',

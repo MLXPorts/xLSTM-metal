@@ -61,7 +61,8 @@ def _mlstm_recurrent_sequence_loop_fw(
         Hidden states tensor of shape (B, NH, S, DHV) if `return_last_states` is False.
         Tuple of hidden states tensor and tuple of last states tensors if `return_last_states` is True.
     """
-    
+
+    global matC_list
     B, NH, S, DHQK = matQ.shape
     DHV = matV.shape[-1]
     dtype = matQ.dtype
@@ -83,8 +84,7 @@ def _mlstm_recurrent_sequence_loop_fw(
         vecM_state = jnp.zeros((B, NH, 1), dtype=dtype)
 
     if return_all_states:
-        matC_list = []
-        matC_list.append(matC_state)
+        matC_list = [matC_state]
 
     vecH_list = []
     vecN_list, vecM_list = [], []
@@ -175,20 +175,10 @@ def mlstm_recurrent_sequence__native_fw(
         Hidden states tensor of shape (B, NH, S, DHV) if `return_last_states` is False.
         Tuple of hidden states tensor and tuple of last states tensors if `return_last_states` is True.
     """
-    ret_tuple = _mlstm_recurrent_sequence_loop_fw(
-        mlstm_step_fn=mlstm_recurrent_step__native_fw,
-        matQ=q,
-        matK=k,
-        matV=v,
-        vecI=i,
-        vecF=f,
-        matC_initial=c_initial,
-        vecN_initial=n_initial,
-        scaM_initial=m_initial,
-        return_last_states=return_last_states,
-        eps=eps,
-        return_all_states=False,
-    )
+    ret_tuple = _mlstm_recurrent_sequence_loop_fw(mlstm_step_fn=mlstm_recurrent_step__native_fw, matQ=q, matK=k, matV=v,
+                                                  vecI=i, vecF=f, matC_initial=c_initial, vecN_initial=n_initial,
+                                                  scaM_initial=m_initial, return_last_states=return_last_states,
+                                                  eps=eps)
     if return_last_states:
         return ret_tuple[0], ret_tuple[3]
     else:
@@ -232,20 +222,10 @@ def mlstm_recurrent_sequence__triton_step_fused_fw(
         Tuple of hidden states tensor and tuple of last states tensors if `return_last_states` is True.
     """    
 
-    ret_tuple = _mlstm_recurrent_sequence_loop_fw(
-        mlstm_step_fn=mlstm_recurrent_step__triton_fw,
-        matQ=q,
-        matK=k,
-        matV=v,
-        vecI=i,
-        vecF=f,
-        matC_initial=c_initial,
-        vecN_initial=n_initial,
-        scaM_initial=m_initial,
-        return_last_states=return_last_states,
-        eps=eps,
-        return_all_states=False,
-    )
+    ret_tuple = _mlstm_recurrent_sequence_loop_fw(mlstm_step_fn=mlstm_recurrent_step__triton_fw, matQ=q, matK=k, matV=v,
+                                                  vecI=i, vecF=f, matC_initial=c_initial, vecN_initial=n_initial,
+                                                  scaM_initial=m_initial, return_last_states=return_last_states,
+                                                  eps=eps)
     if return_last_states:
         return ret_tuple[0], ret_tuple[3]
     else:

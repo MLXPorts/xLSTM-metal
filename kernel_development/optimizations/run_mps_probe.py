@@ -7,6 +7,9 @@ from torch.utils.cpp_extension import load
 ROOT = Path(__file__).resolve().parents[1]
 
 def main():
+    """
+
+    """
     assert torch.backends.mps.is_available(), "MPS required"
     src = str(ROOT / "mps_probe/mps_probe.mm")
     mod = load(

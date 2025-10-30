@@ -127,6 +127,7 @@ def parallel_chunk_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
     """
     Compute attention outputs using parallel processing within chunks
     """
+    global k_relevant, weights
     B, NH, S, D = q.shape
     num_chunks = (S + chunk_size - 1) // chunk_size
     
@@ -239,10 +240,10 @@ class ChunkedParallelmLSTMBlock(nn.Module):
         if config.weight_mode == "fused":
             # Single fused linear layer
             total_dim = config.head_num * 2 + self.hidden_dim * 3  # i, f, q, k, v
-            self.fused_proj = nn.Linear(int(p_factor * config.inp_dim), total_dim, bias=True)
+            self.fused_proj = nn.Linear(int(p_factor * config.inp_dim), total_dim)
         else:
-            self.W_i = nn.Linear(int(p_factor * config.inp_dim), config.head_num, bias=True)
-            self.W_f = nn.Linear(int(p_factor * config.inp_dim), config.head_num, bias=True)
+            self.W_i = nn.Linear(int(p_factor * config.inp_dim), config.head_num)
+            self.W_f = nn.Linear(int(p_factor * config.inp_dim), config.head_num)
             self.W_q = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
             self.W_k = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
             self.W_v = nn.Linear(int(p_factor * config.inp_dim), self.hidden_dim)
@@ -319,50 +320,50 @@ class ChunkedParallelmLSTMBlock(nn.Module):
         # Apply output gate and reshape
         h = h.transpose(1, 2).contiguous().view(B, S, self.hidden_dim)  # (B, S, NH*D)
         h = o * h
-        
+
         # Final processing
         out = self.hid_norm(h) + x_skip
         out = out * F.silu(r_t)
         out = self.down_proj(out)
-        
+
         return out + x, None  # No hidden state returned for sequence processing
-    
+
     def standard_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
-                          i_gates: torch.Tensor, f_gates: torch.Tensor) -> torch.Tensor:
+                           i_gates: torch.Tensor, f_gates: torch.Tensor) -> torch.Tensor:
         """Standard sequential attention for comparison/short sequences"""
         B, NH, S, D = q.shape
-        
+
         # Initialize states
         C = torch.zeros(B, NH, D, D, device=q.device)
         n = torch.zeros(B, NH, D, device=q.device)
         outputs = []
-        
+
         for t in range(S):
             # Update states
             i_t = i_gates[:, :, t].unsqueeze(-1).unsqueeze(-1)  # (B, NH, 1, 1)
             f_t = f_gates[:, :, t].unsqueeze(-1).unsqueeze(-1)
-            
+
             v_t = v[:, :, t, :].unsqueeze(-1)  # (B, NH, D, 1)
             k_t = k[:, :, t, :].unsqueeze(-2)  # (B, NH, 1, D)
-            
+
             C = f_t * C + i_t * (v_t @ k_t)
-            
+
             i_t_n = i_gates[:, :, t].unsqueeze(-1)  # (B, NH, 1)
             f_t_n = f_gates[:, :, t].unsqueeze(-1)
             k_t_n = k[:, :, t, :]
-            
+
             n = f_t_n * n + i_t_n * k_t_n
-            
+
             # Compute output
             q_t = q[:, :, t, :].unsqueeze(-1)  # (B, NH, D, 1)
             h_num = (C @ q_t).squeeze(-1)  # (B, NH, D)
             h_den = torch.sum(n * q[:, :, t, :], dim=-1, keepdim=True).clamp(min=1.0)
             h_t = h_num / h_den
-            
+
             outputs.append(h_t)
-        
+
         return torch.stack(outputs, dim=2)  # (B, NH, S, D)
-    
+
     def forward_single(self, x: torch.Tensor, hidden_state):
         """Single timestep processing"""
         # This would be similar to the original implementation
@@ -379,13 +380,14 @@ class ChunkedParallelmLSTMBlock(nn.Module):
 
 class ChunkedParallelxLSTM(nn.Module):
     """Complete chunked parallel xLSTM model"""
+
     def __init__(self, config: ChunkedxLSTMConfig):
         super().__init__()
         self.config = config
-        
+
         self.embedding = nn.Embedding(config.vocab_size, config.inp_dim)
         self.dropout = nn.Dropout(config.dropout) if config.dropout > 0 else None
-        
+
         # For now, use only mLSTM blocks
         self.blocks = nn.ModuleList([
             ChunkedParallelmLSTMBlock(config) for _ in range(config.num_layers)
@@ -433,18 +435,7 @@ def create_chunked_parallel_xlstm(config: Optional[ChunkedxLSTMConfig] = None):
 if __name__ == "__main__":
     print("Creating Chunked Parallel xLSTM...")
     
-    config = ChunkedxLSTMConfig(
-        vocab_size=50257,
-        num_layers=6,
-        signature=(6, 0),  # Only mLSTM blocks
-        inp_dim=512,
-        head_dim=64,
-        head_num=8,
-        chunk_size=32,
-        enable_chunked_processing=True,
-        use_gradient_checkpointing=True,
-        weight_mode="fused"
-    )
+    config = ChunkedxLSTMConfig(num_layers=6, signature=(6, 0), inp_dim=512, head_dim=64, chunk_size=32)
     
     model = create_chunked_parallel_xlstm(config)
     

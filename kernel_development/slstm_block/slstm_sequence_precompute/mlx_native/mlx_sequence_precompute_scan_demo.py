@@ -25,6 +25,12 @@ class TinySLSTM(nn.Module):
         self.down = nn.Linear(proj, d_model)
 
     def step(self, x, state):
+        """
+
+        :param x:
+        :param state:
+        :return:
+        """
         c, n, h, m = state
         i = self.W_i(x); f = self.W_f(x)
         z = self.W_z(x); o = self.W_o(x)
@@ -39,6 +45,11 @@ class TinySLSTM(nn.Module):
         return y, (c, n, h, m)
 
     def forward_stepwise(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         B, S, D = x.shape
         c = mx.zeros((B, D)); n = mx.ones((B, D)); h = mx.zeros((B, D)); m = mx.zeros((B, D))
         outs = []
@@ -48,6 +59,11 @@ class TinySLSTM(nn.Module):
         return mx.stack(outs, axis=1)
 
     def forward_precompute(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         B, S, D = x.shape
         # Precompute all projections once
         I = self.W_i(x); F = self.W_f(x); Z = self.W_z(x); O = self.W_o(x)
@@ -68,6 +84,12 @@ class TinySLSTM(nn.Module):
 
 
 def bench(model, x):
+    """
+
+    :param model:
+    :param x:
+    :return:
+    """
     # Warmup
     _ = model.forward_stepwise(x); mx.eval(_)
     _ = model.forward_precompute(x); mx.eval(_)

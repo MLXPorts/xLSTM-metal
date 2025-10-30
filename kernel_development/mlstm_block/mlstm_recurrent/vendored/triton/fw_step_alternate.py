@@ -51,6 +51,11 @@ else:
 
 
 def keep(conf):
+    """
+
+    :param conf:
+    :return:
+    """
     BQ = conf.kwargs["BLOCK_DQK"]
     BV = conf.kwargs["BLOCK_DV"]
     if BQ * BV < 128 * 128 and conf.num_warps == 8:
@@ -97,6 +102,44 @@ def recurrent_step_fw_kernel_C(
     BLOCK_DV: tl.constexpr,  # DHV = BLOCK_DV * NUM_BLOCKS_DV
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param matC_old:
+    :param vecN_old:
+    :param scaM_old:
+    :param vecK:
+    :param vecV:
+    :param scaI:
+    :param scaF:
+    :param matC_new:
+    :param vecN_new:
+    :param scaM_new:
+    :param qk_scale:
+    :param s_matC_b:
+    :param s_matC_nh:
+    :param s_matC_dhqk:
+    :param s_matC_dhv:
+    :param s_vecN_b:
+    :param s_vecN_nh:
+    :param s_vecN_dhqk:
+    :param s_scaM_b:
+    :param s_scaM_nh:
+    :param s_vecQK_b:
+    :param s_vecQK_nh:
+    :param s_vecQK_dhqk:
+    :param s_vecVH_b:
+    :param s_vecVH_nh:
+    :param s_vecVH_dhv:
+    :param s_scaIF_b:
+    :param s_scaIF_nh:
+    :param B:
+    :param NH:
+    :param DHQK:
+    :param DHV:
+    :param BLOCK_DQK:
+    :param BLOCK_DV:
+    :param EPS:
+    """
     i_dhqk, i_dhv, i_bnh = tl.program_id(0), tl.program_id(1), tl.program_id(2)
 
     # ? Define pointers
@@ -195,6 +238,39 @@ def recurrent_step_fw_kernel_H(
     BLOCK_DV: tl.constexpr,  # DHV = BLOCK_DV * NUM_BLOCKS_DV
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param vecQ:
+    :param vecH:
+    :param matC_new:
+    :param vecN_new:
+    :param scaM_new:
+    :param qk_scale:
+    :param s_matC_b:
+    :param s_matC_nh:
+    :param s_matC_dhqk:
+    :param s_matC_dhv:
+    :param s_vecN_b:
+    :param s_vecN_nh:
+    :param s_vecN_dhqk:
+    :param s_scaM_b:
+    :param s_scaM_nh:
+    :param s_vecQK_b:
+    :param s_vecQK_nh:
+    :param s_vecQK_dhqk:
+    :param s_vecVH_b:
+    :param s_vecVH_nh:
+    :param s_vecVH_dhv:
+    :param s_scaIF_b:
+    :param s_scaIF_nh:
+    :param B:
+    :param NH:
+    :param DHQK:
+    :param DHV:
+    :param BLOCK_DQK:
+    :param BLOCK_DV:
+    :param EPS:
+    """
     i_dhv, i_bnh = tl.program_id(1), tl.program_id(2)
 
     # ? Define pointers

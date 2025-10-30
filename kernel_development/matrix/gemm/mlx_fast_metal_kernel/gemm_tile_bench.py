@@ -12,10 +12,18 @@ from gemm_kernels import gemm_av, gemm_at_b, set_gemm_tiles
 
 
 def bench_gemm(m=1024, n=1024, k=1024, tiles=("16x16", "16x16")):
+    """
+
+    :param m:
+    :param n:
+    :param k:
+    :param tiles:
+    :return:
+    """
     mx.random.seed(0)
-    A = mx.random.normal((m, n), dtype=mx.float32)
-    V = mx.random.normal((n, k), dtype=mx.float32)
-    B = mx.random.normal((m, k), dtype=mx.float32)
+    A = mx.random.normal((m, n))
+    V = mx.random.normal((n, k))
+    B = mx.random.normal((m, k))
 
     # Warm
     _ = gemm_av(A, V); mx.eval(_)

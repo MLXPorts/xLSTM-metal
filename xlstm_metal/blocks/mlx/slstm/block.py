@@ -5,10 +5,11 @@ Implements the scalar LSTM (sLSTM) layer from xLSTM paper.
 Based on Appendix A equations 3-9: https://arxiv.org/pdf/2405.04517
 """
 
+from dataclasses import dataclass
+from typing import Tuple, Optional
+
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Tuple, Optional
-from dataclasses import dataclass
 
 from .components import MultiHeadLayerNorm, RMSNorm, soft_cap
 from .kernel import slstm_sequential
@@ -73,16 +74,8 @@ class sLSTMLayer(nn.Module):
 
         # Input projections for gates
         # Note: Input and forget gates project to num_heads (per-head gates)
-        self.igate = nn.Linear(
-            config.embedding_dim,
-            config.num_heads,
-            bias=True  # Gates always have bias
-        )
-        self.fgate = nn.Linear(
-            config.embedding_dim,
-            config.num_heads,
-            bias=True  # Gates always have bias
-        )
+        self.igate = nn.Linear(config.embedding_dim, config.num_heads)
+        self.fgate = nn.Linear(config.embedding_dim, config.num_heads)
 
         # Cell input and output gates project to full embedding_dim
         self.zgate = nn.Linear(
@@ -104,14 +97,9 @@ class sLSTMLayer(nn.Module):
         ) * 0.01  # Small initialization
 
         # Group normalization (applied per-head)
-        self.group_norm = MultiHeadLayerNorm(
-            num_heads=config.num_heads,
-            head_dim=config.head_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.group_norm = MultiHeadLayerNorm(num_heads=config.num_heads, head_dim=config.head_dim, eps=config.norm_eps,
+                                             use_bias=config.use_bias,
+                                             force_float32_reductions=config.norm_reduction_force_float32)
 
     def __call__(
         self,
@@ -178,12 +166,12 @@ class sLSTMLayer(nn.Module):
 
             # Add recurrent contributions to gates
             # i,f are already per-head [B, S, NH], r_i/r_f are [B, NH, H] -> reduce over H
-            i_preact = i_preact + r_i.mean(axis=-1, keepdims=False)[:, None, :]  # [B, S, NH]
-            f_preact = f_preact + r_f.mean(axis=-1, keepdims=False)[:, None, :]  # [B, S, NH]
+            i_preact += r_i.mean(axis=-1)[:, None, :]  # [B, S, NH]
+            f_preact += r_f.mean(axis=-1)[:, None, :]  # [B, S, NH]
 
             # z,o need to be reshaped: r_z/r_o are [B, NH, H]
-            z = z + r_z[:, None, :, :]  # [B, S, NH, H]
-            o_shaped = o_shaped + r_o[:, None, :, :]  # [B, S, NH, H]
+            z += r_z[:, None, :, :]  # [B, S, NH, H]
+            o_shaped += r_o[:, None, :, :]  # [B, S, NH, H]
 
         # Reshape for kernel: [B, NH, S, H]
         z = z.transpose(0, 2, 1, 3)  # [B, NH, S, H]
@@ -239,13 +227,8 @@ class sLSTMBlock(nn.Module):
         self.config = config
 
         # Pre-normalization
-        self.norm = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.norm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                            force_float32_reductions=config.norm_reduction_force_float32)
 
         # sLSTM layer
         self.slstm_layer = sLSTMLayer(config)

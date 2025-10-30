@@ -20,20 +20,26 @@ def mlstm_chunkwise__native_autograd(
     chunk_size: int = 64,
     **kwargs,
 ) -> jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]:
-    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(
-        matQ=q,
-        matK=k,
-        matV=v,
-        vecI=i,
-        vecF=f,
-        matC_initial=c_initial,
-        vecN_initial=n_initial,
-        scaM_initial=m_initial,
-        return_last_states=return_last_states,
-        return_all_states=False,
-        eps=eps,
-        chunk_size=chunk_size,
-    )
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param chunk_size:
+    :param kwargs:
+    :return:
+    """
+    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(matQ=q, matK=k, matV=v, vecI=i, vecF=f, matC_initial=c_initial,
+                                                        vecN_initial=n_initial, scaM_initial=m_initial,
+                                                        return_last_states=return_last_states, eps=eps,
+                                                        chunk_size=chunk_size)
     if return_last_states:
         return matH_out, last_states
     else:

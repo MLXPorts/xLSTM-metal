@@ -11,19 +11,20 @@ Key differences from mLSTM:
 - Exponential gating: i_t = exp(ĩ_t), f_t = exp(f̃_t)
 """
 
-import mlx.core as mx
 from typing import Tuple, Optional
+
+import mlx.core as mx
 
 
 def slstm_recurrent_step(
-    z: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    o_preact: mx.array,
-    c_state: mx.array,
-    n_state: mx.array,
-    m_state: mx.array,
-    eps: float = 1e-6
+        z: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        o_preact: mx.array,
+        c_state: mx.array,
+        n_state: mx.array,
+        m_state: mx.array,
+        eps: float = 1e-6
 ) -> Tuple[mx.array, mx.array, mx.array, mx.array]:
     """
     Single-step sLSTM recurrence with exponential gating.

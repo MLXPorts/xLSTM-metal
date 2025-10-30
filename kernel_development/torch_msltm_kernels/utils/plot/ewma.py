@@ -33,7 +33,7 @@ def ewma(x, alpha):
     p = np.vstack([np.arange(i, i - n, -1) for i in range(n)])
 
     # Create the weight matrix
-    w = np.tril(w0**p, 0)
+    w = np.tril(w0 ** p)
 
     # Calculate the ewma
     return np.dot(w, x[:: np.newaxis]) / w.sum(axis=1)

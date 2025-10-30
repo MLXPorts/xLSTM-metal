@@ -8,6 +8,12 @@ except Exception:  # pragma: no cover
 
 class _Noop:
     def set(self, *a, **k):
+        """
+
+        :param a:
+        :param k:
+        :return:
+        """
         return None
 
 

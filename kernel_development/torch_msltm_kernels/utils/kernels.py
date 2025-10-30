@@ -2,5 +2,10 @@
 #  This software may be used and distributed according to the terms of the NXAI Community License Agreement.
 
 def is_power_of_2(n):
+    """
+
+    :param n:
+    :return:
+    """
     assert isinstance(n, int)
     return (n & (n - 1)) == 0

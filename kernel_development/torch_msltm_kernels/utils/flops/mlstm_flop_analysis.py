@@ -19,6 +19,13 @@ from .mlstm_block_flop_counts import (
 
 
 def get_mlstm_v1_fw_7B_flops(sequence_length: int, chunk_size: int, batch_size: int = 1):
+    """
+
+    :param sequence_length:
+    :param chunk_size:
+    :param batch_size:
+    :return:
+    """
     num_heads_mlstm_v1 = {
         "7B_nh1": 1,
         "7B_nh2": 2,
@@ -49,6 +56,13 @@ def get_mlstm_v1_fw_7B_flops(sequence_length: int, chunk_size: int, batch_size: 
 
 
 def get_mlstm_v2_fw_7B_flops(sequence_length: int, chunk_size: int, batch_size: int = 1):
+    """
+
+    :param sequence_length:
+    :param chunk_size:
+    :param batch_size:
+    :return:
+    """
     num_heads_mlstm_v2 = {
         "7B_nh1": 1,
         "7B_nh2": 2,
@@ -94,6 +108,13 @@ def get_flops_array_for_sizes(
     flop_computation_dict: dict[str, FLOPsComputation],
     flop_type: str = "total_other_flops",
 ) -> list[int]:
+    """
+
+    :param model_size_keys:
+    :param flop_computation_dict:
+    :param flop_type:
+    :return:
+    """
     flop_vals = []
     for msk in model_size_keys:
         if flop_type == "total_flops":
@@ -112,6 +133,15 @@ def plot_mlstm_v1_v2_flop_comparison(
     model_size_keys: list[str],
     plot_only_total_flops: bool = True,
 ):
+    """
+
+    :param sequence_length:
+    :param batch_size:
+    :param chunk_size:
+    :param model_size_keys:
+    :param plot_only_total_flops:
+    :return:
+    """
     fig, ax = plt.subplots(1, 1, figsize=(8, 6))
     mlstm_flops_v1 = get_mlstm_v1_fw_flops(
         sequence_length=sequence_length, batch_size=batch_size, chunk_size=chunk_size
@@ -203,6 +233,13 @@ def make_flop_table(
     mlstm_flops_v1: dict[str, FLOPsComputation],
     mlstm_flops_v2: dict[str, FLOPsComputation],
 ):
+    """
+
+    :param model_size_keys:
+    :param mlstm_flops_v1:
+    :param mlstm_flops_v2:
+    :return:
+    """
     total_flops_v1 = get_flops_array_for_sizes(
         model_size_keys, flop_computation_dict=mlstm_flops_v1, flop_type="total_flops"
     )
@@ -254,6 +291,18 @@ def make_flop_table(
 def make_chunkwise_flop_chunksize_sweep(
     seq_len, chunk_sizes: list[int], dqk, dv, Nh, factor_exp, factor_max, factor_mask
 ):
+    """
+
+    :param seq_len:
+    :param chunk_sizes:
+    :param dqk:
+    :param dv:
+    :param Nh:
+    :param factor_exp:
+    :param factor_max:
+    :param factor_mask:
+    :return:
+    """
     num_chunks = [seq_len // chunk_size for chunk_size in chunk_sizes]
 
     num_chunks = np.array(num_chunks)
@@ -294,6 +343,18 @@ def make_chunkwise_flop_chunksize_sweep(
 def make_chunkwise_flop_sequence_length_sweep(
     seq_lengths: list[int], chunk_size, dqk, dv, Nh, factor_exp, factor_max, factor_mask
 ):
+    """
+
+    :param seq_lengths:
+    :param chunk_size:
+    :param dqk:
+    :param dv:
+    :param Nh:
+    :param factor_exp:
+    :param factor_max:
+    :param factor_mask:
+    :return:
+    """
     sequence_lengths = np.array(seq_lengths)
 
     flops_results_parallel = []

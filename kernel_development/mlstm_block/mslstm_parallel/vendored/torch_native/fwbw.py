@@ -69,7 +69,7 @@ def _mlstm_parallel_fwbw_generator(autocast_kernel_dtype=torch.float32) -> Calla
     return _mlstm_parallel_fwbw
 
 
-_mlstm_parallel_fwbw_float32 = _mlstm_parallel_fwbw_generator(autocast_kernel_dtype=torch.float32)
+_mlstm_parallel_fwbw_float32 = _mlstm_parallel_fwbw_generator()
 _mlstm_parallel_fwbw_float16 = _mlstm_parallel_fwbw_generator(autocast_kernel_dtype=torch.float16)
 _mlstm_parallel_fwbw_bfloat16 = _mlstm_parallel_fwbw_generator(autocast_kernel_dtype=torch.bfloat16)
 
@@ -98,6 +98,21 @@ def mlstm_parallel__native_stablef_autograd(
     eps: float = 1e-6,
     **kwargs,
 ) -> torch.Tensor:
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param kwargs:
+    :return:
+    """
     assert c_initial is None, "c_initial is not supported"
     assert n_initial is None, "n_initial is not supported"
     assert m_initial is None, "m_initial is not supported"
@@ -128,6 +143,22 @@ def mlstm_parallel__native_stablef_custbw(
     autocast_kernel_dtype: torch.dtype = torch.float32,
     **kwargs,
 ) -> torch.Tensor:
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param autocast_kernel_dtype:
+    :param kwargs:
+    :return:
+    """
     assert c_initial is None, "c_initial is not supported"
     assert n_initial is None, "n_initial is not supported"
     assert m_initial is None, "m_initial is not supported"

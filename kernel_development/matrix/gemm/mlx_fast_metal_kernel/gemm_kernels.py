@@ -440,14 +440,8 @@ def _build_av_kernel():
     if not use_db and os.environ.get("XLSTM_GEMM_DB", "0") == "1":
         use_db = True
     src = _format_av_source_square_db(T) if use_db else _format_av_source_square(T)
-    return mx.fast.metal_kernel(
-        name="gemm_av_tiled",
-        input_names=["A", "V", "shape"],
-        output_names=["C"],
-        header=_HEADER,
-        source=src,
-        ensure_row_contiguous=True,
-    )
+    return mx.fast.metal_kernel(name="gemm_av_tiled", input_names=["A", "V", "shape"], output_names=["C"],
+                                header=_HEADER, source=src)
 
 
 def _build_at_b_kernel():
@@ -478,14 +472,8 @@ def _build_at_b_kernel():
     if not use_db and os.environ.get("XLSTM_GEMM_DB", "0") == "1":
         use_db = True
     src = _format_at_b_source_square_db(T) if use_db else _format_at_b_source_square(T)
-    return mx.fast.metal_kernel(
-        name="gemm_at_b_tiled",
-        input_names=["A", "B", "shape"],
-        output_names=["Z"],
-        header=_HEADER,
-        source=src,
-        ensure_row_contiguous=True,
-    )
+    return mx.fast.metal_kernel(name="gemm_at_b_tiled", input_names=["A", "B", "shape"], output_names=["Z"],
+                                header=_HEADER, source=src)
 
 
 

@@ -15,9 +15,7 @@ from xlstm_metal.wiring import (
     MADWiring,
     BlockSpec,
     BlockType,
-    BackendType,
-    create_parallel_head_wiring,
-    create_xlstm_7_1_wiring
+    BackendType
 )
 
 

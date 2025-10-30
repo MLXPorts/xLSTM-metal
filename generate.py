@@ -26,6 +26,10 @@ except ImportError as e:
 
 
 def main():
+    """
+
+    :return:
+    """
     parser = argparse.ArgumentParser(description="xLSTM Text Generation Runner")
     
     parser.add_argument("--model", "-m", required=True, help="Model path or HuggingFace model ID")

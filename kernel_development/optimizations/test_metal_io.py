@@ -13,11 +13,14 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from mlstm_kernels.torch.metal.softcap import _find_backend_source  # reuse loader helpers
 from torch.utils.cpp_extension import load
 
 
 def read_shader() -> str:
+    """
+
+    :return:
+    """
     root = Path(__file__).resolve().parents[1]
     for _ in range(6):
         met = (root / "kernels/metal/shaders/mlstm_kernels.metal").resolve()
@@ -31,18 +34,23 @@ def read_shader() -> str:
 
 
 def main() -> int:
+    """
+
+    :return:
+    """
     assert torch.backends.mps.is_available(), "MPS required"
     mm = _find_backend_source()
     assert mm is not None, "Metal backend .mm not found"
-    mod = load(
-        name="mlstm_metal_backend",
-        sources=[str(mm)],
-        extra_ldflags=["-framework", "Metal", "-framework", "Foundation"],
-        verbose=False,
-    )
+    mod = load(name="mlstm_metal_backend", sources=[str(mm)],
+               extra_ldflags=["-framework", "Metal", "-framework", "Foundation"])
     src = read_shader()
 
     def check(shape):
+        """
+
+        :param shape:
+        :return:
+        """
         x = torch.randn(*shape, device="mps", dtype=torch.float32)
         y = mod.metal_memcpy_with_source(x, src)
         diff = (x - y).abs().max().item()

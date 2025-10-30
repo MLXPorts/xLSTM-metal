@@ -85,6 +85,7 @@ def run_model_benchmarks(
     The reason for this is that for model benchmarks the model loading can take a long time.
     So we want to do that once for every parameter combination and then run the different kernels.
     """
+    global benchmark
     param_dicts = benchmark_config.get_param_dicts()
     kernel_specs = benchmark_config.kernel_specs
     results = [
@@ -150,6 +151,14 @@ def run_and_record_benchmarks(
     benchmark_type: Literal["model", "kernel"] = "kernel",
     **kwargs,
 ):
+    """
+
+    :param benchmark_config:
+    :param benchmark_creator:
+    :param output_folder:
+    :param benchmark_type:
+    :param kwargs:
+    """
     import logging
 
     import tabulate
@@ -159,7 +168,7 @@ def run_and_record_benchmarks(
     LOGGER.info(f"Running benchmark: {benchmark_config.benchmark_name}")
 
     benchmark_folder = output_folder / benchmark_config.benchmark_name
-    benchmark_folder.mkdir(parents=True, exist_ok=False)
+    benchmark_folder.mkdir(parents=True)
 
     OmegaConf.save(
         OmegaConf.create(asdict(benchmark_config)), benchmark_folder / "config.yaml"
@@ -189,6 +198,12 @@ def run_and_record_benchmarks(
     def plot_result_table(
         additional_exclude_col_regex: str, plot_name_suffix: str, y_label: str
     ):
+        """
+
+        :param additional_exclude_col_regex:
+        :param plot_name_suffix:
+        :param y_label:
+        """
         fig = plot_benchmark_result_table(
             result_df,
             benchmark_config.x_axis_param,
@@ -198,6 +213,10 @@ def run_and_record_benchmarks(
         )
 
         def savefig(file_ending):
+            """
+
+            :param file_ending:
+            """
             fig.savefig(
                 benchmark_folder
                 / f"plot_{benchmark_config.benchmark_name}_{plot_name_suffix}.{file_ending}",

@@ -9,9 +9,11 @@ def test_forward(
     f2,
     inputs: tuple[torch.Tensor],
     comp_func=torch.allclose,
-    comp_func_kwargs={},
+        comp_func_kwargs=None,
     show_diff_func=None,
 ):
+    if comp_func_kwargs is None:
+        comp_func_kwargs = {}
     out1 = f1(*inputs)
     out2 = f2(*inputs)
 
@@ -36,9 +38,12 @@ def test_backward(
     inputs: tuple[torch.Tensor],
     mask: torch.Tensor | None = None,
     comp_func=torch.allclose,
-    comp_func_kwargs={},
+        comp_func_kwargs=None,
     show_diff_func=None,
 ):
+    global inp
+    if comp_func_kwargs is None:
+        comp_func_kwargs = {}
     inputs1 = [inp.clone().detach() if inp is not None else None for inp in inputs]
     inputs2 = [inp.clone().detach() if inp is not None else None for inp in inputs]
     for inp in inputs1:
@@ -57,9 +62,9 @@ def test_backward(
     mask2 = mask.clone().detach()
 
     l1 = (out1 * mask1).sum()
-    l1.backward()
+    l1.backward(,
     l2 = (out2 * mask2).sum()
-    l2.backward()
+    l2.backward(,
 
     for n, (inp1, inp2) in enumerate(zip(inputs1, inputs2)):
         if inp is None and inp2 is None:

@@ -4,6 +4,7 @@ No NumPy to avoid wrapper conflicts.
 """
 
 import mlx.core as mx
+
 from components import soft_cap, RMSNorm, MultiHeadLayerNorm
 
 
@@ -50,7 +51,7 @@ def test_rmsnorm():
     print("=" * 80)
 
     d_model = 512
-    norm = RMSNorm(num_features=d_model, eps=1e-6)
+    norm = RMSNorm(num_features=d_model)
 
     # Test input
     x = mx.random.normal(shape=(2, 10, d_model))
@@ -118,7 +119,7 @@ def test_multihead_per_head_independence():
     num_heads = 4
     head_dim = 64
 
-    mhln = MultiHeadLayerNorm(num_heads=num_heads, head_dim=head_dim, eps=1e-6)
+    mhln = MultiHeadLayerNorm(num_heads=num_heads, head_dim=head_dim)
 
     # Create input with different statistics per head
     x = mx.zeros((1, 8, num_heads, head_dim))
@@ -169,7 +170,7 @@ def test_dtype_preservation():
     d_model = 256
 
     # With force_float32_reductions=True (default for numerical stability)
-    norm_f32 = RMSNorm(num_features=d_model, force_float32_reductions=True)
+    norm_f32 = RMSNorm(num_features=d_model)
 
     # With force_float32_reductions=False
     norm_native = RMSNorm(num_features=d_model, force_float32_reductions=False)

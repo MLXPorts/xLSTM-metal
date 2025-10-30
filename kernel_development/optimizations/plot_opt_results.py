@@ -12,6 +12,9 @@ import matplotlib.pyplot as plt
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", type=str, required=True)
     args = ap.parse_args()

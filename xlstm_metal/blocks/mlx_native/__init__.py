@@ -4,11 +4,11 @@ MLX-specific blocks for xLSTM
 All MLX backend implementations including wiring.
 """
 
-from .mlstm import mLSTMBlock
-from .mlstm.xlstm_block import xLSTMBlock
-from .mlstm.ffn import GatedFFN
-from .slstm import sLSTMBlock, sLSTMLayer
 from . import wiring
+from .mlstm import mLSTMBlock
+from .mlstm.ffn import GatedFFN
+from .mlstm.xlstm_block import xLSTMBlock
+from .slstm import sLSTMBlock, sLSTMLayer
 
 __all__ = [
     'mLSTMBlock',

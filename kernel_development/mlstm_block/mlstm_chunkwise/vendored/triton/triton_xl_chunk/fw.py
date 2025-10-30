@@ -55,6 +55,34 @@ def mlstm_chunkwise_fw(
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ),  # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
 ]:
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaM_initial:
+    :param qk_scale:
+    :param return_last_states:
+    :param return_all_states:
+    :param chunk_size:
+    :param chunk_size_inter:
+    :param chunk_size_intra:
+    :param siz_b_L_parallel:
+    :param siz_b_L_loop:
+    :param siz_b_DH_parallel:
+    :param siz_b_DH_loop:
+    :param num_warps_intra:
+    :param num_warps_inter:
+    :param num_stages_intra:
+    :param num_stages_inter:
+    :param output_dtype:
+    :param eps:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     DHHV = matV.shape[-1]
 

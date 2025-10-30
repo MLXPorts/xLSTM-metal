@@ -43,6 +43,7 @@ def _mlstm_recurrent_sequence_loop_fw(
         tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ),  # (matC_states (B, NH, S, DHQK, DHV), vecN_states (B, NH, S, DHQK), vecM_states (B, NH, S))
 ]:
+    global vecM_list, vecN_list, matC_list
     B, NH, S, DHQK = matQ.shape
     DHV = matV.shape[-1]
     device = matQ.device
@@ -143,21 +144,26 @@ def mlstm_recurrent_sequence__native_fw(
 ) -> (
     torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):
-    ret_tuple = _mlstm_recurrent_sequence_loop_fw(
-        mlstm_step_fn=mlstm_recurrent_step__native_fw,
-        matQ=q,
-        matK=k,
-        matV=v,
-        vecI=i,
-        vecF=f,
-        matC_initial=c_initial,
-        vecN_initial=n_initial,
-        scaM_initial=m_initial,
-        return_last_states=return_last_states,
-        eps=eps,
-        return_all_states=False,
-        dtype_state=dtype_state,
-    )
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param dtype_state:
+    :param kwargs:
+    :return:
+    """
+    ret_tuple = _mlstm_recurrent_sequence_loop_fw(mlstm_step_fn=mlstm_recurrent_step__native_fw, matQ=q, matK=k, matV=v,
+                                                  vecI=i, vecF=f, matC_initial=c_initial, vecN_initial=n_initial,
+                                                  scaM_initial=m_initial, return_last_states=return_last_states,
+                                                  eps=eps, dtype_state=dtype_state)
     if return_last_states:
         return ret_tuple[0], ret_tuple[1]
     else:
@@ -180,20 +186,25 @@ if mlstm_recurrent_step__triton_alternate_fw is not None:
     ) -> (
         torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
     ):
-        ret_tuple = _mlstm_recurrent_sequence_loop_fw(
-            mlstm_step_fn=mlstm_recurrent_step__triton_alternate_fw,
-            matQ=q,
-            matK=k,
-            matV=v,
-            vecI=i,
-            vecF=f,
-            matC_initial=c_initial,
-            vecN_initial=n_initial,
-            scaM_initial=m_initial,
-            return_last_states=return_last_states,
-            eps=eps,
-            return_all_states=False,
-        )
+        """
+
+        :param q:
+        :param k:
+        :param v:
+        :param i:
+        :param f:
+        :param c_initial:
+        :param n_initial:
+        :param m_initial:
+        :param return_last_states:
+        :param eps:
+        :param kwargs:
+        :return:
+        """
+        ret_tuple = _mlstm_recurrent_sequence_loop_fw(mlstm_step_fn=mlstm_recurrent_step__triton_alternate_fw, matQ=q,
+                                                      matK=k, matV=v, vecI=i, vecF=f, matC_initial=c_initial,
+                                                      vecN_initial=n_initial, scaM_initial=m_initial,
+                                                      return_last_states=return_last_states, eps=eps)
         if return_last_states:
             return ret_tuple[0], ret_tuple[1]
         else:
@@ -219,21 +230,27 @@ if mlstm_recurrent_step__triton_fw is not None:
     ) -> (
         torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
     ):
-        ret_tuple = _mlstm_recurrent_sequence_loop_fw(
-            mlstm_step_fn=mlstm_recurrent_step__triton_fw,
-            matQ=q,
-            matK=k,
-            matV=v,
-            vecI=i,
-            vecF=f,
-            matC_initial=c_initial,
-            vecN_initial=n_initial,
-            scaM_initial=m_initial,
-            return_last_states=return_last_states,
-            eps=eps,
-            return_all_states=False,
-            dtype_state=dtype_state,
-        )
+        """
+
+        :param q:
+        :param k:
+        :param v:
+        :param i:
+        :param f:
+        :param c_initial:
+        :param n_initial:
+        :param m_initial:
+        :param return_last_states:
+        :param eps:
+        :param dtype_state:
+        :param kwargs:
+        :return:
+        """
+        ret_tuple = _mlstm_recurrent_sequence_loop_fw(mlstm_step_fn=mlstm_recurrent_step__triton_fw, matQ=q, matK=k,
+                                                      matV=v, vecI=i, vecF=f, matC_initial=c_initial,
+                                                      vecN_initial=n_initial, scaM_initial=m_initial,
+                                                      return_last_states=return_last_states, eps=eps,
+                                                      dtype_state=dtype_state)
         if return_last_states:
             return ret_tuple[0], ret_tuple[1]
         else:

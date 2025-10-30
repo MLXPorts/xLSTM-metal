@@ -5,9 +5,10 @@ Tokenizer Block for MAD System
 Wraps HuggingFace tokenizers as MAD blocks.
 """
 
-import mlx.core as mx
-from typing import Union, List
 from dataclasses import dataclass
+from typing import Union, List
+
+import mlx.core as mx
 
 
 @dataclass

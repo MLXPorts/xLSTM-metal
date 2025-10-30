@@ -12,9 +12,6 @@ __all__ = [
     'sLSTMBlock',
     'sLSTMConfig',
     'sLSTMLayer',
-    'RMSNorm',
-    'soft_cap',
-    'MultiHeadLayerNorm',
     'slstm_recurrent_step',
     'slstm_sequential',
 ]

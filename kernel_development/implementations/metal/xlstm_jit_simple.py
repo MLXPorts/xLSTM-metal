@@ -36,6 +36,11 @@ class MetalSoftCap(nn.Module):
         self.cap_value = cap_value
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         # JIT will optimize this into fused Metal operations
         return self.cap_value * torch.tanh(x / self.cap_value)
 
@@ -60,6 +65,11 @@ class MetalRMSNorm(nn.Module):
         self.eps = eps
     
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param hidden_states:
+        :return:
+        """
         # JIT optimizes this entire computation graph for Metal
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
@@ -82,74 +92,80 @@ class MetalmLSTMBlock(nn.Module):
         num_heads (int, optional): The number of heads. Defaults to 8.
         head_dim (int, optional): The dimension of each head. Defaults to 64.
     """
-    
+
     def __init__(self, d_model: int = 512, num_heads: int = 8, head_dim: int = 64):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
         self.head_dim = head_dim
-        
+
         # Projections
         self.q_proj = nn.Linear(d_model, num_heads * head_dim, bias=False)
         self.k_proj = nn.Linear(d_model, num_heads * head_dim, bias=False)
         self.v_proj = nn.Linear(d_model, num_heads * head_dim, bias=False)
-        
+
         # Gates
         self.i_proj = nn.Linear(d_model, num_heads, bias=False)
         self.f_proj = nn.Linear(d_model, num_heads, bias=False)
         self.o_proj = nn.Linear(d_model, num_heads, bias=False)
-        
+
         self.out_proj = nn.Linear(num_heads * head_dim, d_model, bias=False)
-        self.soft_cap = MetalSoftCap(15.0)
+        self.soft_cap = MetalSoftCap()
         self.layer_norm = MetalRMSNorm(d_model)
-    
+
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
-        
+
         # Layer norm
         x = self.layer_norm(x)
-        
+
         # Projections  
         q = self.q_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
         k = self.k_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
         v = self.v_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
-        
+
         # Gates with soft capping
         i_gate = torch.sigmoid(self.soft_cap(self.i_proj(x)))
         f_gate = torch.sigmoid(self.soft_cap(self.f_proj(x)))
         o_gate = torch.sigmoid(self.soft_cap(self.o_proj(x)))
-        
+
         # Initialize hidden state
         if hidden_state is None:
             hidden_state = torch.zeros(
                 batch_size, self.num_heads, self.head_dim, self.head_dim,
                 device=x.device, dtype=x.dtype
             )
-        
+
         # Process sequence
         outputs = []
         for t in range(seq_len):
             q_t = q[:, t]
             k_t = k[:, t]
-            v_t = v[:, t] 
+            v_t = v[:, t]
             i_t = i_gate[:, t]
             f_t = f_gate[:, t]
             o_t = o_gate[:, t]
-            
+
             # Matrix memory update (JIT optimizes einsum into Metal)
             kv_outer = torch.einsum('bhd,bhe->bhde', k_t, v_t)
-            hidden_state = (f_t.unsqueeze(-1).unsqueeze(-1) * hidden_state + 
-                           i_t.unsqueeze(-1).unsqueeze(-1) * kv_outer)
-            
+            hidden_state = (f_t.unsqueeze(-1).unsqueeze(-1) * hidden_state +
+                            i_t.unsqueeze(-1).unsqueeze(-1) * kv_outer)
+
             # Compute output
             h_t = torch.einsum('bhd,bhde->bhe', q_t, hidden_state)
             h_t = o_t.unsqueeze(-1) * h_t
             outputs.append(h_t)
-        
+
         output = torch.stack(outputs, dim=1)
         output = output.view(batch_size, seq_len, -1)
-        
+
         return residual + self.out_proj(output), hidden_state
 
 
@@ -167,39 +183,45 @@ class MetalsLSTMBlock(nn.Module):
         proj_factor (float, optional): The projection factor for the up-projection.
             Defaults to 1.333.
     """
-    
+
     def __init__(self, d_model: int = 512, proj_factor: float = 1.333):
         super().__init__()
         self.d_model = d_model
         self.proj_dim = int(d_model * proj_factor)
-        
+
         # Projections
         self.i_proj = nn.Linear(d_model, self.proj_dim, bias=False)
         self.f_proj = nn.Linear(d_model, self.proj_dim, bias=False)
         self.o_proj = nn.Linear(d_model, self.proj_dim, bias=False)
         self.c_proj = nn.Linear(d_model, self.proj_dim, bias=False)
-        
+
         self.out_proj = nn.Linear(self.proj_dim, d_model, bias=False)
-        self.soft_cap = MetalSoftCap(15.0)
+        self.soft_cap = MetalSoftCap()
         self.layer_norm = MetalRMSNorm(d_model)
-    
+
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
-        
+
         # Layer norm
         x = self.layer_norm(x)
-        
+
         # Projections
         i_gate = torch.sigmoid(self.soft_cap(self.i_proj(x)))
         f_gate = torch.sigmoid(self.soft_cap(self.f_proj(x)))
         o_gate = torch.sigmoid(self.soft_cap(self.o_proj(x)))
         c_input = self.c_proj(x)
-        
+
         # Initialize hidden state
         if hidden_state is None:
             hidden_state = torch.zeros(batch_size, self.proj_dim, device=x.device, dtype=x.dtype)
-        
+
         # Process sequence
         outputs = []
         for t in range(seq_len):
@@ -207,14 +229,14 @@ class MetalsLSTMBlock(nn.Module):
             i_t = i_gate[:, t]
             f_t = f_gate[:, t]
             o_t = o_gate[:, t]
-            
+
             # Scalar memory update
             hidden_state = f_t * hidden_state + i_t * torch.tanh(c_t)
-            
+
             # Output
             h_t = o_t * torch.tanh(hidden_state)
             outputs.append(h_t)
-        
+
         output = torch.stack(outputs, dim=1)
         return residual + self.out_proj(output), hidden_state
 
@@ -237,25 +259,25 @@ class MetalxLSTMModel(nn.Module):
         head_dim (int, optional): The dimension of each head. Defaults to 32.
         head_num (int, optional): The number of heads. Defaults to 4.
     """
-    
+
     def __init__(
-        self,
-        vocab_size: int = 50257,
-        num_layers: int = 6,
-        d_model: int = 512,
-        signature: Tuple[int, ...] = (1, 1),
-        head_dim: int = 32,
-        head_num: int = 4
+            self,
+            vocab_size: int = 50257,
+            num_layers: int = 6,
+            d_model: int = 512,
+            signature: Tuple[int, ...] = (1, 1),
+            head_dim: int = 32,
+            head_num: int = 4
     ):
         super().__init__()
         self.vocab_size = vocab_size
         self.num_layers = num_layers
         self.d_model = d_model
         self.signature = signature
-        
+
         # Embeddings
         self.embedding = nn.Embedding(vocab_size, d_model)
-        
+
         # xLSTM blocks
         self.blocks = nn.ModuleList()
         for i in range(num_layers):
@@ -263,12 +285,18 @@ class MetalxLSTMModel(nn.Module):
                 self.blocks.append(MetalsLSTMBlock(d_model=d_model))
             else:  # mLSTM
                 self.blocks.append(MetalmLSTMBlock(d_model=d_model, num_heads=head_num, head_dim=head_dim))
-        
+
         # Output head
         self.head = nn.Linear(d_model, vocab_size, bias=False)
         self.output_soft_cap = MetalSoftCap(30.0)
     
     def forward(self, tokens: torch.Tensor, hidden_states: Optional[List[torch.Tensor]] = None) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        """
+
+        :param tokens:
+        :param hidden_states:
+        :return:
+        """
         x = self.embedding(tokens)
         
         # Initialize hidden states if needed
@@ -388,6 +416,13 @@ def create_optimized_generation(compiled_model, max_length: int = 50):
     """
     
     def generate(prompt_tokens: torch.Tensor, temperature: float = 1.0, top_k: int = 50) -> torch.Tensor:
+        """
+
+        :param prompt_tokens:
+        :param temperature:
+        :param top_k:
+        :return:
+        """
         generated = prompt_tokens.clone()
         hidden_states = None
         
@@ -453,7 +488,7 @@ if __name__ == "__main__":
     # Benchmark JIT vs Eager
     print("\nBenchmarking JIT vs Eager execution...")
     try:
-        results = benchmark_jit_vs_eager(model, tokens, num_runs=10)
+        results = benchmark_jit_vs_eager(model, tokens)
         
         print(f"Eager execution: {results['eager_avg_time']:.4f}s avg")
         print(f"JIT execution: {results['jit_avg_time']:.4f}s avg")

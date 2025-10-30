@@ -51,6 +51,42 @@ def recurrent_step_fw_kernel(
     DTYPE: tl.constexpr = tl.float32,
     DTYPE_STATE: tl.constexpr = tl.float32,
 ):
+    """
+
+    :param matC_old:
+    :param vecN_old:
+    :param scaM_old:
+    :param vecQ:
+    :param vecK:
+    :param vecV:
+    :param scaI:
+    :param scaF:
+    :param vecH:
+    :param matC_new:
+    :param vecN_new:
+    :param scaM_new:
+    :param qk_scale:
+    :param str_matC_B_NH:
+    :param str_matC_DHQK:
+    :param str_matC_DHHV:
+    :param str_vecN_B_NH:
+    :param str_vecN_DHQK:
+    :param str_scaM_B_NH:
+    :param str_vecQK_NH:
+    :param str_vecQK_DHQK:
+    :param str_vecVH_B_NH:
+    :param str_vecVH_DHHV:
+    :param str_scaIF_B_NH:
+    :param B:
+    :param NH:
+    :param DHQK:
+    :param DHHV:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param EPS:
+    :param DTYPE:
+    :param DTYPE_STATE:
+    """
     idx_b_DHHV, idx_b_BNH = tl.program_id(1), tl.program_id(2)
 
     # ? Define pointers

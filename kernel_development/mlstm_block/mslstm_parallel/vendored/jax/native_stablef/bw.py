@@ -16,6 +16,19 @@ def mlstm_parallel_bw(
     vecM: jax.Array,
     eps: float = 1e-6,
 ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]:
+    """
+
+    :param matDeltaHtilde:
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param vecN:
+    :param vecM:
+    :param eps:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     assert matK.shape == (B, NH, S, DHQK)
     assert vecI.shape == (B, NH, S)

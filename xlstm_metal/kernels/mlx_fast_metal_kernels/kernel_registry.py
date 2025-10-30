@@ -5,8 +5,7 @@ Ensures kernels compile exactly ONCE and persist as globals.
 Blocks access kernels via this registry - kernels are NOT passed through MAD data flow.
 """
 
-import mlx.core as mx
-from typing import Dict, Optional, Callable
+from typing import Optional, Callable
 
 
 class MetalKernelRegistry:

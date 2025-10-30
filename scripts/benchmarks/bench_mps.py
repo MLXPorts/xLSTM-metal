@@ -39,6 +39,13 @@ from scripts.run_local_xlstm_mps import load_local_config, load_local_weights
 
 @torch.no_grad()
 def greedy_gen_timed(model: xLSTMLarge, prefill_tokens: torch.Tensor, max_len: int):
+    """
+
+    :param model:
+    :param prefill_tokens:
+    :param max_len:
+    :return:
+    """
     device = prefill_tokens.device
     state = None
     B = prefill_tokens.size(0)
@@ -73,6 +80,13 @@ def set_chunk_size(model: xLSTMLarge, chunk_size: int):
 
 
 def build_model(model_path: str, chunkwise_backend: str, chunk_size: int) -> tuple[xLSTMLarge, AutoTokenizer]:
+    """
+
+    :param model_path:
+    :param chunkwise_backend:
+    :param chunk_size:
+    :return:
+    """
     model_dir = Path(model_path)
     os.environ["XLSTM_CHUNKWISE_BACKEND"] = chunkwise_backend
     mcfg = load_local_config(model_dir / "config.json")
@@ -85,6 +99,9 @@ def build_model(model_path: str, chunkwise_backend: str, chunk_size: int) -> tup
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--backend", type=str, choices=["ray", "queued"], required=True)
     ap.add_argument("--model_path", type=str, required=True)

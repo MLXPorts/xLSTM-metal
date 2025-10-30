@@ -10,13 +10,28 @@ import time
 
 import mlx.core as mx
 
+from kernel_development.soft_cap.mlx_fast_kernels.softcap import SoftCapMLXFastKernel
+
 metal_soft_cap = SoftCapMLXFastKernel()
 
 def soft_cap_mlx(x, cap):
+    """
+
+    :param x:
+    :param cap:
+    :return:
+    """
     return cap * mx.tanh(x / cap)
 
 
 def bench_once(n=1_000_000, cap=15.0, dtype=mx.float32):
+    """
+
+    :param n:
+    :param cap:
+    :param dtype:
+    :return:
+    """
     mx.random.seed(0)
     x = mx.random.normal((n,), dtype=dtype)
 

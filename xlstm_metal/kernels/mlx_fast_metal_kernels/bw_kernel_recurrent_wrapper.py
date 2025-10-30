@@ -1,8 +1,9 @@
 """Python wrapper for backward recurrent Metal kernel."""
 
-import mlx.core as mx
-from typing import Tuple, Optional
 import struct
+from typing import Optional
+
+import mlx.core as mx
 
 
 def mlstm_chunkwise_recurrent_bw_dC_metal(
@@ -28,6 +29,21 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
 
     Returns:
         matDeltaC_states: (B, NH, (NC+1)*DHQK, DHHV) - gradient deltas for C states
+        :param matQ:
+        :param vecF:
+        :param scaM_inter:
+        :param vecM_combine:
+        :param matDeltaH:
+        :param vecN_out:
+        :param matDeltaC_last:
+        :param NC:
+        :param L:
+        :param qk_scale:
+        :param siz_b_DHQK:
+        :param siz_b_DHHV:
+        :param save_states_every_nth_chunk:
+        :param eps:
+        :return:
     """
     B, NH, S, DHQK = matQ.shape
     DHHV = matDeltaH.shape[3]
@@ -74,18 +90,13 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
         matDeltaC_last = mx.zeros((B, NH, DHQK, DHHV), dtype=matQ.dtype)
 
     # Import Metal kernel source from main file
-    from bw_kernel_recurrent import _HEADER, _RECURRENT_BW_DC_SRC
+    from bw_kernel_recurrent import HEADER, RECURRENT_BW_DC_SRC
 
     # Build kernel
-    kernel = mx.fast.metal_kernel(
-        name="mlstm_recurrent_bw_dC",
-        input_names=["matQ", "vecF", "scaM_inter", "vecM_combine", "matDeltaH",
-                     "vecN_out", "matDeltaC_last", "params", "strides"],
-        output_names=["matDeltaC_states"],
-        header=_HEADER,
-        source=_RECURRENT_BW_DC_SRC,
-        ensure_row_contiguous=True,
-    )
+    kernel = mx.fast.metal_kernel(name="mlstm_recurrent_bw_dC",
+                                  input_names=["matQ", "vecF", "scaM_inter", "vecM_combine", "matDeltaH",
+                                               "vecN_out", "matDeltaC_last", "params", "strides"],
+                                  output_names=["matDeltaC_states"], header=HEADER, source=RECURRENT_BW_DC_SRC)
 
     # Launch: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
     num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK

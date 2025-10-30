@@ -72,6 +72,11 @@ def compile_kwargs_with_cuda_graphs(fn: Callable[[Any], Any], inputs: dict, warm
 
     # Create a replay function, using the input/output buffers.
     def fn_replay(**new_inputs):
+        """
+
+        :param new_inputs:
+        :return:
+        """
         tree_map(
             lambda x, y: x.copy_(y) if isinstance(x, torch.Tensor) and isinstance(y, torch.Tensor) else None,
             inputs,
@@ -87,5 +92,12 @@ def compile_kwargs_with_cuda_graphs(fn: Callable[[Any], Any], inputs: dict, warm
 
 
 def tree_map(fn, tree, *rest):
+    """
+
+    :param fn:
+    :param tree:
+    :param rest:
+    :return:
+    """
     import jax
     return jax.tree_map(fn, tree, *rest)

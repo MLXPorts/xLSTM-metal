@@ -78,14 +78,8 @@ _MHLN_SIMD_SRC = r"""
     }
 """
 
-_KERNEL_MHLN_SIMD = mx.fast.metal_kernel(
-    name="mhln_simd",
-    input_names=["X", "shape", "eps"],
-    output_names=["Y"],
-    source=_MHLN_SIMD_SRC,
-    header=_HEADER,
-    ensure_row_contiguous=True,
-)
+_KERNEL_MHLN_SIMD = mx.fast.metal_kernel(name="mhln_simd", input_names=["X", "shape", "eps"], output_names=["Y"],
+                                         source=_MHLN_SIMD_SRC, header=_HEADER)
 
 
 def mh_layernorm_simd(X: mx.array, eps: float = 1e-6) -> mx.array:

@@ -32,6 +32,28 @@ def mlstm_recurrent_step__triton_fw(
     num_stages: int | None = None,
     dtype_state: torch.dtype = torch.float32,
 ):
+    """
+
+    :param matC_old:
+    :param vecN_old:
+    :param scaM_old:
+    :param vecQ:
+    :param vecK:
+    :param vecV:
+    :param scaI:
+    :param scaF:
+    :param matC_new:
+    :param vecN_new:
+    :param scaM_new:
+    :param qk_scale:
+    :param eps:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param num_warps:
+    :param num_stages:
+    :param dtype_state:
+    :return:
+    """
     B, NH, DHQK = vecQ.shape
     _, _, DHHV = vecV.shape
     assert vecQ.shape == vecK.shape, "q and k must have the same shape"

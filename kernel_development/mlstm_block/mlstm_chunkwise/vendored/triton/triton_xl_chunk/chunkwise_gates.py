@@ -18,6 +18,13 @@ def compute_chunkwise_log_gates_vecB_vecA(
     vecF: torch.Tensor,  # (B, NH, S)
     chunk_size: int,
 ):
+    """
+
+    :param vecI:
+    :param vecF:
+    :param chunk_size:
+    :return:
+    """
     B, NH, S = vecI.shape
     assert S % chunk_size == 0, f"S={S} is not divisible by chunk_size={chunk_size}"
     _device = vecI.device
@@ -52,6 +59,12 @@ def compute_chunkwise_log_gates_vecB(
     vecF: torch.Tensor,  # (B, NH, S)
     chunk_size: int,
 ):
+    """
+
+    :param vecF:
+    :param chunk_size:
+    :return:
+    """
     B, NH, S = vecF.shape
     assert S % chunk_size == 0, f"S={S} is not divisible by chunk_size={chunk_size}"
     NC = S // chunk_size
@@ -71,6 +84,15 @@ def compute_chunkwise_log_gates_vecB(
 def compute_gate_grads_vecDeltaI_vecDeltaF(
     matQ: torch.Tensor, matK: torch.Tensor, matDeltaQ: torch.Tensor, matDeltaK: torch.Tensor, vecF: torch.Tensor
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+
+    :param matQ:
+    :param matK:
+    :param matDeltaQ:
+    :param matDeltaK:
+    :param vecF:
+    :return:
+    """
     #! postprocessing: compute deltaF and deltaI gradients
     ## ? postprocessing
     # vecF = rearrange(vecF, "b nh nc l -> b nh (nc l)")

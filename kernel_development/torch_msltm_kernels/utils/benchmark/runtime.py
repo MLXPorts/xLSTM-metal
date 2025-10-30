@@ -142,6 +142,12 @@ def measure_runtime(
     LOGGER.debug(f"Peak memory allocated: {peak_memory_allocated}")
 
     def get_stat(x, mode):
+        """
+
+        :param x:
+        :param mode:
+        :return:
+        """
         return getattr(torch, mode)(x.to(dtype=torch.float64)).item()
 
     if quantiles is not None:

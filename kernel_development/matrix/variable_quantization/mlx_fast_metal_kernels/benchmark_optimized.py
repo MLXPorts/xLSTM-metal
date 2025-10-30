@@ -8,7 +8,7 @@ from variable_quantization import VariableQuantizationMLXKernel
 
 def benchmark_kernel(kernel, size, bits, warmup=10, iterations=100):
     """Benchmark a quantization kernel."""
-    x = mx.random.uniform(-1, 1, shape=(size,), dtype=mx.float32)
+    x = mx.random.uniform(-1, shape=(size,))
 
     # Warmup
     for _ in range(warmup):
@@ -29,6 +29,9 @@ def benchmark_kernel(kernel, size, bits, warmup=10, iterations=100):
 
 
 def main():
+    """
+
+    """
     print("Variable Quantization Kernel Performance Comparison")
     print("=" * 70)
 

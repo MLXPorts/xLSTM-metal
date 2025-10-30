@@ -72,6 +72,49 @@ def mlstm_chunkwise__parallel_fw_H_kernel(
     DTYPE: tl.constexpr = tl.float32,
     EPS: tl.constexpr = 1e-6,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param matC_states:
+    :param vecN_states:
+    :param scaMinter_states:
+    :param vecI:
+    :param vecB:
+    :param matHout:
+    :param vecNout:
+    :param vecMout:
+    :param qk_scale:
+    :param str_matQK_B_NH:
+    :param str_matQK_S:
+    :param str_matQK_DHQK:
+    :param str_matHV_B_NH:
+    :param str_matHV_S:
+    :param str_matHV_DHHV:
+    :param str_matCstates_B_NH:
+    :param str_matCstates_NCDHQK:
+    :param str_matCstates_DHHV:
+    :param str_vecNstates_B_NH:
+    :param str_vecNstates_NCDHQK:
+    :param str_scaMinterstates_B_NH:
+    :param str_vecBI_B_NH:
+    :param str_vecBI_NC:
+    :param str_vecBI_L:
+    :param str_vecMN_B_NH:
+    :param str_vecMN_S:
+    :param B:
+    :param NH:
+    :param S:
+    :param DHQK:
+    :param DHHV:
+    :param NC:
+    :param L:
+    :param siz_b_DHQK:
+    :param siz_b_DHHV:
+    :param DTYPE:
+    :param EPS:
+    """
     idx_b_DHHV, idx_b_NC, idx_b_BNH = (
         tl.program_id(0),
         tl.program_id(1),

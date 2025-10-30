@@ -124,7 +124,7 @@ def mlstm_chunkwise__parallel_bw_dV(
         vecM_out,
         matDeltaH,
         matDeltaC_states,
-        out_shape=(matDeltaV),
+        out_shape=matDeltaV,
         qk_scale=qk_scale,
         # strides
         str_matQK_B_NH=get_stride(matQ, axis=1),

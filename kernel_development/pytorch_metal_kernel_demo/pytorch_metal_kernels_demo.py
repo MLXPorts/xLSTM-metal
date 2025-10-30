@@ -237,6 +237,11 @@ class PyTorchMetalSoftCap(nn.Module):
         self.cap_value = cap_value
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         # Use MPS-optimized operations as fallback
         return self.cap_value * torch.tanh(x / self.cap_value)
 
@@ -250,11 +255,16 @@ class PyTorchMetalRMSNorm(nn.Module):
         self.eps = eps
     
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param hidden_states:
+        :return:
+        """
         # MPS-optimized implementation
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
+        hidden_states *= torch.rsqrt(variance + self.eps)
         return self.weight * hidden_states.to(input_dtype)
 
 
@@ -278,10 +288,16 @@ class PyTorchMetalmLSTMBlock(nn.Module):
         self.o_proj = nn.Linear(d_model, num_heads, bias=False)
         
         self.out_proj = nn.Linear(num_heads * head_dim, d_model, bias=False)
-        self.soft_cap = PyTorchMetalSoftCap(15.0)
+        self.soft_cap = PyTorchMetalSoftCap()
         self.layer_norm = PyTorchMetalRMSNorm(d_model)
     
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
         x = self.layer_norm(x)
@@ -347,6 +363,12 @@ class PyTorchMetalxLSTMModel(nn.Module):
         self.soft_cap = PyTorchMetalSoftCap(30.0)
         
     def forward(self, tokens: torch.Tensor, hidden_states: Optional[List] = None) -> Tuple[torch.Tensor, List]:
+        """
+
+        :param tokens:
+        :param hidden_states:
+        :return:
+        """
         x = self.embedding(tokens)
         
         if hidden_states is None:

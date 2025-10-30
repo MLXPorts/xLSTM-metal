@@ -147,6 +147,11 @@ class MultiHeadLayerNorm(nn.Module):
         self.bias = nn.Parameter(torch.zeros(num_heads * head_dim))
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         if x.dim() == 3:
             B, NH, DH = x.shape
             assert NH == self.num_heads and DH == self.head_dim
@@ -186,6 +191,11 @@ class CausalConv1d(nn.Module):
                               padding=self.padding, dilation=dilation)
     
     def forward(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         out = self.conv(x)
         if self.padding > 0:
             out = out[:, :, :-self.padding]
@@ -201,6 +211,11 @@ class BlockLinear(nn.Module):
             self.blocks.append(nn.Linear(in_dim, out_dim))
     
     def forward(self, x):
+        """
+
+        :param x:
+        :return:
+        """
         block_size = x.shape[-1] // len(self.blocks)
         outputs = []
         for i, block in enumerate(self.blocks):
@@ -243,6 +258,10 @@ class mLSTMBlock(nn.Module):
     
     @property
     def device(self):
+        """
+
+        :return:
+        """
         return next(self.parameters()).device
     
     def init_hidden(self, batch_size):
@@ -373,6 +392,10 @@ class sLSTMBlock(nn.Module):
     
     @property
     def device(self):
+        """
+
+        :return:
+        """
         return next(self.parameters()).device
     
     def init_hidden(self, batch_size):
@@ -634,14 +657,7 @@ if __name__ == "__main__":
     # Example usage
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     
-    config = xLSTMConfig(
-        vocab_size=1000,
-        num_layers=4,
-        signature=(1, 1),
-        inp_dim=256,
-        head_dim=32,
-        head_num=8
-    )
+    config = xLSTMConfig(vocab_size=1000, num_layers=4, signature=(1, 1), inp_dim=256, head_dim=32)
     model = create_xlstm_model(config, device=device)
     
     print(f"Enhanced xLSTM model created with {sum(p.numel() for p in model.parameters())} parameters")
@@ -655,6 +671,6 @@ if __name__ == "__main__":
     print(f"Forward pass successful: {logits.shape}")
     
     # Test generation
-    gen_config = GenerationConfig(max_length=20, temperature=0.8, do_sample=True)
+    gen_config = GenerationConfig(max_length=20, temperature=0.8)
     generated = model.generate(tokens[:, :5], gen_config)  # Generate from first 5 tokens
     print(f"Generation successful: {generated.shape}")

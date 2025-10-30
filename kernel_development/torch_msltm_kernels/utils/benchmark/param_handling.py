@@ -30,6 +30,11 @@ class KernelSpec:
     additional_params: dict[str, Any] = None
 
     def to_string(self, short_param_name: bool = True) -> str:
+        """
+
+        :param short_param_name:
+        :return:
+        """
         str_name = f"{self.kernel_name}"
         if self.use_torch_compile is not None:
             str_name += f"__{'tc' if self.use_torch_compile else ''}"
@@ -56,6 +61,11 @@ class ModelSpec:
     additional_params: dict[str, Any] = None
 
     def to_string(self, short_param_name: bool = True) -> str:
+        """
+
+        :param short_param_name:
+        :return:
+        """
         str_name = f"{self.model_name}"
         if self.use_torch_compile_model:
             str_name += "__tcm"
@@ -125,6 +135,10 @@ class BenchmarkConfig:
             return param_dicts
 
     def get_plot_title(self) -> str:
+        """
+
+        :return:
+        """
         title = self.benchmark_name
         for k, v in self.fixed_params.items():
             title += f"__{k}-{v}"

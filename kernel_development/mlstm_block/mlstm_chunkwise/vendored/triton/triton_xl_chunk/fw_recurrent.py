@@ -24,6 +24,21 @@ def mlstm_chunkwise__recurrent_fw_C(
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1))
+    """
+
+    :param matK:
+    :param matV:
+    :param vecF:
+    :param vecI:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaMinter_initial:
+    :param chunk_size:
+    :param num_stages:
+    :param num_warps:
+    :param save_states_every_nth_chunk:
+    :return:
+    """
     B, NH, S, DHQK = matK.shape
     DHHV = matV.shape[-1]
 

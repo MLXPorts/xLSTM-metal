@@ -25,7 +25,7 @@ import torch
 class DccConfig:
     threshold: float = 0.2
     depth: int = 12
-    eta: float = (0.5) ** 1.5  # Rall's constant ≈ 0.353553
+    eta: float = 0.5 ** 1.5  # Rall's constant ≈ 0.353553
 
 
 def dcc_encode_tensor(x: torch.Tensor, cfg: DccConfig = DccConfig()) -> Tuple[torch.Tensor, torch.Tensor]:
@@ -51,9 +51,9 @@ def dcc_encode_tensor(x: torch.Tensor, cfg: DccConfig = DccConfig()) -> Tuple[to
         carries[..., level] = spike * sign
         # Clamp to threshold then attenuate
         residue = torch.minimum(residue, torch.tensor(cfg.threshold, device=device))
-        residue = residue * cfg.eta
+        residue *= cfg.eta
 
-    residue = residue * sign
+    residue *= sign
     return residue.to(dtype), carries.to(dtype)
 
 
@@ -69,7 +69,7 @@ def dcc_decode_tensor(residue: torch.Tensor, carries: torch.Tensor, cfg: DccConf
     recon = rf.abs() / (cfg.eta ** cfg.depth)
     # Accumulate carries: sum over levels spike/eta^level with sign from carries
     for level in range(cfg.depth):
-        recon = recon + (cf[..., level].abs() / (cfg.eta ** level))
+        recon += cf[..., level].abs() / (cfg.eta ** level)
     # Restore sign: carries already hold sign; residue gives sign if no carries
     sign = torch.sign(rf)
     sign[sign == 0] = 1.0
@@ -81,6 +81,11 @@ def dcc_decode_tensor(residue: torch.Tensor, carries: torch.Tensor, cfg: DccConf
 
 
 def dcc_self_test(device: torch.device | None = None) -> bool:
+    """
+
+    :param device:
+    :return:
+    """
     dev = device or (torch.device('mps') if torch.backends.mps.is_available() else torch.device('cpu'))
     cfg = DccConfig()
     vals = torch.tensor([0.0, 1.0, -1.0, 0.1, -0.1, 3.14159, -2.71828, 1e-6, -1e-6, 0.5, -0.5, 10.0, -10.0], device=dev)

@@ -22,6 +22,19 @@ def mlstm_parallel_bw(
     # BLOCK_Q_dQ: int = BLOCK_Q,
     # BLOCK_KV_dQ: int = BLOCK_KV,
 ) -> torch.Tensor:
+    """
+
+    :param matDeltaHtilde:
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param vecM:
+    :param vecN:
+    :param eps:
+    :return:
+    """
     # batch size, number of heads, sequence length, head dimension
     BS, NH, SL, DH = matQ.shape
     assert vecI.shape == (BS, NH, SL)

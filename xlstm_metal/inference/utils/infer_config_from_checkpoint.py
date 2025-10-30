@@ -6,13 +6,13 @@ Tries to infer config from checkpoint (safetensors/GGUF) first,
 falls back to config.json with warning.
 """
 
+import warnings
 from pathlib import Path
 from typing import Dict, Any
-import warnings
 
-from .infer_config_from_safetensors import infer_config_from_safetensors
-from .gguf_loader import infer_config_from_gguf
 from .config_loader import load_config
+from .gguf_loader import infer_config_from_gguf
+from .infer_config_from_safetensors import infer_config_from_safetensors
 
 
 def infer_config_from_checkpoint(model_path: str) -> Dict[str, Any]:

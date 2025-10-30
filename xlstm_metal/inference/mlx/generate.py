@@ -6,17 +6,17 @@ Provides text generation interface for any xLSTM model size by loading
 configuration from the model directory or HuggingFace Hub.
 """
 
-import mlx.core as mx
-from typing import Optional, List
-from pathlib import Path
-
 # Use importlib to set the correct path for imports
 import sys
 from pathlib import Path
+from typing import Optional, List
+
+import mlx.core as mx
+
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from xlstm_metal.blocks.mlx.wiring import WiredMADModel, create_xlstm_wiring
-from xlstm_metal.inference.utils import load_config, load_weights_into_wired_model, infer_config_from_checkpoint
+from xlstm_metal.inference.utils import load_config, load_weights_into_wired_model
 from xlstm_metal.blocks.mlx.mlstm import soft_cap
 
 
@@ -233,7 +233,7 @@ class xLSTMRunner:
 
         # Apply temperature
         if temperature != 1.0:
-            next_token_logits = next_token_logits / temperature
+            next_token_logits /= temperature
 
         # Apply top-k filtering
         if top_k is not None:

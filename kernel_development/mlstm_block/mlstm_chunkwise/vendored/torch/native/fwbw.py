@@ -173,7 +173,7 @@ def _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.float32) -> Call
     return _mlstm_chunkwise_fwbw
 
 
-_mlstm_chunkwise_fwbw_float32 = _mlstm_chunkwise_fwbw_generator(torch.float32)
+_mlstm_chunkwise_fwbw_float32 = _mlstm_chunkwise_fwbw_generator()
 _mlstm_chunkwise_fwbw_float16 = _mlstm_chunkwise_fwbw_generator(torch.float16)
 _mlstm_chunkwise_fwbw_bfloat16 = _mlstm_chunkwise_fwbw_generator(torch.bfloat16)
 
@@ -203,20 +203,26 @@ def mlstm_chunkwise__native_autograd(
     chunk_size: int = 64,
     **kwargs,
 ) -> torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
-    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(
-        matQ=q,
-        matK=k,
-        matV=v,
-        vecI=i,
-        vecF=f,
-        matC_initial=c_initial,
-        vecN_initial=n_initial,
-        scaM_initial=m_initial,
-        return_last_states=return_last_states,
-        return_all_states=False,
-        eps=eps,
-        chunk_size=chunk_size,
-    )
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param chunk_size:
+    :param kwargs:
+    :return:
+    """
+    matH_out, _, _, last_states, _ = mlstm_chunkwise_fw(matQ=q, matK=k, matV=v, vecI=i, vecF=f, matC_initial=c_initial,
+                                                        vecN_initial=n_initial, scaM_initial=m_initial,
+                                                        return_last_states=return_last_states, eps=eps,
+                                                        chunk_size=chunk_size)
     if return_last_states:
         return matH_out, last_states
     else:
@@ -237,6 +243,22 @@ def mlstm_chunkwise__native_custbw(
     chunk_size: int = 64,
     autocast_kernel_dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param return_last_states:
+    :param eps:
+    :param chunk_size:
+    :param autocast_kernel_dtype:
+    :return:
+    """
     _mlstm_chunkwise_fwbw = _get_chunkwise_fwbw_kernel(autocast_kernel_dtype)
     matH_out, matC_last, vecN_last, scaM_last = _mlstm_chunkwise_fwbw.apply(
         q,

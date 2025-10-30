@@ -57,6 +57,38 @@ def mlstm_chunkwise_bw(
     num_stages_inter: int | None = None,
     eps: float = 0.0,
 ):
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param matC_initial:
+    :param vecN_initial:
+    :param scaM_initial:
+    :param matCstate_all:
+    :param vecNstate_all:
+    :param scaMstate_all:
+    :param vecN_out:
+    :param vecM_out:
+    :param matDeltaH_out:
+    :param matDeltaC_last:
+    :param qk_scale:
+    :param chunk_size:
+    :param chunk_size_inter:
+    :param chunk_size_intra:
+    :param siz_b_L_parallel:
+    :param siz_b_L_loop:
+    :param siz_b_DH_parallel:
+    :param siz_b_DH_loop:
+    :param num_warps_intra:
+    :param num_warps_inter:
+    :param num_stages_intra:
+    :param num_stages_inter:
+    :param eps:
+    :return:
+    """
     B, NH, S, DHQK = matQ.shape
     DHHV = matV.shape[-1]
 

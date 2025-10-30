@@ -3,8 +3,10 @@
 Verifies that the chunkwise implementation produces reasonable outputs.
 """
 
-import mlx.core as mx
 import sys
+
+import mlx.core as mx
+
 sys.path.insert(0, '/Volumes/emberstuff/xLSTM/mad/blocks')
 
 from mlstm_mlx.kernel import mlstm_chunkwise, mlstm_sequential
@@ -22,11 +24,11 @@ def test_chunkwise_basic():
     print(f"Chunk size: {chunk_size}")
 
     # Create random inputs
-    q = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-    k = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-    v = mx.random.normal((B, NH, S, V_DH), dtype=mx.float32) * 0.1
-    i_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
-    f_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
+    q = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+    k = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+    v = mx.random.normal((B, NH, S, V_DH)) * 0.1
+    i_preact = mx.random.normal((B, NH, S))
+    f_preact = mx.random.normal((B, NH, S))
 
     print("\nRunning chunkwise kernel...")
     try:
@@ -94,16 +96,16 @@ def test_chunkwise_with_initial_states():
     print(f"Dimensions: B={B}, NH={NH}, S={S}, QK_DH={QK_DH}, V_DH={V_DH}")
 
     # Create inputs
-    q = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-    k = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-    v = mx.random.normal((B, NH, S, V_DH), dtype=mx.float32) * 0.1
-    i_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
-    f_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
+    q = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+    k = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+    v = mx.random.normal((B, NH, S, V_DH)) * 0.1
+    i_preact = mx.random.normal((B, NH, S))
+    f_preact = mx.random.normal((B, NH, S))
 
     # Create initial states
-    c_initial = mx.random.normal((B, NH, QK_DH, V_DH), dtype=mx.float32) * 0.01
-    n_initial = mx.random.normal((B, NH, QK_DH), dtype=mx.float32) * 0.01
-    m_initial = mx.random.normal((B, NH), dtype=mx.float32) * 0.01
+    c_initial = mx.random.normal((B, NH, QK_DH, V_DH)) * 0.01
+    n_initial = mx.random.normal((B, NH, QK_DH)) * 0.01
+    m_initial = mx.random.normal((B, NH)) * 0.01
 
     print("\nRunning chunkwise with initial states...")
     try:
@@ -148,11 +150,11 @@ def test_chunkwise_different_chunk_sizes():
         print(f"\nTesting chunk_size={chunk_size}...")
 
         try:
-            q = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-            k = mx.random.normal((B, NH, S, QK_DH), dtype=mx.float32) * 0.1
-            v = mx.random.normal((B, NH, S, V_DH), dtype=mx.float32) * 0.1
-            i_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
-            f_preact = mx.random.normal((B, NH, S), dtype=mx.float32)
+            q = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+            k = mx.random.normal((B, NH, S, QK_DH)) * 0.1
+            v = mx.random.normal((B, NH, S, V_DH)) * 0.1
+            i_preact = mx.random.normal((B, NH, S))
+            f_preact = mx.random.normal((B, NH, S))
 
             h, _ = mlstm_chunkwise(
                 q=q, k=k, v=v,

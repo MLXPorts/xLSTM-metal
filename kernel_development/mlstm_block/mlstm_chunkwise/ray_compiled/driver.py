@@ -64,6 +64,9 @@ def _gpu_only_guard(t: torch.Tensor):
 
 @ray.remote(num_cpus=1, max_restarts=0, max_task_retries=0)  # type: ignore[misc]
 class HeadBandWorker:
+    """
+
+    """
     def __init__(
         self,
         q: torch.Tensor,
@@ -93,6 +96,15 @@ class HeadBandWorker:
         s_start: int,
         s_end: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+
+        :param c_state:
+        :param n_state:
+        :param m_state:
+        :param s_start:
+        :param s_end:
+        :return:
+        """
         hs, he = self.hs, self.he
         B, NH, S, DHQK = self.q.shape
         DHHV = self.v.shape[-1]
@@ -126,18 +138,9 @@ class HeadBandWorker:
             h_cfc = torch.zeros((B, he - hs, DHHV), device=self.q.device, dtype=self.q.dtype)
         # Step through sequence slice
         for t in range(s_start, s_end):
-            H, (C, N, M) = mlstm_recurrent_step__metal(
-                q=self.q[:, hs:he, t],
-                k=self.k[:, hs:he, t],
-                v=self.v[:, hs:he, t],
-                i=self.i[:, hs:he, t : t + 1],
-                f=self.f[:, hs:he, t : t + 1],
-                c=C,
-                n=N,
-                m=M,
-                eps=self.eps,
-                dtype_state=torch.float32,
-            )
+            H, (C, N, M) = mlstm_recurrent_step__metal(q=self.q[:, hs:he, t], k=self.k[:, hs:he, t],
+                                                       v=self.v[:, hs:he, t], i=self.i[:, hs:he, t: t + 1],
+                                                       f=self.f[:, hs:he, t: t + 1], c=C, n=N, m=M, eps=self.eps)
             if cfc_on:
                 ff = torch.sigmoid(H) if cfc_act == "sigmoid" else (1.7159 * torch.tanh(0.666 * H))
                 try:
@@ -184,6 +187,9 @@ except Exception:
 
 @ray.remote(**_actor_remote_kwargs)  # type: ignore[misc]
 class HeadBandWorkerAsync:
+    """
+
+    """
     def __init__(
         self,
         q: torch.Tensor,
@@ -213,6 +219,15 @@ class HeadBandWorkerAsync:
         s_start: int,
         s_end: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+
+        :param c_state:
+        :param n_state:
+        :param m_state:
+        :param s_start:
+        :param s_end:
+        :return:
+        """
         hs, he = self.hs, self.he
         B, NH, S, DHQK = self.q.shape
         DHHV = self.v.shape[-1]
@@ -233,23 +248,18 @@ class HeadBandWorkerAsync:
         )
         H_out = torch.empty((B, he - hs, s_end - s_start, DHHV), device=self.q.device, dtype=self.q.dtype)
         for t in range(s_start, s_end):
-            H, (C, N, M) = mlstm_recurrent_step__metal(
-                q=self.q[:, hs:he, t],
-                k=self.k[:, hs:he, t],
-                v=self.v[:, hs:he, t],
-                i=self.i[:, hs:he, t : t + 1],
-                f=self.f[:, hs:he, t : t + 1],
-                c=C,
-                n=N,
-                m=M,
-                eps=self.eps,
-                dtype_state=torch.float32,
-            )
+            H, (C, N, M) = mlstm_recurrent_step__metal(q=self.q[:, hs:he, t], k=self.k[:, hs:he, t],
+                                                       v=self.v[:, hs:he, t], i=self.i[:, hs:he, t: t + 1],
+                                                       f=self.f[:, hs:he, t: t + 1], c=C, n=N, m=M, eps=self.eps)
             H_out[:, :, t - s_start] = H
         return H_out, C, N, M
 
     @_ray_method(concurrency_group="ctrl")  # type: ignore[misc]
     async def mem_stats(self) -> Tuple[float, float | None, float | None]:
+        """
+
+        :return:
+        """
         rss_mb = 0.0
         try:
             try:
@@ -283,6 +293,23 @@ def mlstm_chunkwise__ray_compiled_steps(
     eps: float = 1e-6,
     **kwargs,
 ):
+    """
+
+    :param q:
+    :param k:
+    :param v:
+    :param i:
+    :param f:
+    :param c_initial:
+    :param n_initial:
+    :param m_initial:
+    :param chunk_size:
+    :param return_last_states:
+    :param autocast_kernel_dtype:
+    :param eps:
+    :param kwargs:
+    :return:
+    """
     _gpu_only_guard(q)
     _ray_started_here = _ensure_ray()
 
@@ -292,13 +319,10 @@ def mlstm_chunkwise__ray_compiled_steps(
     # Warm-up a tiny step compile to avoid mid-run overhead
     if os.environ.get("XLSTM_MPS_WARMUP", "1") != "0":
         try:
-            _ = mlstm_recurrent_step__metal(
-                q[:, :1, 0], k[:, :1, 0], v[:, :1, 0], i[:, :1, 0:1], f[:, :1, 0:1],
-                c_initial[:, :1] if c_initial is not None else None,
-                n_initial[:, :1] if n_initial is not None else None,
-                m_initial[:, :1] if m_initial is not None else None,
-                eps=eps, dtype_state=torch.float32,
-            )
+            _ = mlstm_recurrent_step__metal(q[:, :1, 0], k[:, :1, 0], v[:, :1, 0], i[:, :1, 0:1], f[:, :1, 0:1],
+                                            c_initial[:, :1] if c_initial is not None else None,
+                                            n_initial[:, :1] if n_initial is not None else None,
+                                            m_initial[:, :1] if m_initial is not None else None, eps=eps)
         except Exception:
             pass
 
@@ -419,7 +443,7 @@ def mlstm_chunkwise__ray_compiled_steps(
         while refs:
             if monitor is not None:
                 monitor.check()
-            done, not_done = ray.wait(refs, num_returns=1)  # type: ignore[union-attr]
+            done, not_done = ray.wait(refs)  # type: ignore[union-attr]
             idx = refs.index(done[0])
             hs, he, s, e = metas[idx]
             Hband, Cb, Nb, Mb = ray.get(done[0])  # type: ignore[union-attr]
@@ -469,7 +493,7 @@ def mlstm_chunkwise__ray_compiled_steps(
                     ray.get(actor.__ray_terminate__.remote())  # type: ignore[attr-defined]
                 except Exception:
                     try:
-                        ray.kill(actor, no_restart=True)
+                        ray.kill(actor)
                     except Exception:
                         pass
         except Exception:
@@ -483,7 +507,7 @@ def mlstm_chunkwise__ray_compiled_steps(
                     ray.get(actor.__ray_terminate__.remote())  # type: ignore[attr-defined]
                 except Exception:
                     try:
-                        ray.kill(actor, no_restart=True)
+                        ray.kill(actor)
                     except Exception:
                         pass
         except Exception:

@@ -44,6 +44,11 @@ class JITMetalSoftCap(nn.Module):
         self.cap_value = cap_value
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         # JIT will fuse these operations into optimized Metal kernels
         return self.cap_value * torch.tanh(x / self.cap_value)
 
@@ -66,21 +71,26 @@ class JITMetalRMSNorm(nn.Module):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.eps = eps
-    
-    @jit.script_method  
+
+    @jit.script_method
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param hidden_states:
+        :return:
+        """
         # JIT optimizes this entire computation graph
         input_dtype = hidden_states.dtype
-        
+
         # Cast to float32 for numerical stability
         hidden_states = hidden_states.to(torch.float32)
-        
+
         # Compute variance (JIT will optimize this reduction)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        
+
         # Normalize (JIT can fuse these operations)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
-        
+        hidden_states *= torch.rsqrt(variance + self.eps)
+
         # Scale and cast back
         return self.weight * hidden_states.to(input_dtype)
 
@@ -114,6 +124,11 @@ class JITMetalLinearProjection(nn.Module):
             self.register_parameter('bias', None)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         # JIT optimizes this into efficient Metal GEMM operations
         if self.bias is not None:
             return torch.nn.functional.linear(x, self.weight, self.bias)
@@ -153,6 +168,12 @@ class JITMetalmLSTMBlock(nn.Module):
         self.layer_norm = JITMetalRMSNorm(d_model)
     
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
         
@@ -240,6 +261,12 @@ class JITMetalsLSTMBlock(nn.Module):
         self.layer_norm = JITMetalRMSNorm(d_model)
     
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
         
@@ -338,6 +365,12 @@ class JITMetalxLSTMModel(nn.Module):
         self.output_soft_cap = JITMetalSoftCap(output_logit_soft_cap)
     
     def forward(self, tokens: torch.Tensor, hidden_states: Optional[List[torch.Tensor]] = None) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        """
+
+        :param tokens:
+        :param hidden_states:
+        :return:
+        """
         # Embedding (JIT optimizes)
         x = self.embedding(tokens)
         
@@ -487,14 +520,14 @@ def jit_generate_step(
     # Forward pass (fully optimized by JIT + Metal)
     logits, new_hidden = model(tokens, hidden_states)
     logits = logits[:, -1, :]  # Take last token
-    
+
     # Apply temperature (JIT optimizes)
     if temperature != 1.0:
-        logits = logits / temperature
-    
+        logits /= temperature
+
     # Top-k filtering (JIT + Metal optimize)
     if top_k > 0:
-        values, indices = torch.topk(logits, top_k, dim=-1)
+        values, indices = torch.topk(logits, top_k)
         mask = logits < values[:, -1].unsqueeze(-1)
         logits = logits.masked_fill(mask, float('-inf'))
     

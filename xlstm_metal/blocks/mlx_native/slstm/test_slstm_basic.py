@@ -4,9 +4,10 @@ Basic test for sLSTM implementation
 Verifies that sLSTM block can be instantiated and runs forward pass.
 """
 
-import mlx.core as mx
 import sys
 from pathlib import Path
+
+import mlx.core as mx
 
 # Add parent to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))

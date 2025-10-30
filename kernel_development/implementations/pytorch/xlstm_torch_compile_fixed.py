@@ -32,6 +32,11 @@ class MetalSoftCap(nn.Module):
         self.cap_value = cap_value
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param x:
+        :return:
+        """
         # torch.compile will optimize this into fused Metal operations
         return self.cap_value * torch.tanh(x / self.cap_value)
 
@@ -45,6 +50,11 @@ class MetalRMSNorm(nn.Module):
         self.eps = eps
     
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        """
+
+        :param hidden_states:
+        :return:
+        """
         # torch.compile handles this computation graph optimization
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
@@ -70,10 +80,16 @@ class CompilablemLSTMBlock(nn.Module):
         self.gate_proj = nn.Linear(d_model, 3 * num_heads, bias=False)  # i, f, o gates
         
         self.out_proj = nn.Linear(num_heads * head_dim, d_model, bias=False)
-        self.soft_cap = MetalSoftCap(15.0)
+        self.soft_cap = MetalSoftCap()
         self.layer_norm = MetalRMSNorm(d_model)
     
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
         
@@ -169,10 +185,16 @@ class CompilablesLSTMBlock(nn.Module):
         self.cell_proj = nn.Linear(d_model, self.proj_dim, bias=False)
         self.out_proj = nn.Linear(self.proj_dim, d_model, bias=False)
         
-        self.soft_cap = MetalSoftCap(15.0)
+        self.soft_cap = MetalSoftCap()
         self.layer_norm = MetalRMSNorm(d_model)
     
     def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+
+        :param x:
+        :param hidden_state:
+        :return:
+        """
         batch_size, seq_len, d_model = x.shape
         residual = x
         
@@ -262,6 +284,12 @@ class CompiledxLSTMModel(nn.Module):
         self.output_soft_cap = MetalSoftCap(30.0)
     
     def forward(self, tokens: torch.Tensor, hidden_states: Optional[List[torch.Tensor]] = None) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        """
+
+        :param tokens:
+        :param hidden_states:
+        :return:
+        """
         x = self.embedding(tokens)
         
         # Initialize hidden states if needed
@@ -304,12 +332,7 @@ def create_compiled_model(config: Dict[str, Any]) -> torch.nn.Module:
     
     # Use torch.compile with dynamic shapes support (2024 best practice)
     print("Compiling model with torch.compile (dynamic=True)...")
-    compiled_model = torch.compile(
-        model,
-        mode='default',  # Balance compilation time and runtime performance
-        dynamic=True,    # Handle dynamic shapes (sequence lengths)
-        backend='inductor'  # Use PyTorch's Inductor backend for best Metal support
-    )
+    compiled_model = torch.compile(model, mode='default', dynamic=True)
     
     return compiled_model
 
@@ -318,12 +341,7 @@ def benchmark_torch_compile(model: nn.Module, tokens: torch.Tensor, num_runs: in
     """Benchmark torch.compile vs eager execution"""
     
     # Create compiled version
-    compiled_model = torch.compile(
-        model,
-        mode='default',
-        dynamic=True,
-        backend='inductor'
-    )
+    compiled_model = torch.compile(model, mode='default', dynamic=True)
     
     # Warmup (important for torch.compile)
     print("Warming up compiled model...")

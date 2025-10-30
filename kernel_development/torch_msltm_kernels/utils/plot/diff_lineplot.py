@@ -11,6 +11,12 @@ def compute_errors_per_batchhead(
     baseline: np.ndarray,  # (B, NH, S, ...)
     target: np.ndarray,  # (B, NH, S, ...)
 ) -> np.ndarray:  # (B * NH, S, F) F are flattened features
+    """
+
+    :param baseline:
+    :param target:
+    :return:
+    """
     # compute the difference in float64 to avoid numerical issues
     error = np.abs(baseline.astype(np.float64) - target.astype(np.float64))
     all_timesteps_np = error
@@ -28,12 +34,24 @@ def compute_errors_per_batchhead(
 
 def plot_error_statistics_over_time_single(
     errors: np.ndarray,  # shape: (num_timesteps, num_features)
-    percentiles: list = [50, 90, 100],
+        percentiles=None,
     title: str = "",
     add_mean: bool = False,
     ema_alpha: float = 0.02,
     figsize=(10, 6),
 ):
+    """
+
+    :param errors:
+    :param percentiles:
+    :param title:
+    :param add_mean:
+    :param ema_alpha:
+    :param figsize:
+    :return:
+    """
+    if percentiles is None:
+        percentiles = [50, 90, 100]
     assert len(errors.shape) == 2, "errors must have shape (num_timesteps, num_features)"
     title = f"{title}--ema{ema_alpha}"
 
@@ -65,13 +83,26 @@ def plot_error_statistics_over_time_single(
 
 def plot_error_statistics_over_time_per_batchhead(
     errors: np.ndarray,  # shape: (num_batchheads, num_timesteps, num_features)
-    percentiles: list = [50, 90, 100],
+        percentiles=None,
     title: str = "",
     add_mean: bool = False,
     ema_alpha: float = 0.02,
     max_num_batchhead_plots: int = -1,  # -1 means all
     figsize=(10, 6),
 ):
+    """
+
+    :param errors:
+    :param percentiles:
+    :param title:
+    :param add_mean:
+    :param ema_alpha:
+    :param max_num_batchhead_plots:
+    :param figsize:
+    :return:
+    """
+    if percentiles is None:
+        percentiles = [50, 90, 100]
     num_batchheads = errors.shape[0]
     if max_num_batchhead_plots > 0:
         max_num_batchhead_plots = min(num_batchheads, max_num_batchhead_plots)

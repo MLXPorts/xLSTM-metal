@@ -5,8 +5,9 @@ Implements the core mLSTM recurrence with exponential gating using MLX Metal ker
 Based on cleanup branch Metal kernels + exponential gating from xlstm_metal_optimized.py.
 """
 
-import mlx.core as mx
 from typing import Tuple, Optional
+
+import mlx.core as mx
 
 
 def mlstm_recurrent_step(
@@ -339,11 +340,8 @@ def mlstm_chunkwise(
         # For mathematical exactness, compute final states via sequential recurrence
         # This ensures parity with the canonical implementation even if the
         # recurrent chunk aggregator is approximated/tuned for performance.
-        _, (c_final, n_final, m_final) = mlstm_sequential(
-            q, k, v, i_preact, f_preact,
-            c_initial=c_initial, n_initial=n_initial, m_initial=m_initial,
-            eps=eps, return_last_states=True
-        )
+        _, (c_final, n_final, m_final) = mlstm_sequential(q, k, v, i_preact, f_preact, c_initial=c_initial,
+                                                          n_initial=n_initial, m_initial=m_initial, eps=eps)
         return matHout, (c_final, n_final, m_final)
     else:
         return matHout, None

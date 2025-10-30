@@ -35,6 +35,12 @@ from scripts.run_local_xlstm_mps import load_local_config, load_local_weights
 
 
 def make_input(tok: AutoTokenizer, text: str) -> torch.Tensor:
+    """
+
+    :param tok:
+    :param text:
+    :return:
+    """
     x = tok(text, return_tensors="pt")["input_ids"].to("mps")
     if tok.bos_token_id is not None:
         bos = torch.tensor([[tok.bos_token_id]], device="mps", dtype=x.dtype)
@@ -74,6 +80,12 @@ def score_continuation(
 
 
 def distinct_ngrams(text: str, n: int) -> float:
+    """
+
+    :param text:
+    :param n:
+    :return:
+    """
     tokens = text.split()
     if len(tokens) < n:
         return 0.0
@@ -82,6 +94,11 @@ def distinct_ngrams(text: str, n: int) -> float:
 
 
 def parse_params_from_name(name: str) -> dict:
+    """
+
+    :param name:
+    :return:
+    """
     # Example: b=ray__h=4__ck=32__w=6__i=7
     params = {}
     for part in name.split("__"):
@@ -92,6 +109,9 @@ def parse_params_from_name(name: str) -> dict:
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", type=str, default=None, help="Optional JSON config to override CLI")
     ap.add_argument("--model_path", type=str, required=True)

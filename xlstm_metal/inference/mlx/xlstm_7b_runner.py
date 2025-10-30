@@ -5,12 +5,13 @@ xLSTM-7B Inference Runner using MAD Wiring
 Provides text generation interface for xLSTM-7B model using WiredMADModel.
 """
 
-import mlx.core as mx
 from typing import Optional, List
 
+import mlx.core as mx
+
+from xlstm_metal.blocks.mlx.mlstm import soft_cap
 from xlstm_metal.blocks.mlx.wiring import WiredMADModel, create_xlstm_7b_wiring
 from xlstm_metal.inference.utils import load_weights_into_wired_model
-from xlstm_metal.blocks.mlx.mlstm import soft_cap
 
 
 class xLSTM7BRunner:
@@ -146,7 +147,7 @@ class xLSTM7BRunner:
 
         # Apply temperature
         if temperature != 1.0:
-            next_token_logits = next_token_logits / temperature
+            next_token_logits /= temperature
 
         # Apply top-k filtering
         if top_k is not None:
