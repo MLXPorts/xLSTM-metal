@@ -6,8 +6,31 @@ Implements the gated FFN from transformers xLSTM-7B (Lines 983-1028).
 Architecture: x → SiLU(gate(x)) * up(x) → down(x)
 """
 
+from dataclasses import dataclass
+from typing import Literal
+
 import mlx.core as mx
 import mlx.nn as nn
+
+
+@dataclass
+class FFNConfig:
+    """Configuration for Gated FFN (compatible with xLSTMBlockConfig)"""
+    embedding_dim: int = 4096
+    proj_up_dim: int = None  # If provided, use directly (preferred)
+    proj_factor: float = None  # If provided, compute proj_up_dim
+    ffn_round_up_to_multiple_of: int = 64
+    act_fn: Literal["gelu", "swish", "relu"] = "swish"
+    use_bias: bool = False
+    dropout: float = 0.0
+
+    def __post_init__(self):
+        if self.proj_up_dim is None:
+            if self.proj_factor is None:
+                raise ValueError("Must provide either proj_up_dim or proj_factor")
+            raw_dim = int(self.embedding_dim * self.proj_factor)
+            self.proj_up_dim = ((raw_dim + self.ffn_round_up_to_multiple_of - 1) //
+                               self.ffn_round_up_to_multiple_of * self.ffn_round_up_to_multiple_of)
 
 
 def round_up_to_next_multiple_of(value: float, multiple_of: int) -> int:
@@ -41,7 +64,7 @@ class xLSTMFeedForwardBlock(nn.Module):
         - ffn.proj_down.weight: [4096, 10880]
 
     Args:
-        hidden_size: Model dimension (embedding_dim, default 4096)
+        config_or_hidden_size: Either FFNConfig object or hidden_size int
         ffn_proj_factor: Up-projection multiplier (default 2.6484375)
         ffn_round_up_to_multiple_of: Alignment (default 32)
         use_bias: Whether to use bias in linear layers (default False)

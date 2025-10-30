@@ -14,7 +14,7 @@ import mlx.nn as nn
 
 from .block import mLSTMLayer, mLSTMConfig
 from .components import RMSNorm
-from .ffn import GatedFFN, FFNConfig
+from xlstm_metal.blocks.mlx_native.ffn import GatedFFN
 
 
 @dataclass
@@ -64,14 +64,7 @@ class xLSTMBlockConfig:
             chunk_size=self.chunk_size
         )
 
-        # Create FFN config
-        self.ffn_config = FFNConfig(
-            embedding_dim=self.embedding_dim,
-            proj_factor=self.ffn_proj_factor,
-            act_fn=self.ffn_act_fn,
-            use_bias=self.use_bias,
-            dropout=self.dropout
-        )
+        # FFN config is not needed - we pass parameters directly to GatedFFN
 
 
 class xLSTMBlock(nn.Module):
@@ -106,7 +99,11 @@ class xLSTMBlock(nn.Module):
                                 force_float32_reductions=config.norm_reduction_force_float32)
 
         # FFN (GatedFFN - no separate norm inside)
-        self.ffn = GatedFFN(config.ffn_config)
+        self.ffn = GatedFFN(
+            hidden_size=config.embedding_dim,
+            ffn_proj_factor=config.ffn_proj_factor,
+            use_bias=config.use_bias
+        )
 
     def __call__(
         self,

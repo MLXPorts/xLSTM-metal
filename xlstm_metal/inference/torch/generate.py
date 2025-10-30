@@ -152,10 +152,10 @@ class PyTorchxLSTMRunner:
                 sorted_logits = torch.sort(next_token_logits, descending=True)[0]
                 sorted_probs = F.softmax(sorted_logits, dim=-1)
                 cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
-                
+
                 keep_mask = cumulative_probs <= top_p
                 num_keep = max(1, keep_mask.sum().item())
-                
+
                 threshold = sorted_logits[num_keep - 1]
                 next_token_logits = torch.where(
                     next_token_logits >= threshold,
@@ -170,14 +170,14 @@ class PyTorchxLSTMRunner:
             return int(next_token)
 
     def generate(
-        self,
-        prompt: str,
-        max_tokens: int = 100,
-        temperature: float = 1.0,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-        stop_tokens: Optional[List[int]] = None,
-        verbose: bool = True
+            self,
+            prompt: str,
+            max_tokens: int = 100,
+            temperature: float = 1.0,
+            top_k: Optional[int] = None,
+            top_p: Optional[float] = None,
+            stop_tokens: Optional[List[int]] = None,
+            verbose: bool = True
     ) -> str:
         """
         Generate text autoregressively.

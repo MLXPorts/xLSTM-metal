@@ -1,9 +1,13 @@
 """
-FFN (Feed-Forward Network) block for xLSTM-7B
-
-Implements the gated FFN from transformers xLSTM implementation.
+FFN Block - MLX Native Backend (no Metal JIT kernels)
 """
 
 from .block import xLSTMFeedForwardBlock
 
-__all__ = ["xLSTMFeedForwardBlock"]
+# Alias for compatibility with existing code
+GatedFFN = xLSTMFeedForwardBlock
+
+__all__ = [
+    'xLSTMFeedForwardBlock',
+    'GatedFFN',
+]

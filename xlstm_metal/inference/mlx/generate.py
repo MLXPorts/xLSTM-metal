@@ -255,7 +255,7 @@ class xLSTMRunner:
             # Compute probabilities and cumulative sum
             sorted_probs = mx.softmax(sorted_logits, axis=-1)
             cumulative_probs = mx.cumsum(sorted_probs, axis=-1)
-            
+
             # Find how many tokens to keep (at least 1)
             keep_mask = cumulative_probs <= top_p
             num_keep = max(1, int(mx.sum(keep_mask).item()))

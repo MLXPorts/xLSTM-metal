@@ -1,3 +1,14 @@
-"""This module initializes the Feed-Forward Network (FFN) components for the MLX backend in the
-`xlstm_metal.blocks.mlx.ffn` package. It provides building blocks for FFN layers used in XLSTM models,
-including layer definitions and utility functions."""
+"""
+FFN Block - MLX Backend
+"""
+
+from .block import xLSTMFeedForwardBlock, FFNConfig
+
+# Alias for compatibility with existing code
+GatedFFN = xLSTMFeedForwardBlock
+
+__all__ = [
+    'xLSTMFeedForwardBlock',
+    'GatedFFN',
+    'FFNConfig',
+]

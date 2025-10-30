@@ -6,7 +6,7 @@ All MLX backend implementations including wiring.
 
 from . import wiring
 from .mlstm import mLSTMBlock
-from .mlstm.ffn import GatedFFN
+from .ffn import GatedFFN
 from .mlstm.xlstm_block import xLSTMBlock
 from .slstm import sLSTMBlock, sLSTMLayer
 
