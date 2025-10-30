@@ -33,3 +33,8 @@ xlstm_7b_model/
 # Local run/benchmark outputs
 runs/
 /vendored/
+
+# Working summaries/analysis docs (not design docs)
+docs/summaries/
+scripts/ann_compare/adapters/metalfaiss_adapter.py
+scripts/ann_compare/adapters/faiss_python_adapter.py

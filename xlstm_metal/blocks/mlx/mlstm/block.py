@@ -4,13 +4,13 @@ mLSTM Block for xLSTM-7B
 Implements the complete mLSTM layer matching the HuggingFace xLSTM-7b weight structure.
 """
 
+from dataclasses import dataclass
+from typing import Tuple, Optional
+
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Tuple, Optional
-from dataclasses import dataclass
 
 from .components import MultiHeadLayerNorm, RMSNorm, soft_cap
-from .kernel import mlstm_sequential
 
 
 @dataclass
@@ -108,16 +108,8 @@ class mLSTMLayer(nn.Module):
 
         # Gate projections (PER-HEAD!)
         # Note: igate and fgate have bias=True even when use_bias=False
-        self.igate_preact = nn.Linear(
-            config.embedding_dim,
-            config.num_heads,
-            bias=True  # Always has bias
-        )
-        self.fgate_preact = nn.Linear(
-            config.embedding_dim,
-            config.num_heads,
-            bias=True  # Always has bias
-        )
+        self.igate_preact = nn.Linear(config.embedding_dim, config.num_heads)
+        self.fgate_preact = nn.Linear(config.embedding_dim, config.num_heads)
         self.ogate_preact = nn.Linear(
             config.embedding_dim,
             config.v_dim,
@@ -125,14 +117,9 @@ class mLSTMLayer(nn.Module):
         )
 
         # Multi-head layer normalization (per-head, not standard!)
-        self.multihead_norm = MultiHeadLayerNorm(
-            num_heads=config.num_heads,
-            head_dim=config.head_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.multihead_norm = MultiHeadLayerNorm(num_heads=config.num_heads, head_dim=config.head_dim,
+                                                 eps=config.norm_eps, use_bias=config.use_bias,
+                                                 force_float32_reductions=config.norm_reduction_force_float32)
 
         # Output projection
         self.out_proj = nn.Linear(
@@ -220,6 +207,7 @@ class mLSTMLayer(nn.Module):
             f_t = f_preact[:, :, 0]  # [B, NH]
 
             # Initialize states if needed
+            # CRITICAL: States must be float32 for numerical stability
             if c_initial is None:
                 NH = q.shape[1]
                 QK_DH = q.shape[3]
@@ -315,20 +303,15 @@ class mLSTMBlock(nn.Module):
         super().__init__()
         self.config = config
 
-        self.norm_mlstm = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.norm_mlstm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                  force_float32_reductions=config.norm_reduction_force_float32)
 
         self.mlstm_layer = mLSTMLayer(config)
 
     def __call__(
-        self,
-        x: mx.array,
-        state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+            self,
+            x: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
         """
         Forward pass with pre-normalization and residual

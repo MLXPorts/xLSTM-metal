@@ -6,14 +6,15 @@ Combines mLSTM + FFN blocks matching canonical xLSTM structure:
     x -> ffn_norm -> FFN -> (+) residual
 """
 
+from dataclasses import dataclass
+from typing import Optional, Tuple
+
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Optional, Tuple
-from dataclasses import dataclass
 
 from .block import mLSTMLayer, mLSTMConfig
-from .ffn import GatedFFN, FFNConfig
 from .components import RMSNorm
+from .ffn import GatedFFN, FFNConfig
 
 
 @dataclass
@@ -32,6 +33,7 @@ class xLSTMBlockConfig:
 
     # FFN configuration
     ffn_proj_factor: float = 2.671875  # 10944 / 4096
+    ffn_hidden_dim: int = None  # Pre-computed (with rounding), preferred over proj_factor
     ffn_act_fn: str = "swish"
 
     # Shared configuration
@@ -64,13 +66,24 @@ class xLSTMBlockConfig:
         )
 
         # Create FFN config
-        self.ffn_config = FFNConfig(
-            embedding_dim=self.embedding_dim,
-            proj_factor=self.ffn_proj_factor,
-            act_fn=self.ffn_act_fn,
-            use_bias=self.use_bias,
-            dropout=self.dropout
-        )
+        # Note: If ffn_hidden_dim is provided (pre-computed with rounding),
+        # use it directly. Otherwise compute from proj_factor.
+        if hasattr(self, 'ffn_hidden_dim') and self.ffn_hidden_dim is not None:
+            self.ffn_config = FFNConfig(
+                embedding_dim=self.embedding_dim,
+                proj_up_dim=self.ffn_hidden_dim,
+                act_fn=self.ffn_act_fn,
+                use_bias=self.use_bias,
+                dropout=self.dropout
+            )
+        else:
+            self.ffn_config = FFNConfig(
+                embedding_dim=self.embedding_dim,
+                proj_factor=self.ffn_proj_factor,
+                act_fn=self.ffn_act_fn,
+                use_bias=self.use_bias,
+                dropout=self.dropout
+            )
 
 
 class xLSTMBlock(nn.Module):
@@ -94,25 +107,15 @@ class xLSTMBlock(nn.Module):
         self.config = config
 
         # Pre-normalization for mLSTM
-        self.xlstm_norm = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.xlstm_norm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                  force_float32_reductions=config.norm_reduction_force_float32)
 
         # mLSTM layer (without its own norm - we handle that here)
         self.xlstm = mLSTMLayer(config.mlstm_config)
 
         # Pre-normalization for FFN
-        self.ffn_norm = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=config.norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=config.norm_reduction_force_float32
-        )
+        self.ffn_norm = RMSNorm(num_features=config.embedding_dim, eps=config.norm_eps, use_bias=config.use_bias,
+                                force_float32_reductions=config.norm_reduction_force_float32)
 
         # FFN (GatedFFN - no separate norm inside)
         self.ffn = GatedFFN(config.ffn_config)

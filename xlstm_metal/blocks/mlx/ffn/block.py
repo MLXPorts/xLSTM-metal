@@ -8,7 +8,6 @@ Architecture: x → SiLU(gate(x)) * up(x) → down(x)
 
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Optional
 
 
 def round_up_to_next_multiple_of(value: float, multiple_of: int) -> int:
@@ -54,12 +53,12 @@ class xLSTMFeedForwardBlock(nn.Module):
     """
 
     def __init__(
-        self,
-        hidden_size: int = 4096,
-        ffn_proj_factor: float = 2.6484375,
-        ffn_round_up_to_multiple_of: int = 32,
-        use_bias: bool = False,
-        weight_mode: str = "single"
+            self,
+            hidden_size: int = 4096,
+            ffn_proj_factor: float = 2.6484375,
+            ffn_round_up_to_multiple_of: int = 32,
+            use_bias: bool = False,
+            weight_mode: str = "single"
     ):
         super().__init__()
 

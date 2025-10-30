@@ -17,6 +17,12 @@ Experimental code. Not meant for real usage.
 
 
 def construct_log_gate_matrix_paper(fgs: torch.Tensor, igs: torch.Tensor) -> torch.Tensor:
+    """
+
+    :param fgs:
+    :param igs:
+    :return:
+    """
     _device = fgs.device
     _dtype = fgs.dtype
     B, NH, S, _ = fgs.shape
@@ -51,23 +57,34 @@ def construct_log_gate_matrix_paper(fgs: torch.Tensor, igs: torch.Tensor) -> tor
 
 
 def construct_log_gate_matrix_tiled(
-    fgs: torch.Tensor,
-    igs: torch.Tensor,
-    BQ: int,
-    BKV: int,
-    idx_BQ: int,
-    idx_BKV: int,
-    fgs_cs: torch.Tensor = None,
+        fgs: torch.Tensor,
+        igs: torch.Tensor,
+        BQ: int,
+        BKV: int,
+        idx_BQ: int,
+        idx_BKV: int,
+        fgs_cs: torch.Tensor = None,
 ) -> torch.Tensor:
+    """
+
+    :param fgs:
+    :param igs:
+    :param BQ:
+    :param BKV:
+    :param idx_BQ:
+    :param idx_BKV:
+    :param fgs_cs:
+    :return:
+    """
     B, NH, S = fgs.shape
     if fgs_cs is None:
         fgs_cs = torch.cumsum(fgs, dim=-1)
-    fgs_cs_chunk_Q = fgs_cs[:, :, idx_BQ * BQ : (idx_BQ + 1) * BQ]
-    fgs_cs_chunk_KV = fgs_cs[:, :, idx_BKV * BKV : (idx_BKV + 1) * BKV]
+    fgs_cs_chunk_Q = fgs_cs[:, :, idx_BQ * BQ: (idx_BQ + 1) * BQ]
+    fgs_cs_chunk_KV = fgs_cs[:, :, idx_BKV * BKV: (idx_BKV + 1) * BKV]
 
     fgate_tile = fgs_cs_chunk_Q[:, :, :, None] - fgs_cs_chunk_KV[:, :, None, :]
 
-    igs_chunk = igs[:, :, idx_BKV * BKV : (idx_BKV + 1) * BKV]
+    igs_chunk = igs[:, :, idx_BKV * BKV: (idx_BKV + 1) * BKV]
     log_D_matrix = fgate_tile + igs_chunk
 
     # causal masking
@@ -80,14 +97,14 @@ def construct_log_gate_matrix_tiled(
 
 
 def _mlstm_fw(
-    queries: torch.Tensor,
-    keys: torch.Tensor,
-    values: torch.Tensor,
-    igate_preact: torch.Tensor,
-    fgate_preact: torch.Tensor,
-    bq_tile_size: int = -1,
-    bkv_tile_size: int = -1,
-    eps: float = 1e-6,
+        queries: torch.Tensor,
+        keys: torch.Tensor,
+        values: torch.Tensor,
+        igate_preact: torch.Tensor,
+        fgate_preact: torch.Tensor,
+        bq_tile_size: int = -1,
+        bkv_tile_size: int = -1,
+        eps: float = 1e-6,
 ) -> torch.Tensor:
     """This is the core mLSTM operation in parallel form computed in tiles.
     This version is stabilized. We control the range of exp() arguments by
@@ -110,6 +127,7 @@ def _mlstm_fw(
     # TODO adapt notation
     # TODO do not precompute the gate matrix. Use the tiled versions from above. (See also backward pass).
     """
+    global n, m
     B, NH, S, DH = queries.shape
     _dtype, _device = queries.dtype, queries.device
     if bq_tile_size == -1:
@@ -172,8 +190,8 @@ def _mlstm_fw(
             d_tile = log_D_matrix[
                 :,
                 :,
-                q_idx * bq_tile_size : (q_idx + 1) * bq_tile_size,
-                kv_idx * bkv_tile_size : (kv_idx + 1) * bkv_tile_size,
+                q_idx * bq_tile_size: (q_idx + 1) * bq_tile_size,
+                kv_idx * bkv_tile_size: (kv_idx + 1) * bkv_tile_size,
             ]
             s_tile = q_tile @ (k_tile.transpose(-2, -1) / math.sqrt(DH))
 
@@ -198,27 +216,33 @@ def _mlstm_fw(
             m_prev = m
             l_prev = l
             n_prev = n
-        h_matrix[:, :, q_idx * bq_tile_size : (q_idx + 1) * bq_tile_size, :] = h_tile
+        h_matrix[:, :, q_idx * bq_tile_size: (q_idx + 1) * bq_tile_size, :] = h_tile
 
     return h_matrix, m, n
 
 
 def ceildiv(a: int, b: int) -> int:
+    """
+
+    :param a:
+    :param b:
+    :return:
+    """
     return (a + b - 1) // b
 
 
 def _mlstm_bw(
-    matDeltaHtilde: torch.Tensor,
-    matQ: torch.Tensor,
-    matK: torch.Tensor,
-    matV: torch.Tensor,
-    vecI: torch.Tensor,
-    vecF: torch.Tensor,
-    vecM: torch.Tensor,
-    vecN: torch.Tensor,
-    BLOCK_Q: int = 32,
-    BLOCK_KV: int = 32,
-    eps: float = 1e-6,
+        matDeltaHtilde: torch.Tensor,
+        matQ: torch.Tensor,
+        matK: torch.Tensor,
+        matV: torch.Tensor,
+        vecI: torch.Tensor,
+        vecF: torch.Tensor,
+        vecM: torch.Tensor,
+        vecN: torch.Tensor,
+        BLOCK_Q: int = 32,
+        BLOCK_KV: int = 32,
+        eps: float = 1e-6,
 ) -> tuple[torch.Tensor, ...]:
     B, NH, S, DH = matQ.shape
     _dtype, _device = matQ.dtype, matQ.device
@@ -274,7 +298,7 @@ def _mlstm_bw(
         # init vecDeltaF_cs_chunk_KV, vecDeltaI_chunk_KV
         vecDeltaI_sum_chunk_KV = torch.zeros_like(vecI_chunk)
 
-        vecF_cs_chunk_KV = vecF_cs[:, :, kvIdx * BLOCK_KV : (kvIdx + 1) * BLOCK_KV]
+        vecF_cs_chunk_KV = vecF_cs[:, :, kvIdx * BLOCK_KV: (kvIdx + 1) * BLOCK_KV]
 
         #! Q dim loop
         # we start at the diagonal of the S & D matrices and work our way down
@@ -334,7 +358,7 @@ def _mlstm_bw(
 
             matDeltaQ_tile = matP @ (matK_tile / math.sqrt(DH))
             # * store matDeltaQ in HBM (this access is in parallel at the same HBM location, e.g. must be atomic)
-            matDeltaQ[:, :, qIdx * BLOCK_Q : (qIdx + 1) * BLOCK_Q] += matDeltaQ_tile
+            matDeltaQ[:, :, qIdx * BLOCK_Q: (qIdx + 1) * BLOCK_Q] += matDeltaQ_tile
 
             matDeltaK_tile += (matP.transpose(-2, -1) @ matQ_tile) / math.sqrt(DH)
 
@@ -342,11 +366,11 @@ def _mlstm_bw(
             #! end Q dim loop
 
         # * store matDeltaK_tile & matDeltaV_tile in HBM (every thread block writes to a different HBM location)
-        matDeltaK[:, :, kvIdx * BLOCK_KV : (kvIdx + 1) * BLOCK_KV] = matDeltaK_tile
-        matDeltaV[:, :, kvIdx * BLOCK_KV : (kvIdx + 1) * BLOCK_KV] = matDeltaV_tile
+        matDeltaK[:, :, kvIdx * BLOCK_KV: (kvIdx + 1) * BLOCK_KV] = matDeltaK_tile
+        matDeltaV[:, :, kvIdx * BLOCK_KV: (kvIdx + 1) * BLOCK_KV] = matDeltaV_tile
 
         # * store vecDeltaIF_sum_chunk_KV in HBM (every thread block writes to a different HBM location)
-        vecDeltaI[:, :, kvIdx * BLOCK_KV : (kvIdx + 1) * BLOCK_KV] = vecDeltaI_sum_chunk_KV
+        vecDeltaI[:, :, kvIdx * BLOCK_KV: (kvIdx + 1) * BLOCK_KV] = vecDeltaI_sum_chunk_KV
         #! end KV dim loop
 
     ## ? end the backward pass kernel
@@ -362,23 +386,6 @@ def _mlstm_bw(
 
 
 def mlstm_fwbw(
-    matQ: torch.Tensor,
-    matK: torch.Tensor,
-    matV: torch.Tensor,
-    vecI: torch.Tensor,
-    vecF: torch.Tensor,
-    BLOCK_Q: int = 32,
-    BLOCK_KV: int = 16,
-    eps: float = 1e-6,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    matH, _, _ = _mlstm_fwbw.apply(matQ, matK, matV, vecI, vecF, BLOCK_Q, BLOCK_KV, eps)
-    return matH
-
-
-class _mlstm_fwbw(torch.autograd.Function):
-    @staticmethod
-    def forward(
-        ctx,
         matQ: torch.Tensor,
         matK: torch.Tensor,
         matV: torch.Tensor,
@@ -387,6 +394,35 @@ class _mlstm_fwbw(torch.autograd.Function):
         BLOCK_Q: int = 32,
         BLOCK_KV: int = 16,
         eps: float = 1e-6,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    """
+
+    :param matQ:
+    :param matK:
+    :param matV:
+    :param vecI:
+    :param vecF:
+    :param BLOCK_Q:
+    :param BLOCK_KV:
+    :param eps:
+    :return:
+    """
+    matH, _, _ = _mlstm_fwbw.apply(matQ, matK, matV, vecI, vecF, BLOCK_Q, BLOCK_KV, eps)
+    return matH
+
+
+class _mlstm_fwbw(torch.autograd.Function):
+    @staticmethod
+    def forward(
+            ctx,
+            matQ: torch.Tensor,
+            matK: torch.Tensor,
+            matV: torch.Tensor,
+            vecI: torch.Tensor,
+            vecF: torch.Tensor,
+            BLOCK_Q: int = 32,
+            BLOCK_KV: int = 16,
+            eps: float = 1e-6,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         matH, vecM, vecN = _mlstm_fw(
             matQ,
@@ -394,19 +430,27 @@ class _mlstm_fwbw(torch.autograd.Function):
             matV,
             vecI,
             vecF,
+            bq_tile_size=BLOCK_Q,
+            bkv_tile_size=BLOCK_KV,
             eps=eps,
         )
-        ctx.save_for_backward(matQ, matK, matV, vecI, vecF, vecM, vecN, BLOCK_Q, BLOCK_KV, eps)
+        ctx.save_for_backward(matQ, matK, matV, vecI, vecF, vecM, vecN)
+        ctx.BLOCK_Q = BLOCK_Q
+        ctx.BLOCK_KV = BLOCK_KV
+        ctx.eps = eps
         return matH, vecM, vecN
 
     @staticmethod
     def backward(
-        ctx,
-        matDeltaHtilde: torch.Tensor,
-        vecDeltaM_unused: torch.Tensor,
-        vecDeltaN_unused: torch.Tensor,
+            ctx,
+            matDeltaHtilde: torch.Tensor,
+            vecDeltaM_unused: torch.Tensor,
+            vecDeltaN_unused: torch.Tensor,
     ) -> tuple[torch.Tensor, ...]:
-        (matQ, matK, matV, vecI, vecF, vecM, vecN, BLOCK_Q, BLOCK_KV, eps) = ctx.saved_tensors
+        (matQ, matK, matV, vecI, vecF, vecM, vecN) = ctx.saved_tensors
+        BLOCK_Q = ctx.BLOCK_Q
+        BLOCK_KV = ctx.BLOCK_KV
+        eps = ctx.eps
         matDeltaQ, matDeltaK, matDeltaV, vecDeltaI, vecDeltaF = _mlstm_bw(
             matDeltaHtilde=matDeltaHtilde,
             matQ=matQ,

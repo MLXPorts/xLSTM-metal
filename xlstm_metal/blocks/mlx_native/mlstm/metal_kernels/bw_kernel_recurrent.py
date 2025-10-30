@@ -9,14 +9,15 @@ This kernel computes gradient deltas for C states by backpropagating through chu
 in reverse order (last to first).
 """
 
-import mlx.core as mx
-from typing import Tuple, Optional
+from typing import Optional
 
-_HEADER = """#include <metal_stdlib>
+import mlx.core as mx
+
+HEADER = """#include <metal_stdlib>
 using namespace metal;
 """
 
-_RECURRENT_BW_DC_SRC = r"""
+RECURRENT_BW_DC_SRC = r"""
     // Thread and threadgroup indices
     uint idx_b_DHQK = threadgroup_position_in_grid.x;
     uint idx_b_DHHV = threadgroup_position_in_grid.y;
@@ -349,15 +350,10 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
         matDeltaC_last = mx.zeros((B, NH, DHQK, DHHV), dtype=matQ.dtype)
 
     # Build kernel
-    kernel = mx.fast.metal_kernel(
-        name="mlstm_recurrent_bw_dC",
-        input_names=["matQ", "vecF", "scaM_inter", "vecM_combine", "matDeltaH",
-                     "vecN_out", "matDeltaC_last", "params", "strides"],
-        output_names=["matDeltaC_states"],
-        header=_HEADER,
-        source=_RECURRENT_BW_DC_SRC,
-        ensure_row_contiguous=True,
-    )
+    kernel = mx.fast.metal_kernel(name="mlstm_recurrent_bw_dC",
+                                  input_names=["matQ", "vecF", "scaM_inter", "vecM_combine", "matDeltaH",
+                                               "vecN_out", "matDeltaC_last", "params", "strides"],
+                                  output_names=["matDeltaC_states"], header=HEADER, source=RECURRENT_BW_DC_SRC)
 
     # Launch: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
     num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK

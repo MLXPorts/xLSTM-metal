@@ -5,10 +5,11 @@ Implements mLSTM layer using native PyTorch kernels from kernel_development.
 Matches xLSTM-7B weight structure for compatibility with MLX version.
 """
 
+from dataclasses import dataclass
+from typing import Tuple, Optional
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional
-from dataclasses import dataclass
 
 
 @dataclass
@@ -81,8 +82,8 @@ class mLSTMLayer(nn.Module):
         self.v = nn.Linear(config.embedding_dim, config.v_dim, bias=config.use_bias)
 
         # Input and forget gates (per-head)
-        self.igate_preact = nn.Linear(config.embedding_dim, config.num_heads, bias=True)
-        self.fgate_preact = nn.Linear(config.embedding_dim, config.num_heads, bias=True)
+        self.igate_preact = nn.Linear(config.embedding_dim, config.num_heads)
+        self.fgate_preact = nn.Linear(config.embedding_dim, config.num_heads)
 
         # Output gate
         self.ogate_preact = nn.Linear(config.embedding_dim, config.embedding_dim, bias=config.use_bias)

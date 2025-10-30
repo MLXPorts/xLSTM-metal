@@ -4,10 +4,11 @@ Gated Feed-Forward Network (FFN) for xLSTM
 Implements the SwiGLU-style gated FFN used in xLSTM-7B.
 """
 
-import mlx.core as mx
-import mlx.nn as nn
 from dataclasses import dataclass
 from typing import Literal
+
+import mlx.core as mx
+import mlx.nn as nn
 
 
 @dataclass
@@ -17,18 +18,31 @@ class FFNConfig:
 
     From xlstm_7b_model:
         embedding_dim: 4096
-        proj_factor: ~2.67 (proj_up_dim = 10944)
+        proj_up_dim: 10944 (pre-computed with rounding to multiple of 64)
+        OR proj_factor: ~2.67 with optional rounding
         act_fn: "swish" (SwiGLU variant)
         use_bias: False
+
+    Note: Prefer passing proj_up_dim directly (already rounded) rather than
+    proj_factor (requires rounding computation).
     """
     embedding_dim: int = 4096
-    proj_factor: float = 2.671875  # 10944 / 4096
+    proj_up_dim: int = None  # If provided, use directly (preferred)
+    proj_factor: float = None  # If provided, compute proj_up_dim
+    ffn_round_up_to_multiple_of: int = 64  # Rounding for proj_factor
     act_fn: Literal["gelu", "swish", "relu"] = "swish"
     use_bias: bool = False
     dropout: float = 0.0
 
     def __post_init__(self):
-        self.proj_up_dim = int(self.embedding_dim * self.proj_factor)
+        # Compute proj_up_dim if not provided
+        if self.proj_up_dim is None:
+            if self.proj_factor is None:
+                raise ValueError("Must provide either proj_up_dim or proj_factor")
+            # Compute with rounding (matches canonical xLSTM)
+            raw_dim = int(self.embedding_dim * self.proj_factor)
+            self.proj_up_dim = ((raw_dim + self.ffn_round_up_to_multiple_of - 1) //
+                               self.ffn_round_up_to_multiple_of * self.ffn_round_up_to_multiple_of)
 
 
 class GatedFFN(nn.Module):
@@ -129,13 +143,7 @@ class FFNBlock(nn.Module):
         # Import here to avoid circular dependency
         from .components import RMSNorm
 
-        self.norm_ffn = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=True
-        )
+        self.norm_ffn = RMSNorm(num_features=config.embedding_dim, eps=norm_eps, use_bias=config.use_bias)
 
         self.ffn = GatedFFN(config)
 

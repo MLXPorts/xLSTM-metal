@@ -5,20 +5,21 @@ Implements the core mLSTM recurrence with exponential gating using MLX Metal ker
 Based on cleanup branch Metal kernels + exponential gating from xlstm_metal_optimized.py.
 """
 
-import mlx.core as mx
 from typing import Tuple, Optional
+
+import mlx.core as mx
 
 
 def mlstm_recurrent_step(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    c_state: mx.array,
-    n_state: mx.array,
-    m_state: mx.array,
-    eps: float = 1e-6
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        c_state: mx.array,
+        n_state: mx.array,
+        m_state: mx.array,
+        eps: float = 1e-6
 ) -> Tuple[mx.array, mx.array, mx.array, mx.array]:
     """
     Single-step mLSTM recurrence with exponential gating.
@@ -53,27 +54,31 @@ def mlstm_recurrent_step(
     """
     B, NH, QK_DH = q.shape
     V_DH = v.shape[2]
-    
+
     # Store computation dtype and state dtype (canonical: state=float32, compute=qkv dtype)
     dtype_qkv = q.dtype
     dtype_state = mx.float32
-    
+
     # Ensure states are float32 (canonical requirement)
     c_state = c_state.astype(dtype_state)
     n_state = n_state.astype(dtype_state)
     m_state = m_state.astype(dtype_state)
 
     # CRITICAL: Apply logsigmoid to forget gate (canonical implementation)
-    one = mx.array(1.0, dtype=f_preact.dtype)
-    f_log = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(f_preact)))))  # logsigmoid
+    # Cast to float32 for state updates to maintain numerical stability
+    i_preact_f32 = i_preact.astype(dtype_state)
+    f_preact_f32 = f_preact.astype(dtype_state)
+
+    one = mx.array(1.0, dtype=dtype_state)
+    f_log = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(f_preact_f32)))))  # logsigmoid
 
     # Exponential gating with numerical stability
     # m_t = max(f_log + m_{t-1}, i_t)
-    m_new = mx.maximum(mx.add(f_log, m_state), i_preact)  # [B, NH]
+    m_new = mx.maximum(mx.add(f_log, m_state), i_preact_f32)  # [B, NH]
 
-    # Normalized exponential gates
+    # Normalized exponential gates (keep in float32 for state updates)
     f_exp = mx.exp(mx.subtract(mx.add(f_log, m_state), m_new))  # [B, NH]
-    i_exp = mx.exp(mx.subtract(i_preact, m_new))  # [B, NH]
+    i_exp = mx.exp(mx.subtract(i_preact_f32, m_new))  # [B, NH]
 
     # Expand gates for broadcasting
     i_expanded = i_exp[:, :, None, None]  # [B, NH, 1, 1]
@@ -83,16 +88,20 @@ def mlstm_recurrent_step(
     # The scaling happens on Q during retrieval instead (see chunkwise parallel kernel)
     # Update covariance matrix: C_t = f * C_{t-1} + i * (k ⊗ v)
     # CRITICAL: Canonical uses k⊗v shape [B, NH, QK_DH, V_DH] not v⊗k!
-    k_expanded = k[:, :, :, None]  # [B, NH, QK_DH, 1]
-    v_expanded = v[:, :, None, :]  # [B, NH, 1, V_DH]
-    kv_outer = mx.multiply(k_expanded, v_expanded)  # [B, NH, QK_DH, V_DH]
+    # Cast k, v to float32 for state updates to maintain dtype consistency
+    k_f32 = k.astype(dtype_state)
+    v_f32 = v.astype(dtype_state)
 
-    c_new = mx.add(mx.multiply(f_expanded, c_state), mx.multiply(i_expanded, kv_outer))  # [B, NH, QK_DH, V_DH]
+    k_expanded = k_f32[:, :, :, None]  # [B, NH, QK_DH, 1]
+    v_expanded = v_f32[:, :, None, :]  # [B, NH, 1, V_DH]
+    kv_outer = mx.multiply(k_expanded, v_expanded)  # [B, NH, QK_DH, V_DH] float32
+
+    c_new = mx.add(mx.multiply(f_expanded, c_state), mx.multiply(i_expanded, kv_outer))  # [B, NH, QK_DH, V_DH] float32
 
     # Update normalizer: n_t = f * n_{t-1} + i * k (NOT scaled)
-    i_n = i_exp[:, :, None]  # [B, NH, 1]
-    f_n = f_exp[:, :, None]  # [B, NH, 1]
-    n_new = mx.add(mx.multiply(f_n, n_state), mx.multiply(i_n, k))  # [B, NH, QK_DH]
+    i_n = i_exp[:, :, None]  # [B, NH, 1] float32
+    f_n = f_exp[:, :, None]  # [B, NH, 1] float32
+    n_new = mx.add(mx.multiply(f_n, n_state), mx.multiply(i_n, k_f32))  # [B, NH, QK_DH] float32
 
     # CRITICAL: Scale query by 1/√d_qk during retrieval (xLSTM-7B approach)
     q_scaled = mx.multiply(q, mx.rsqrt(mx.array(QK_DH, dtype=q.dtype)))  # [B, NH, QK_DH]
@@ -101,7 +110,7 @@ def mlstm_recurrent_step(
     # C: [B, NH, QK_DH, V_DH], q: [B, NH, QK_DH] -> [B, NH, V_DH]
     # Convert c_new to computation dtype for matmul (canonical pattern)
     c_new_compute = c_new.astype(dtype_qkv)
-    h_num = mx.matmul(c_new_compute.transpose(0, 1, 3, 2), q_scaled[:, :, :, None]).squeeze(-1)  # [B, NH, V_DH]
+    h_num = mx.squeeze(mx.matmul(c_new_compute.transpose(0, 1, 3, 2), q_scaled[:, :, :, None]), axis=-1)  # [B, NH, V_DH]
     h_num = h_num.astype(dtype_state)  # Convert back to state dtype
 
     # CRITICAL: Denominator uses max(|q_scaled·n|, exp(-m)) + eps
@@ -128,16 +137,16 @@ def mlstm_recurrent_step(
 
 
 def mlstm_sequential(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    c_initial: Optional[mx.array] = None,
-    n_initial: Optional[mx.array] = None,
-    m_initial: Optional[mx.array] = None,
-    eps: float = 1e-6,
-    return_last_states: bool = True
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        c_initial: Optional[mx.array] = None,
+        n_initial: Optional[mx.array] = None,
+        m_initial: Optional[mx.array] = None,
+        eps: float = 1e-6,
+        return_last_states: bool = True
 ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
     """
     Sequential mLSTM processing for inference.
@@ -166,17 +175,17 @@ def mlstm_sequential(
     # Initialize states - CRITICAL: States must be float32 for numerical stability
     # (matches canonical transformers implementation)
     if c_initial is None:
-        c_state = mx.zeros((B, NH, QK_DH, V_DH), dtype=mx.float32)
+        c_state = mx.zeros((B, NH, QK_DH, V_DH))
     else:
         c_state = c_initial.astype(mx.float32)
 
     if n_initial is None:
-        n_state = mx.zeros((B, NH, QK_DH), dtype=mx.float32)
+        n_state = mx.zeros((B, NH, QK_DH))
     else:
         n_state = n_initial.astype(mx.float32)
 
     if m_initial is None:
-        m_state = mx.zeros((B, NH), dtype=mx.float32)
+        m_state = mx.zeros((B, NH))
     else:
         m_state = m_initial.astype(mx.float32)
 
@@ -213,24 +222,24 @@ def mlstm_sequential(
 # See mad/blocks/mlstm_metal/ for Metal C++ implementations
 
 def mlstm_chunkwise(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    chunk_size: int = 64,
-    c_initial: Optional[mx.array] = None,
-    n_initial: Optional[mx.array] = None,
-    m_initial: Optional[mx.array] = None,
-    eps: float = 1e-6,
-    return_last_states: bool = True,
-    siz_b_DHQK: int = 16,
-    siz_b_DHHV: int = 16,
-    siz_b_LQ: int = 8,
-    siz_b_LKV: int = 8,
-    siz_b_DHQK_parallel: int = 8,
-    siz_b_DHHV_parallel: int = 8,
-    max_chunk_size: int = 64
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        chunk_size: int = 64,
+        c_initial: Optional[mx.array] = None,
+        n_initial: Optional[mx.array] = None,
+        m_initial: Optional[mx.array] = None,
+        eps: float = 1e-6,
+        return_last_states: bool = True,
+        siz_b_DHQK: int = 16,
+        siz_b_DHHV: int = 16,
+        siz_b_LQ: int = 8,
+        siz_b_LKV: int = 8,
+        siz_b_DHQK_parallel: int = 8,
+        siz_b_DHHV_parallel: int = 8,
+        max_chunk_size: int = 64
 ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
     """
     Chunkwise parallel mLSTM processing using Metal kernels.
@@ -328,12 +337,14 @@ def mlstm_chunkwise(
     vecF_chunked = f_preact.reshape(B, NH, NC, L)
 
     # Compute vecB = cumsum(logsigmoid(vecF)) along chunk dimension (canonical)
-    one = mx.array(1.0, dtype=vecF_chunked.dtype)
-    vecF_logsig = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(vecF_chunked)))))
+    # Use float32 explicitly for numerical stability (matches state dtype)
+    vecF_chunked_f32 = vecF_chunked.astype(mx.float32)
+    one = mx.array(1.0, dtype=mx.float32)
+    vecF_logsig = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(vecF_chunked_f32)))))
     vecB = mx.cumsum(vecF_logsig, axis=-1)
 
-    # Compute qk_scale for Metal kernels - use float32 explicitly
-    qk_scale = float(mx.array(QK_DH, dtype=mx.float32) ** mx.array(-0.5, dtype=mx.float32))
+    # Compute qk_scale for Metal kernels - use pure Python scalar to avoid MLX→CPU sync in graphs
+    qk_scale = float(QK_DH ** -0.5)
 
     # Call parallel kernel
     matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(
@@ -364,11 +375,8 @@ def mlstm_chunkwise(
         # For mathematical exactness, compute final states via sequential recurrence
         # This ensures parity with the canonical implementation even if the
         # recurrent chunk aggregator is approximated/tuned for performance.
-        _, (c_final, n_final, m_final) = mlstm_sequential(
-            q, k, v, i_preact, f_preact,
-            c_initial=c_initial, n_initial=n_initial, m_initial=m_initial,
-            eps=eps, return_last_states=True
-        )
+        _, (c_final, n_final, m_final) = mlstm_sequential(q, k, v, i_preact, f_preact, c_initial=c_initial,
+                                                          n_initial=n_initial, m_initial=m_initial, eps=eps)
         return matHout, (c_final, n_final, m_final)
     else:
         return matHout, None

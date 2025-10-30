@@ -4,7 +4,8 @@ xLSTM Model Wiring for MLX
 Helper functions to create xLSTM MAD wiring from config dict.
 """
 
-from typing import Dict, Any, Optional
+from typing import Dict, Any
+
 from .wiring import MADWiring, BlockSpec, BlockType, BackendType
 
 
@@ -67,6 +68,10 @@ def create_xlstm_wiring(config: Dict[str, Any]) -> MADWiring:
     inference_state_dtype = config.get('inference_state_dtype', 'float32')
     return_last_states = config.get('return_last_states', True)
     chunk_size = config.get('chunk_size', 64)
+
+    # Get pre-computed ffn_hidden_dim (with rounding) if available
+    # This ensures proper alignment for efficient matmul operations
+    ffn_hidden_dim = config.get('ffn_hidden_dim', None)
     specs = {}
 
     # Embedding layer
@@ -83,26 +88,31 @@ def create_xlstm_wiring(config: Dict[str, Any]) -> MADWiring:
     # xLSTM blocks (mLSTM + FFN in each block)
     for i in range(num_blocks):
         block_name = f'xlstm_{i}'
+        block_params = {
+            'embedding_dim': embedding_dim,
+            'num_heads': num_heads,
+            'qk_dim_factor': qk_dim_factor,
+            'v_dim_factor': v_dim_factor,
+            'gate_soft_cap': gate_soft_cap,
+            'ffn_proj_factor': ffn_proj_factor,
+            'ffn_act_fn': ffn_act_fn,
+            'use_bias': use_bias,
+            'norm_eps': norm_eps,
+            'norm_reduction_force_float32': True,
+            'eps': eps,
+            'inference_state_dtype': inference_state_dtype,
+            'return_last_states': return_last_states,
+            'chunk_size': chunk_size
+        }
+        # Add ffn_hidden_dim if available (pre-computed with rounding)
+        if ffn_hidden_dim is not None:
+            block_params['ffn_hidden_dim'] = ffn_hidden_dim
+
         specs[block_name] = BlockSpec(
             name=block_name,
             block_type=BlockType.MLSTM,
             backend=BackendType.MLX,
-            params={
-                'embedding_dim': embedding_dim,
-                'num_heads': num_heads,
-                'qk_dim_factor': qk_dim_factor,
-                'v_dim_factor': v_dim_factor,
-                'gate_soft_cap': gate_soft_cap,
-                'ffn_proj_factor': ffn_proj_factor,
-                'ffn_act_fn': ffn_act_fn,
-                'use_bias': use_bias,
-                'norm_eps': norm_eps,
-                'norm_reduction_force_float32': True,
-                'eps': eps,
-                'inference_state_dtype': inference_state_dtype,
-                'return_last_states': return_last_states,
-                'chunk_size': chunk_size
-            }
+            params=block_params
         )
 
     # Output normalization (backbone.out_norm in canonical model)
