@@ -1,0 +1,12 @@
+block p protocol.ollama
+block x codec.mcp_over_xml
+block r router.mcp
+block f family.qwen3
+use tools.negotiation_advertise
+link f.messages.out -> p.messages.in
+link p.stream.delta -> x.stream.delta
+link x.tool_use.neutral -> r.tool_use.neutral
+link r.tool_result.neutral -> x.tool_result.neutral
+link x.messages.out -> sink.ui.messages
+end
+
