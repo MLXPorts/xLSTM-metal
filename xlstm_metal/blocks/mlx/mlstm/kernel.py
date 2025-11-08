@@ -9,13 +9,25 @@ import mlx.core as mx
 from typing import Tuple, Optional
 
 
-# Try to import compiled Metal kernels from registry
-_USE_METAL_KERNELS = False
-try:
-    from xlstm_metal.kernels.mlx_fast_metal_kernels import get_kernel
-    _USE_METAL_KERNELS = True
-except ImportError:
-    _USE_METAL_KERNELS = False
+# Global kernel cache - compile once, reuse forever
+_METAL_KERNELS = {}
+
+def _get_metal_kernel(name: str):
+    """Get compiled Metal kernel (lazy compilation on first access)."""
+    if name not in _METAL_KERNELS:
+        try:
+            from xlstm_metal.kernels.mlx_fast_metal_kernels.fw_kernel_recurrent import _get_kernel as get_recurrent
+            from xlstm_metal.kernels.mlx_fast_metal_kernels.fw_kernel_parallel import _get_kernel as get_parallel
+            
+            if name == 'fw_recurrent':
+                _METAL_KERNELS[name] = get_recurrent()
+            elif name == 'fw_parallel':
+                _METAL_KERNELS[name] = get_parallel()
+            else:
+                raise ValueError(f"Unknown kernel: {name}")
+        except ImportError:
+            return None
+    return _METAL_KERNELS.get(name)
 
 
 def mlstm_recurrent_step(

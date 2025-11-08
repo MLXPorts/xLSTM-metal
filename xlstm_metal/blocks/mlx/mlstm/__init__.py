@@ -8,6 +8,7 @@ from .block import mLSTMBlock, mLSTMConfig
 from .chunkwise_mlx import mlstm_chunkwise_mlx
 from .components import MultiHeadLayerNorm, RMSNorm, soft_cap
 from .kernel import mlstm_recurrent_step, mlstm_sequential
+from .chunkwise_mlx import mlstm_chunkwise_mlx
 from .xlstm_block import xLSTMBlock, xLSTMBlockConfig
 
 __all__ = [
