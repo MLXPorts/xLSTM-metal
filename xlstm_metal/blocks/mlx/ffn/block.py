@@ -151,8 +151,7 @@ class xLSTMFeedForwardBlock(nn.Module):
             z = self.proj_up(x)          # [B, S, up_proj_dim]
 
             # ZERO TOLERANCE: Use MLX operators
-            # SiLU = x * sigmoid(x), but nn.silu is cleaner
-            gate_act = nn.silu(gate)
+            gate_act = mx.multiply(gate, mx.sigmoid(gate))  # SiLU = x * sigmoid(x)
             x = mx.multiply(gate_act, z)  # [B, S, up_proj_dim]
 
         elif self.weight_mode == "fused":
@@ -164,7 +163,7 @@ class xLSTMFeedForwardBlock(nn.Module):
             z = x[:, :, self.up_proj_dim:]     # [B, S, up_proj_dim]
 
             # ZERO TOLERANCE: Use MLX operators
-            gate_act = nn.silu(gate)
+            gate_act = mx.multiply(gate, mx.sigmoid(gate))  # SiLU
             x = mx.multiply(gate_act, z)  # [B, S, up_proj_dim]
 
         # Down projection
