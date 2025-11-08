@@ -383,6 +383,9 @@ def mlstm_chunkwise(
         eps=eps,
         minimum_max_val=-10.0,
     )
+    
+    # Ensure Metal kernel execution completes
+    mx.eval(matHout)
 
     # Unpad if necessary
     if S != S_padded:
