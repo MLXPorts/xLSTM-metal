@@ -15,10 +15,19 @@ import mlx.nn as nn
 
 @dataclass
 class FFNConfig:
-    """Configuration for Gated FFN (compatible with xLSTMBlockConfig)"""
+    """
+    Configuration for Gated FFN (compatible with xLSTMBlockConfig).
+    
+    From xlstm_7b_model config.json:
+        embedding_dim: 4096
+        ffn_proj_factor: 2.667
+        ffn_round_up_to_multiple_of: 64
+        act_fn: "swish" (SiLU)
+        use_bias: False
+    """
     embedding_dim: int = 4096
     proj_up_dim: int = None  # If provided, use directly (preferred)
-    proj_factor: float = None  # If provided, compute proj_up_dim
+    proj_factor: float = 2.6671875  # Default from xLSTM-7B: 10944/4096
     ffn_round_up_to_multiple_of: int = 64
     act_fn: Literal["gelu", "swish", "relu"] = "swish"
     use_bias: bool = False
@@ -26,11 +35,13 @@ class FFNConfig:
 
     def __post_init__(self):
         if self.proj_up_dim is None:
-            if self.proj_factor is None:
-                raise ValueError("Must provide either proj_up_dim or proj_factor")
+            # Calculate proj_up_dim from factor and round up
             raw_dim = int(self.embedding_dim * self.proj_factor)
-            self.proj_up_dim = ((raw_dim + self.ffn_round_up_to_multiple_of - 1) //
-                               self.ffn_round_up_to_multiple_of * self.ffn_round_up_to_multiple_of)
+            self.proj_up_dim = (
+                (raw_dim + self.ffn_round_up_to_multiple_of - 1) 
+                // self.ffn_round_up_to_multiple_of 
+                * self.ffn_round_up_to_multiple_of
+            )
 
 
 def round_up_to_next_multiple_of(value: float, multiple_of: int) -> int:
@@ -140,7 +151,8 @@ class xLSTMFeedForwardBlock(nn.Module):
             z = self.proj_up(x)          # [B, S, up_proj_dim]
 
             # ZERO TOLERANCE: Use MLX operators
-            gate_act = mx.multiply(gate, mx.sigmoid(gate))  # SiLU = x * sigmoid(x)
+            # SiLU = x * sigmoid(x), but nn.silu is cleaner
+            gate_act = nn.silu(gate)
             x = mx.multiply(gate_act, z)  # [B, S, up_proj_dim]
 
         elif self.weight_mode == "fused":
@@ -152,7 +164,7 @@ class xLSTMFeedForwardBlock(nn.Module):
             z = x[:, :, self.up_proj_dim:]     # [B, S, up_proj_dim]
 
             # ZERO TOLERANCE: Use MLX operators
-            gate_act = mx.multiply(gate, mx.sigmoid(gate))  # SiLU
+            gate_act = nn.silu(gate)
             x = mx.multiply(gate_act, z)  # [B, S, up_proj_dim]
 
         # Down projection
