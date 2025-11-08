@@ -286,22 +286,29 @@ def mlstm_chunkwise(
         h: Hidden states [B, NH, S, V_DH]
         state: Tuple (c_final, n_final, m_final) if return_last_states else None
     """
-    # Import Metal kernels - use try/except for different import contexts
-    try:
-        from ..mlstm_metal.fw_kernel_recurrent import mlstm_chunkwise_recurrent_fw_C_metal
-        from ..mlstm_metal.fw_kernel_parallel import mlstm_chunkwise_parallel_fw_Hintra_metal
-    except ImportError:
-        # Fallback for direct script execution
-        import sys
-        from pathlib import Path
-        metal_path = Path(__file__).parent.parent / "mlstm_metal"
-        if str(metal_path) not in sys.path:
-            sys.path.insert(0, str(metal_path))
-        from fw_kernel_recurrent import mlstm_chunkwise_recurrent_fw_C_metal
-        from fw_kernel_parallel import mlstm_chunkwise_parallel_fw_Hintra_metal
-
     B, NH, S, QK_DH = q.shape
     V_DH = v.shape[3]
+
+    # Try to use compiled Metal kernels, fallback to pure MLX if not available
+    recurrent_kernel = _get_metal_kernel('fw_recurrent')
+    parallel_kernel = _get_metal_kernel('fw_parallel')
+    
+    if recurrent_kernel is None or parallel_kernel is None:
+        # Fallback: use sequential implementation (pure MLX ops)
+        return mlstm_sequential(
+            q=q, k=k, v=v, 
+            i_preact=i_preact, 
+            f_preact=f_preact,
+            c_state=c_initial,
+            n_state=n_initial,
+            m_state=m_initial,
+            eps=eps,
+            return_last_states=return_last_states
+        )
+
+    # Import Metal kernel wrapper functions
+    from xlstm_metal.kernels.mlx_fast_metal_kernels.fw_kernel_recurrent import mlstm_chunkwise_recurrent_fw_C_metal
+    from xlstm_metal.kernels.mlx_fast_metal_kernels.fw_kernel_parallel import mlstm_chunkwise_parallel_fw_Hintra_metal
 
     # Compute number of chunks
     L = chunk_size
@@ -349,14 +356,12 @@ def mlstm_chunkwise(
     vecF_chunked = f_preact.reshape(B, NH, NC, L)
 
     # Compute vecB = cumsum(logsigmoid(vecF)) along chunk dimension (canonical)
-    one = mx.array(_len("a"), dtype=vecF_chunked.dtype)
+    one = mx.array(1.0, dtype=vecF_chunked.dtype)
     vecF_logsig = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(vecF_chunked)))))
     vecB = mx.cumsum(vecF_logsig, axis=-1)
 
-    # Compute qk_scale for Metal kernels using derived constants (avoid literals)
-    sqrt_exponent = _len("aa") / max(1, _len("aaaa"))
-    unity = _len("unity") / max(1, _len("unity"))
-    qk_scale = unity / pow(QK_DH, sqrt_exponent)
+    # Compute qk_scale = 1 / sqrt(QK_DH)
+    qk_scale = 1.0 / pow(QK_DH, 0.5)
 
     # Call parallel kernel
     matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(
@@ -376,7 +381,7 @@ def mlstm_chunkwise(
         siz_b_DHQK=siz_b_DHQK_parallel,
         siz_b_DHHV=siz_b_DHHV_parallel,
         eps=eps,
-        minimum_max_val=-_len("abcdefghij"),
+        minimum_max_val=-10.0,
     )
 
     # Unpad if necessary
