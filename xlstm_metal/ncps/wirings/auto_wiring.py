@@ -111,12 +111,35 @@ def create_component_wiring(
     """
     num_cells = len(cells)
     
+    # Handle edge cases
+    if num_cells == 0:
+        return Wiring(units=1)  # Minimal wiring
+    
+    if num_cells == 1:
+        # Single cell - no internal wiring needed
+        wiring = Wiring(units=1)
+        return wiring
+    
+    if num_cells == 2:
+        # Two cells - simple connection
+        wiring = Wiring(units=2)
+        polarity = infer_polarity(cells[0])
+        wiring.add_synapse(0, 1, polarity)
+        return wiring
+    
     if wiring_type == 'auto':
         # Use AutoNCP to generate sparse wiring
         # output_size=1 means final output is produced by one cell
-        wiring = AutoNCP(units=num_cells, output_size=1, sparsity_level=sparsity)
+        # Need at least 3 units for AutoNCP (units > output_size + 2)
+        output_size = min(1, num_cells - 3) if num_cells >= 3 else 1
+        if num_cells < 3:
+            # Fall back to sequential for small components
+            wiring_type = 'sequential'
+        else:
+            wiring = AutoNCP(units=num_cells, output_size=output_size, sparsity_level=sparsity)
+            return wiring
         
-    elif wiring_type == 'sequential':
+    if wiring_type == 'sequential':
         # Sequential wiring: cell_0 -> cell_1 -> cell_2 -> ...
         wiring = Wiring(units=num_cells)
         for i in range(num_cells - 1):
