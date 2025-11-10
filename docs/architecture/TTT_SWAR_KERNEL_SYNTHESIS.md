@@ -25,7 +25,7 @@ After exploring three foundational infrastructure layers, we can now design a **
 
 **Existing Infrastructure**:
 ```python
-# xlstm_metal/blocks/mlx/mlstm/block.py uses LayerNorm
+# xlstm_metal/blocks/mlx/mlstm/ffn_block.py uses LayerNorm
 # kernel_development/matrix/multihead_layernorm/ has optimized kernel
 
 # Tent update loop

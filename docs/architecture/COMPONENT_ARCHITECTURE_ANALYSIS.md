@@ -11,7 +11,7 @@
 
 **Pattern:** Singleton with lazy JIT compilation
 ```python
-# At module import time (fw_kernel_recurrent.py line 349):
+# At module import time (mlstm_chunkwise_recurrent_fw_C.py line 349):
 register_kernel('fw_recurrent', _compile_recurrent_kernel)
 
 # On first use (lazy compilation):
@@ -250,7 +250,7 @@ Based on the Metal kernel compilation pattern, the correct initialization order 
 
 1. **Module import time:**
    ```python
-   # fw_kernel_recurrent.py (line 349)
+   # mlstm_chunkwise_recurrent_fw_C.py (line 349)
    register_kernel('fw_recurrent', _compile_recurrent_kernel)
    ```
    This registers the COMPILER FUNCTION (not the compiled kernel).

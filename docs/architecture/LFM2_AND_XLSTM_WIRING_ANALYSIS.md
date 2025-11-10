@@ -280,7 +280,7 @@ class xLSTMBackbone(nn.Module):
 **This is where NCPS comes in** - not for block-to-block, but for **internal component wiring**:
 
 ```python
-# xlstm_metal/blocks/mlx/mlstm/block.py
+# xlstm_metal/blocks/mlx/mlstm/ffn_block.py
 class mLSTMBlock(nn.Module):
     """
     Single mLSTM block with NCPS-style internal wiring

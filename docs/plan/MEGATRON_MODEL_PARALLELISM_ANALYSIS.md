@@ -411,7 +411,7 @@ def bert_layer_fixed(x):
 **Applies to xLSTM?** Yes! Our mLSTM blocks should use **pre-normalization**:
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 class mLSTMBlockMLX(mx.nn.Module):
     def __call__(self, x, hidden_state):
         # Pre-norm (like Megatron BERT)

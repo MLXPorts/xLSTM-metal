@@ -14,15 +14,14 @@ Test Cases:
 """
 
 import mlx.core as mx
-import json
 from pathlib import Path
 
 # Add to path
 import sys
 sys.path.insert(0, str(Path(__file__).parent))
 
-from xlstm_metal.blocks.mlx.wiring import create_xlstm_wiring, WiredMADModel
-from xlstm_metal.inference.utils import load_config
+from xlstm_metal.mlx_jit.wiring import create_xlstm_wiring, WiredMADModel
+from xlstm_metal.mlx_jit.utils import load_config
 
 
 def test_config_loading(model_path):

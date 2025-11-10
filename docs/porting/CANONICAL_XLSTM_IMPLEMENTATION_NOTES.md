@@ -278,7 +278,7 @@ class MLXmLSTMBackend:
 ### 2. Per-Head Gating is Critical
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 class mLSTMBlockMLX(mx.nn.Module):
     def __init__(self, config):
         # Gates are PER-HEAD (not per-feature!)
@@ -292,7 +292,7 @@ class mLSTMBlockMLX(mx.nn.Module):
 ### 3. State Management Pattern
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 def init_state(self, batch_size):
     """Initialize (C, n, m) state tuple"""
     C_0 = mx.zeros((batch_size, num_heads, head_dim, head_dim))
@@ -304,7 +304,7 @@ def init_state(self, batch_size):
 ### 4. Dual-Path Architecture
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 class mLSTMBlockMLX(mx.nn.Module):
     def __call__(self, x, state=None, mode='chunkwise'):
         if mode == 'chunkwise':

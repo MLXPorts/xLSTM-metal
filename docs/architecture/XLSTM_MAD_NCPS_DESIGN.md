@@ -595,7 +595,7 @@ torch_output = connector(mlx_output, {'quality_metric': perplexity})
 ### Minimal Changes to Current API
 
 ```python
-# OLD: xlstm_metal/blocks/mlx/mlstm/block.py
+# OLD: xlstm_metal/blocks/mlx/mlstm/ffn_block.py
 class mLSTMLayer(nn.Module):
     def __init__(self, config: mLSTMConfig):
         # ... monolithic implementation

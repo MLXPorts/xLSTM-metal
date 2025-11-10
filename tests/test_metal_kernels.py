@@ -1,12 +1,12 @@
 import pytest
 import mlx.core as mx
 
-from xlstm_metal.kernels.mlstm_metal.fw_kernel_recurrent import mlstm_chunkwise_recurrent_fw_C_metal
-from xlstm_metal.kernels.mlstm_metal.bw_kernel_recurrent import mlstm_chunkwise_recurrent_bw_dC_metal
-from xlstm_metal.kernels.mlstm_metal.bw_kernel_parallel_dK import mlstm_chunkwise_parallel_bw_dK_metal
-from xlstm_metal.kernels.mlstm_metal.bw_kernel_parallel_dQ import mlstm_chunkwise_parallel_bw_dQ_metal
-from xlstm_metal.kernels.mlstm_metal.bw_kernel_parallel_dV import mlstm_chunkwise_parallel_bw_dV_metal
-from xlstm_metal.kernels.mlstm_metal.fw_kernel_parallel import mlstm_chunkwise_parallel_fw_Hintra_metal
+from xlstm_metal.blocks.mlstm.kern import mlstm_chunkwise_recurrent_fw_C_metal
+from xlstm_metal.blocks.mlstm.kern import mlstm_chunkwise_recurrent_bw_dC_metal
+from xlstm_metal.blocks.mlstm.kern import mlstm_chunkwise_parallel_bw_dK_metal
+from xlstm_metal.blocks.mlstm.kern import mlstm_chunkwise_parallel_bw_dQ_metal
+from xlstm_metal.blocks.mlstm.kern import mlstm_chunkwise_parallel_bw_dV_metal
+from xlstm_metal.blocks.mlstm.kern import mlstm_chunkwise_parallel_fw_Hintra_metal
 
 @pytest.fixture
 def setup_data():
