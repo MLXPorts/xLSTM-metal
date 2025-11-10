@@ -17,6 +17,9 @@ from xlstm_metal.mlx_jit.blocks.mlstm.forward.mlstm_chunkwise_recurrent_fw_C imp
 from xlstm_metal.mlx_jit.blocks.mlstm.forward.mlstm_chunkwise_parallel_fw_Hintra import (
     mlstm_chunkwise_parallel_fw_Hintra_metal
 )
+from xlstm_metal.mlx_jit.blocks.mlstm.multihead_norm.multihead_norm import (
+    MultiHeadRMSNorm
+)
 
 
 class mLSTMNeuron(nn.Module):
@@ -184,7 +187,14 @@ class mLSTMChunkwiseCell(nn.Module):
         self.ogate_proj = nn.Linear(input_size, v_dim, bias=use_bias)
         
         # Norm and output
-        self.norm = nn.RMSNorm(v_dim_per_head, eps=eps)
+        # Use MultiHeadRMSNorm which normalizes per-head then flattens
+        self.norm = MultiHeadRMSNorm(
+            num_heads=num_heads,
+            head_dim=v_dim_per_head,
+            eps=eps,
+            use_weight=True,
+            force_float32_reductions=True
+        )
         self.out_proj = nn.Linear(v_dim, input_size, bias=use_bias)
         
     def __call__(self, x: mx.array, state=None) -> Tuple[mx.array, Tuple]:
@@ -271,15 +281,16 @@ class mLSTMChunkwiseCell(nn.Module):
 
         # Transpose back
         h = matHout.transpose(0, 2, 1, 3)  # [B, S, NH, V_DH]
-        
-        # Norm and output gate
+
+        # Norm (returns flattened [B, S, NH*V_DH])
         h_norm = self.norm(h)
-        o_gate = mx.sigmoid(self.ogate_proj(x)).reshape(B, S, self.num_heads, self.v_dim_per_head)
-        h_gated = h_norm * o_gate
-        
+
+        # Output gate (flattened to match h_norm)
+        o_gate = mx.sigmoid(self.ogate_proj(x))  # [B, S, NH*V_DH]
+        h_gated = mx.multiply(h_norm, o_gate)
+
         # Output projection
-        h_flat = h_gated.reshape(B, S, self.num_heads * self.v_dim_per_head)
-        output = self.out_proj(h_flat)
+        output = self.out_proj(h_gated)
         
         # Return with final state
         new_state = (matC_states[:, :, -1], vecN_states[:, :, -1], scaMinter_states[:, :, -1])
