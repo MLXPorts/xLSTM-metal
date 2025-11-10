@@ -203,6 +203,20 @@ class mLSTMChunkwiseCell(nn.Module):
         n_initial = state[1] if state else None
         m_initial = state[2] if state else None
         
+        # Pad sequence if necessary
+        NC = (S + self.chunk_size - 1) // self.chunk_size
+        L = self.chunk_size
+        if S % L != 0:
+            pad_len = NC * L - S
+            q = mx.pad(q, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
+            k = mx.pad(k, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
+            v = mx.pad(v, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
+            i_preact = mx.pad(i_preact, [(0, 0), (0, 0), (0, pad_len)])
+            f_preact = mx.pad(f_preact, [(0, 0), (0, 0), (0, pad_len)])
+            S_padded = NC * L
+        else:
+            S_padded = S
+
         # Recurrent phase - compute inter-chunk states
         matC_states, vecN_states, scaMinter_states = mlstm_chunkwise_recurrent_fw_C_metal(
             matK=k.astype(mx.float32),
@@ -212,17 +226,16 @@ class mLSTMChunkwiseCell(nn.Module):
             matC_initial=c_initial.astype(mx.float32) if c_initial is not None else None,
             vecN_initial=n_initial.astype(mx.float32) if n_initial is not None else None,
             scaMinter_initial=m_initial.astype(mx.float32) if m_initial is not None else None,
-            NC=(S + self.chunk_size - 1) // self.chunk_size,
-            L=self.chunk_size,
+            NC=NC,
+            L=L,
             siz_b_DHQK=16,
             siz_b_DHHV=16,
             save_states_every_nth_chunk=1,
         )
-        
+
         # Parallel phase - compute outputs within chunks
-        NC = (S + self.chunk_size - 1) // self.chunk_size
-        vecI_chunked = i_preact.reshape(B, self.num_heads, NC, self.chunk_size)
-        vecF_chunked = f_preact.reshape(B, self.num_heads, NC, self.chunk_size)
+        vecI_chunked = i_preact.reshape(B, self.num_heads, NC, L)
+        vecF_chunked = f_preact.reshape(B, self.num_heads, NC, L)
         
         one = mx.array(1.0, dtype=vecF_chunked.dtype)
         vecF_logsig = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(vecF_chunked)))))
@@ -251,7 +264,11 @@ class mLSTMChunkwiseCell(nn.Module):
         )
         
         mx.eval(matHout)
-        
+
+        # Unpad if necessary
+        if S != S_padded:
+            matHout = matHout[:, :, :S, :]
+
         # Transpose back
         h = matHout.transpose(0, 2, 1, 3)  # [B, S, NH, V_DH]
         
