@@ -57,7 +57,8 @@ def test_load_pretrained():
         if len(model.blocks) > 0:
             block = model.blocks[0]
             if hasattr(block, 'mlstm_cell'):
-                q_weights = block.mlstm_cell.q_proj.weight
+                proj = block.mlstm_cell.projection_cell
+                q_weights = proj.q_proj.weight
                 q_mean = float(mx.mean(q_weights))
                 q_std = float(mx.std(q_weights))
 

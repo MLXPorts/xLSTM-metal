@@ -143,18 +143,18 @@ class sLSTMBlock(nn.Module):
             "norm_slstm.weight": f"{prefix}.norm_slstm.weight",
 
             # sLSTM cell projections
-            "slstm_cell.z_proj.weight": f"{prefix}.slstm_layer.z.weight",
-            "slstm_cell.igate_proj.weight": f"{prefix}.slstm_layer.igate_preact.weight",
-            "slstm_cell.igate_proj.bias": f"{prefix}.slstm_layer.igate_preact.bias",
-            "slstm_cell.fgate_proj.weight": f"{prefix}.slstm_layer.fgate_preact.weight",
-            "slstm_cell.fgate_proj.bias": f"{prefix}.slstm_layer.fgate_preact.bias",
-            "slstm_cell.ogate_proj.weight": f"{prefix}.slstm_layer.ogate_preact.weight",
+            "slstm_cell.projection_cell.z_proj.weight": f"{prefix}.slstm_layer.z.weight",
+            "slstm_cell.projection_cell.igate_proj.weight": f"{prefix}.slstm_layer.igate_preact.weight",
+            "slstm_cell.projection_cell.igate_proj.bias": f"{prefix}.slstm_layer.igate_preact.bias",
+            "slstm_cell.projection_cell.fgate_proj.weight": f"{prefix}.slstm_layer.fgate_preact.weight",
+            "slstm_cell.projection_cell.fgate_proj.bias": f"{prefix}.slstm_layer.fgate_preact.bias",
+            "slstm_cell.projection_cell.ogate_proj.weight": f"{prefix}.slstm_layer.ogate_preact.weight",
 
             # sLSTM group norm
-            "slstm_cell.group_norm.weight": f"{prefix}.slstm_layer.group_norm.weight",
+            "slstm_cell.output_cell.group_norm.weight": f"{prefix}.slstm_layer.group_norm.weight",
 
             # sLSTM output projection
-            "slstm_cell.out_proj.weight": f"{prefix}.slstm_layer.out_proj.weight",
+            "slstm_cell.output_cell.out_proj.weight": f"{prefix}.slstm_layer.out_proj.weight",
 
             # FFN normalization
             "norm_ffn.weight": f"{prefix}.norm_ffn.weight",

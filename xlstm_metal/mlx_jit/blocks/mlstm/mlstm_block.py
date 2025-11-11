@@ -234,22 +234,24 @@ class mLSTMBlock(nn.Module):
             "norm_mlstm.weight": f"{prefix}.norm_mlstm.weight",
 
             # mLSTM cell projections
-            "mlstm_cell.q_proj.weight": f"{prefix}.mlstm_layer.q.weight",
-            "mlstm_cell.k_proj.weight": f"{prefix}.mlstm_layer.k.weight",
-            "mlstm_cell.v_proj.weight": f"{prefix}.mlstm_layer.v.weight",
+            "mlstm_cell.projection_cell.q_proj.weight": f"{prefix}.mlstm_layer.q.weight",
+            "mlstm_cell.projection_cell.k_proj.weight": f"{prefix}.mlstm_layer.k.weight",
+            "mlstm_cell.projection_cell.v_proj.weight": f"{prefix}.mlstm_layer.v.weight",
 
             # mLSTM gates
-            "mlstm_cell.igate_proj.weight": f"{prefix}.mlstm_layer.igate_preact.weight",
-            "mlstm_cell.igate_proj.bias": f"{prefix}.mlstm_layer.igate_preact.bias",
-            "mlstm_cell.fgate_proj.weight": f"{prefix}.mlstm_layer.fgate_preact.weight",
-            "mlstm_cell.fgate_proj.bias": f"{prefix}.mlstm_layer.fgate_preact.bias",
-            "mlstm_cell.ogate_proj.weight": f"{prefix}.mlstm_layer.ogate_preact.weight",
+            "mlstm_cell.projection_cell.igate_proj.weight": f"{prefix}.mlstm_layer.igate_preact.weight",
+            "mlstm_cell.projection_cell.igate_proj.bias": f"{prefix}.mlstm_layer.igate_preact.bias",
+            "mlstm_cell.projection_cell.fgate_proj.weight": f"{prefix}.mlstm_layer.fgate_preact.weight",
+            "mlstm_cell.projection_cell.fgate_proj.bias": f"{prefix}.mlstm_layer.fgate_preact.bias",
+
+            # Output gate projection (uses canonical ogate weight)
+            "mlstm_cell.output_cell.ogate_proj.weight": f"{prefix}.mlstm_layer.ogate_preact.weight",
 
             # mLSTM multihead norm
-            "mlstm_cell.norm.weight": f"{prefix}.mlstm_layer.multihead_norm.weight",
+            "mlstm_cell.output_cell.norm.weight": f"{prefix}.mlstm_layer.multihead_norm.weight",
 
             # mLSTM output projection
-            "mlstm_cell.out_proj.weight": f"{prefix}.mlstm_layer.out_proj.weight",
+            "mlstm_cell.output_cell.out_proj.weight": f"{prefix}.mlstm_layer.out_proj.weight",
 
             # FFN normalization
             "norm_ffn.weight": f"{prefix}.norm_ffn.weight",

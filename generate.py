@@ -17,7 +17,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from xlstm_metal.mlx_jit.generate import xLSTMRunner
-from xlstm_metal.mlx_jit.blocks.tokenizer.block import TokenizerBlock, TokenizerConfig
+from xlstm_metal.mlx_jit.tokenizer import TokenizerBlock, TokenizerConfig
 
 
 def main():
