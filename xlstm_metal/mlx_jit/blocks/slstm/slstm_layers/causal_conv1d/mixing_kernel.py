@@ -1,4 +1,4 @@
-"""Metal depthwise causal conv kernel (per-feature)."""
+"""Metal causal conv kernel with channel mixing (groups=1)."""
 
 from __future__ import annotations
 
@@ -24,19 +24,21 @@ if (tid >= total) return;
 uint b = tid / (S * C);
 uint rem = tid % (S * C);
 uint s = rem / C;
-uint c = rem % C;
+uint c_out = rem % C;
 
 uint x_base = b * S * C;
-uint y_index = x_base + s * C + c;
+uint y_index = x_base + s * C + c_out;
 
-float acc = has_bias ? bias[c] : 0.0f;
+float acc = has_bias ? bias[c_out] : 0.0f;
 
 for (uint k = 0; k < K; ++k) {
     int t_src = int(s) - int(k);
     if (t_src >= 0) {
-        uint x_index = x_base + uint(t_src) * C + c;
-        uint w_index = c * K + k;
-        acc += x[x_index] * weight[w_index];
+        uint x_row = x_base + uint(t_src) * C;
+        uint w_row = c_out * C * K + k * C;
+        for (uint c_in = 0; c_in < C; ++c_in) {
+            acc += x[x_row + c_in] * weight[w_row + c_in];
+        }
     }
 }
 
@@ -46,11 +48,11 @@ output[y_index] = acc;
 _KERNEL = None
 
 
-def _compile_kernel() -> mx.fast.metal_kernel:
+def _compile_kernel():
     global _KERNEL
     if _KERNEL is None:
         _KERNEL = mx.fast.metal_kernel(
-            name="dw_causal_conv",
+            name="mix_causal_conv",
             input_names=["params", "x", "weight", "bias", "has_bias"],
             output_names=["output"],
             header=_HEADER,
@@ -59,15 +61,15 @@ def _compile_kernel() -> mx.fast.metal_kernel:
     return _KERNEL
 
 
-def metal_causal_conv1d_depthwise(
-    x: mx.array,
-    weight: mx.array,
-    bias: Optional[mx.array] = None,
+def metal_causal_conv1d_mixing(
+        x: mx.array,
+        weight: mx.array,
+        bias: Optional[mx.array] = None,
 ) -> mx.array:
-    """Depthwise causal conv (groups=channels)."""
+    """Causal conv with channel mixing (Conv1d groups=1)."""
     B, S, C = x.shape
-    Cw, K = weight.shape
-    assert Cw == C, "weight must be [C, K] for depthwise conv"
+    Cout, Cin, K = weight.shape
+    assert Cout == C and Cin == C, "weight must be [C, C, K] for channel mixing"
 
     params = mx.array([B, S, C, K], dtype=mx.uint32)
     has_bias = mx.array(1 if bias is not None else 0, dtype=mx.uint32)
@@ -95,4 +97,4 @@ def metal_causal_conv1d_depthwise(
     return y.reshape(B, S, C).astype(x.dtype)
 
 
-__all__ = ["metal_causal_conv1d_depthwise"]
+__all__ = ["metal_causal_conv1d_mixing"]
