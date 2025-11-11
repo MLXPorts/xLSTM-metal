@@ -32,14 +32,14 @@ def logsigmoid_mlx(x: mx.array) -> mx.array:
 
 
 def slstm_step_reference(
-    z: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    o_preact: mx.array,
-    c_state: mx.array,
-    n_state: mx.array,
-    m_state: mx.array,
-    eps: float = 1e-6
+        z: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        o_preact: mx.array,
+        c_state: mx.array,
+        n_state: mx.array,
+        m_state: mx.array,
+        eps: float = 1e-6
 ) -> tuple:
     """
     Reference sLSTM step using pure MLX ops (canonical equations).
@@ -324,9 +324,9 @@ def test_sequential_steps():
 
 
 if __name__ == "__main__":
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("sLSTM Metal Kernel Validation Tests")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
     test_single_step()
     print()
@@ -336,6 +336,6 @@ if __name__ == "__main__":
     print()
     test_sequential_steps()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("All tests passed! Metal kernel matches canonical reference.")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")

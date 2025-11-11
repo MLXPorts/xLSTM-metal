@@ -188,7 +188,7 @@ class xLSTMRunner:
             temperature: float = 1.0,
             top_k: Optional[int] = None,
             top_p: Optional[float] = None
-    ) -> int:
+    ) -> mx.array:
         """
         Generate next token given input token IDs.
 
@@ -199,7 +199,7 @@ class xLSTMRunner:
             top_p: Nucleus sampling threshold (None for no filtering)
 
         Returns:
-            Next token ID (int)
+            Next token ID as an MLX scalar array
         """
         # Forward pass
         logits, self.state = self.forward(input_ids, self.state)
@@ -209,48 +209,49 @@ class xLSTMRunner:
 
         # Apply temperature
         if temperature != 1.0:
-            next_token_logits /= temperature
+            next_token_logits = next_token_logits / mx.array(temperature, dtype=next_token_logits.dtype)
+
+        neg_inf = mx.full(next_token_logits.shape, -mx.inf, dtype=next_token_logits.dtype)
 
         # Apply top-k filtering
-        if top_k is not None:
-            # Get top-k values using argsort (which returns indices we can use)
-            top_k_indices = mx.argsort(next_token_logits)[::-1][:top_k]
-            # Get threshold value (smallest value in top-k)
-            threshold = next_token_logits[top_k_indices[-1]]
-            # Keep only top-k or better
-            next_token_logits = mx.where(
-                next_token_logits >= threshold,
-                next_token_logits,
-                mx.array(-float('inf'))
-            )
+        if top_k is not None and top_k > 0:
+            k = min(top_k, next_token_logits.shape[-1])
+            topk_values = mx.topk(next_token_logits, k=k)
+            kth_value = mx.min(topk_values)
+            mask = next_token_logits >= kth_value
+            next_token_logits = mx.where(mask, next_token_logits, neg_inf)
 
         # Apply top-p (nucleus) filtering
         if top_p is not None:
-            # Sort logits in descending order
-            sorted_logits = mx.sort(next_token_logits)[::-1]
-            # Compute probabilities and cumulative sum
+            sorted_indices = mx.argsort(next_token_logits, axis=-1)[::-1]
+            sorted_logits = mx.take(next_token_logits, sorted_indices)
             sorted_probs = mx.softmax(sorted_logits, axis=-1)
             cumulative_probs = mx.cumsum(sorted_probs, axis=-1)
 
-            # Find how many tokens to keep (at least 1)
-            keep_mask = cumulative_probs <= top_p
-            num_keep = max(1, int(mx.sum(keep_mask).item()))
+            top_p_tensor = mx.array(top_p, dtype=sorted_probs.dtype)
+            keep_mask_sorted = cumulative_probs <= top_p_tensor
 
-            # Get threshold (logit value at cutoff)
-            threshold = sorted_logits[num_keep - 1]
-
-            # Keep only tokens above threshold
-            next_token_logits = mx.where(
-                next_token_logits >= threshold,
-                next_token_logits,
-                mx.array(-float('inf'))
+            positions = mx.arange(keep_mask_sorted.shape[0], dtype=mx.int32)
+            first_position = positions == 0
+            keep_mask_sorted = mx.where(
+                first_position,
+                mx.ones_like(keep_mask_sorted, dtype=mx.bool_),
+                keep_mask_sorted
             )
+
+            keep_count = mx.sum(keep_mask_sorted.astype(mx.int32))
+            keep_count = mx.maximum(keep_count, mx.ones_like(keep_count))
+            last_index = keep_count - mx.ones_like(keep_count)
+
+            threshold = mx.take(sorted_logits, last_index.astype(mx.int32))
+            mask = next_token_logits >= threshold
+            next_token_logits = mx.where(mask, next_token_logits, neg_inf)
 
         # Sample from distribution
         probs = mx.softmax(next_token_logits, axis=-1)
         next_token = mx.random.categorical(mx.log(probs))
 
-        return int(next_token)
+        return next_token
 
     def generate(
             self,
@@ -279,8 +280,10 @@ class xLSTMRunner:
         self.reset_state()
 
         # Convert prompt to array [1, S]
-        generated = list(prompt_ids)
-        current_ids = mx.array([prompt_ids])
+        prompt_array = mx.array(prompt_ids, dtype=mx.int32)
+        generated = prompt_array
+        current_ids = mx.expand_dims(prompt_array, axis=0)
+        stop_tokens_arr = mx.array(stop_tokens, dtype=mx.int32) if stop_tokens else None
 
         # Generate tokens
         for _ in range(max_tokens):
@@ -291,16 +294,17 @@ class xLSTMRunner:
                 top_p=top_p
             )
 
-            generated.append(next_token)
+            next_token_vector = mx.reshape(next_token, (1,))
+            generated = mx.concatenate([generated, next_token_vector], axis=0)
 
             # Check for stop tokens
-            if stop_tokens and next_token in stop_tokens:
+            if stop_tokens_arr is not None and mx.any(next_token == stop_tokens_arr).tolist():
                 break
 
             # Update input for next iteration (only use last token for stateful generation)
-            current_ids = mx.array([[next_token]])
+            current_ids = mx.reshape(next_token, (1, 1))
 
-        return generated
+        return generated.tolist()
 
     def get_model_info(self) -> dict:
         """

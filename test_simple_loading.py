@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 import mlx.core as mx
-from xlstm_metal.mlx_jit.load_model import load_config
+from xlstm_metal.mlx_jit.utils import load_config
 
 
 def test_config_loading():

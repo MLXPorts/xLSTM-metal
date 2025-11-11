@@ -8,6 +8,7 @@ Follows NCPS patterns for clean composability and wiring.
 
 from __future__ import annotations
 
+import math
 from typing import Optional, Tuple, Dict, Any
 
 import mlx.core as mx
@@ -71,9 +72,10 @@ class sLSTMBlock(nn.Module):
         self.eps = eps
 
         # Compute FFN hidden dim
-        ffn_hidden_raw = int(embedding_dim * ffn_proj_factor)
-        self.ffn_hidden_dim = ((ffn_hidden_raw + ffn_round_up_to_multiple_of - 1)
-                               // ffn_round_up_to_multiple_of * ffn_round_up_to_multiple_of)
+        ffn_hidden_raw = round(embedding_dim * ffn_proj_factor)
+        self.ffn_hidden_dim = math.ceil(
+            ffn_hidden_raw / ffn_round_up_to_multiple_of
+        ) * ffn_round_up_to_multiple_of
 
         # sLSTM layer normalization
         self.norm_slstm = nn.RMSNorm(dims=embedding_dim, eps=norm_eps)

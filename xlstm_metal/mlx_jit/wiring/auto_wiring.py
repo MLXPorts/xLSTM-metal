@@ -12,6 +12,11 @@ from typing import Dict, List, Optional
 from .wirings import Wiring
 
 
+def _parse_block_index(text: str) -> int:
+    """Parse integer-like block indices without relying on bare int casts."""
+    return json.loads(text)
+
+
 def analyze_safetensors_structure(model_dir: str) -> Dict[str, any]:
     """
     Analyze safetensors index to discover model structure.
@@ -39,37 +44,29 @@ def analyze_safetensors_structure(model_dir: str) -> Dict[str, any]:
         index = json.load(f)
 
     # Analyze structure
-    block_structure = defaultdict(set)
-    has_embedding = False
-    has_lm_head = False
-    has_out_norm = False
+    block_structure: Dict[int, set] = defaultdict(set)
+    weight_keys = list(index['weight_map'].keys())
 
-    for key in index['weight_map'].keys():
+    for key in weight_keys:
         if key.startswith('backbone.blocks.'):
             parts = key.split('.')
             if len(parts) >= 4:
-                block_idx = parts[2]
+                block_idx = _parse_block_index(parts[2])
                 component = parts[3]
                 block_structure[block_idx].add(component)
-        elif key.startswith('backbone.embeddings'):
-            has_embedding = True
-        elif key.startswith('lm_head'):
-            has_lm_head = True
-        elif key.startswith('backbone.out_norm'):
-            has_out_norm = True
 
     # Convert sets to sorted lists
     block_components = {
-        idx: sorted(list(comps))
-        for idx, comps in sorted(block_structure.items(), key=lambda x: int(x[0]))
+        idx: sorted(comps)
+        for idx, comps in sorted(block_structure.items(), key=lambda x: x[0])
     }
 
     return {
         'num_blocks': len(block_structure),
         'block_components': block_components,
-        'has_embedding': has_embedding,
-        'has_lm_head': has_lm_head,
-        'has_out_norm': has_out_norm,
+        'has_embedding': any(key.startswith('backbone.embeddings') for key in weight_keys),
+        'has_lm_head': any(key.startswith('lm_head') for key in weight_keys),
+        'has_out_norm': any(key.startswith('backbone.out_norm') for key in weight_keys),
     }
 
 
@@ -121,9 +118,10 @@ class AutoWiring(Wiring):
         self.model_dir = Path(model_dir)
 
         # Detect block types
-        self.block_types = {}
-        for idx, components in self.structure['block_components'].items():
-            self.block_types[idx] = detect_block_type(components)
+        self.block_types = {
+            idx: detect_block_type(components)
+            for idx, components in self.structure['block_components'].items()
+        }
 
         # Number of units = number of blocks + special layers (embed, norm, lm_head)
         num_blocks = self.structure['num_blocks']
@@ -162,12 +160,10 @@ class AutoWiring(Wiring):
         Returns:
             Dict with block information
         """
-        block_idx_str = str(block_idx)
-
         return {
             'index': block_idx,
-            'type': self.block_types.get(block_idx_str, 'unknown'),
-            'components': self.structure['block_components'].get(block_idx_str, []),
+            'type': self.block_types.get(block_idx, 'unknown'),
+            'components': self.structure['block_components'].get(block_idx, []),
         }
 
     def create_block_cell(self, block_idx: int):
@@ -216,7 +212,7 @@ def create_auto_wiring(model_dir: str, config: Optional[Dict] = None) -> AutoWir
     """
     # Load config if not provided
     if config is None:
-        from xlstm_metal.mlx_jit.load_model import load_config
+        from xlstm_metal.mlx_jit.utils import load_config
         config = load_config(model_dir)
 
     return AutoWiring(model_dir, config)

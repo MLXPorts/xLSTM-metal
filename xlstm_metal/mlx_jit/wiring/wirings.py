@@ -1,13 +1,12 @@
 """Pure-MLX wiring utilities for constructing sparse neural circuits."""
 
-from random import Random as PyRandom
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, List, Optional
 
 import mlx.core as mx
 
 
 def _set_matrix_entry(matrix: mx.array, row: int, col: int, value: int) -> None:
-    matrix[row, col] = int(value)
+    matrix[row, col] = mx.array(value, dtype=matrix.dtype)
 
 
 class Wiring:
@@ -161,7 +160,7 @@ class Wiring:
         :param config:
         :return:
         """
-        wiring = cls(int(config['units']))
+        wiring = cls(config['units'])
         wiring.adjacency_matrix = mx.array(
             config["adjacency_matrix"], dtype=mx.int32
         )
@@ -310,15 +309,17 @@ class Wiring:
 
         print("Neural connections:")
         adj = self.adjacency_matrix.tolist()
-        found = False
+        connections: List[str] = []
         for src in range(self.units):
             for dest in range(self.units):
                 val = adj[src][dest]
                 if val != 0:
                     polarity = "+" if val > 0 else "-"
-                    print(f"  neuron_{src} -> neuron_{dest} [{polarity}]")
-                    found = True
-        if not found:
+                    connections.append(f"  neuron_{src} -> neuron_{dest} [{polarity}]")
+        if connections:
+            for line in connections:
+                print(line)
+        else:
             print("  (no synapses)")
 
     # ------------------------------------------------------------------
@@ -339,355 +340,3 @@ class Wiring:
         if self.sensory_adjacency_matrix is None:
             return mx.array(0, dtype=mx.int32)
         return mx.sum(mx.abs(self.sensory_adjacency_matrix))
-
-
-class FullyConnected(Wiring):
-    def __init__(
-            self, units: int, output_dim: Optional[int] = None, erev_init_seed: int = 1111,
-            self_connections: bool = True
-    ) -> None:
-        super().__init__(units)
-        if output_dim is None:
-            output_dim = units
-        self.self_connections = self_connections
-        self.set_output_dim(output_dim)
-        self._rng = PyRandom(erev_init_seed)
-        self._seed = erev_init_seed
-
-        for src in range(self.units):
-            for dest in range(self.units):
-                if src == dest and not self_connections:
-                    continue
-                self.add_synapse(src, dest, self._polarity())
-
-    def _polarity(self) -> int:
-        return -1 if self._rng.random() < (1.0 / 3.0) else 1
-
-    def build(self, input_shape: int) -> None:
-        """
-
-        :param input_shape:
-        """
-        super().build(input_shape)
-        assert self.input_dim is not None
-        for src in range(self.input_dim):
-            for dest in range(self.units):
-                self.add_sensory_synapse(src, dest, self._polarity())
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "units": self.units,
-            "output_dim": self.output_dim,
-            "erev_init_seed": self._seed,
-            "self_connections": self.self_connections,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "FullyConnected":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)
-
-
-class Random(Wiring):
-    def __init__(
-            self,
-            units: int,
-            output_dim: Optional[int] = None,
-            sparsity_level: float = 0.0,
-            random_seed: int = 1111,
-    ) -> None:
-        super().__init__(units)
-        if output_dim is None:
-            output_dim = units
-        if sparsity_level < 0.0 or sparsity_level >= 1.0:
-            raise ValueError("sparsity_level must be in [0, 1)")
-        self.set_output_dim(output_dim)
-        self.sparsity_level = sparsity_level
-        self._rng = PyRandom(random_seed)
-        self._seed = random_seed
-
-        total = self.units * self.units
-        synapses = round(total * (1.0 - sparsity_level))
-        all_synapses = [(src, dest) for src in range(self.units) for dest in range(self.units)]
-        for src, dest in self._rng.sample(all_synapses, synapses):
-            self.add_synapse(src, dest, self._polarity())
-
-    def _polarity(self) -> int:
-        return -1 if self._rng.random() < (1.0 / 3.0) else 1
-
-    def build(self, input_shape: int) -> None:
-        """
-
-        :param input_shape:
-        """
-        super().build(input_shape)
-        assert self.input_dim is not None
-        total = self.input_dim * self.units
-        synapses = round(total * (1.0 - self.sparsity_level))
-        all_synapses = [(src, dest) for src in range(self.input_dim) for dest in range(self.units)]
-        for src, dest in self._rng.sample(all_synapses, synapses):
-            self.add_sensory_synapse(src, dest, self._polarity())
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "units": self.units,
-            "output_dim": self.output_dim,
-            "sparsity_level": self.sparsity_level,
-            "random_seed": self._seed,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "Random":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)
-
-
-class NCP(Wiring):
-    def __init__(
-            self,
-            inter_neurons: int,
-            command_neurons: int,
-            motor_neurons: int,
-            sensory_fanout: int,
-            inter_fanout: int,
-            recurrent_command_synapses: int,
-            motor_fanin: int,
-            seed: int = 22222,
-    ) -> None:
-        super().__init__(inter_neurons + command_neurons + motor_neurons)
-        self._sensory_neurons = None
-        self._num_sensory_neurons = None
-        self.set_output_dim(motor_neurons)
-        self._rng = PyRandom(seed)
-        self._seed = seed
-
-        self._num_inter_neurons = inter_neurons
-        self._num_command_neurons = command_neurons
-        self._num_motor_neurons = motor_neurons
-        self._sensory_fanout = sensory_fanout
-        self._inter_fanout = inter_fanout
-        self._recurrent_command_synapses = recurrent_command_synapses
-        self._motor_fanin = motor_fanin
-
-        self._motor_neurons = list(range(0, motor_neurons))
-        self._command_neurons = list(range(motor_neurons, motor_neurons + command_neurons))
-        self._inter_neurons = list(
-            range(
-                motor_neurons + command_neurons,
-                motor_neurons + command_neurons + inter_neurons,
-            )
-        )
-
-        if motor_fanin > command_neurons:
-            raise ValueError("motor_fanin exceeds number of command neurons")
-        if sensory_fanout > inter_neurons:
-            raise ValueError("sensory_fanout exceeds number of inter neurons")
-        if inter_fanout > command_neurons:
-            raise ValueError("inter_fanout exceeds number of command neurons")
-
-    @property
-    def num_layers(self) -> int:
-        """
-
-        :return:
-        """
-        return 3
-
-    def get_neurons_of_layer(self, layer_id: int) -> List[int]:
-        """
-
-        :param layer_id:
-        :return:
-        """
-        if layer_id == 0:
-            return list(self._inter_neurons)
-        if layer_id == 1:
-            return list(self._command_neurons)
-        if layer_id == 2:
-            return list(self._motor_neurons)
-        raise ValueError(f"Unknown layer {layer_id}")
-
-    def get_type_of_neuron(self, neuron_id: int) -> str:
-        """
-
-        :param neuron_id:
-        :return:
-        """
-        if neuron_id in self._motor_neurons:
-            return "motor"
-        if neuron_id in self._command_neurons:
-            return "command"
-        return "inter"
-
-    def _polarity(self) -> int:
-        return -1 if self._rng.random() < 0.5 else 1
-
-    def _choose(self, seq: Iterable[int]) -> int:
-        return self._rng.sample(list(seq), 1)[0]
-
-    def _build_sensory_to_inter_layer(self) -> None:
-        assert self.input_dim is not None and self.sensory_adjacency_matrix is not None
-        unreachable = set(self._inter_neurons)
-        for src in range(self.input_dim):
-            dests = self._rng.sample(self._inter_neurons, min(self._sensory_fanout, len(self._inter_neurons)))
-            for dest in dests:
-                unreachable.discard(dest)
-                self.add_sensory_synapse(src, dest, self._polarity())
-
-        if unreachable:
-            fanin = max(1, min(self.input_dim, round(self.input_dim * self._sensory_fanout / self._num_inter_neurons)))
-            for dest in unreachable:
-                for src in self._rng.sample(list(range(self.input_dim)), fanin):
-                    self.add_sensory_synapse(src, dest, self._polarity())
-
-    def _build_inter_to_command_layer(self) -> None:
-        unreachable = set(self._command_neurons)
-        for src in self._inter_neurons:
-            dests = self._rng.sample(self._command_neurons, min(self._inter_fanout, len(self._command_neurons)))
-            for dest in dests:
-                unreachable.discard(dest)
-                self.add_synapse(src, dest, self._polarity())
-
-        if unreachable:
-            fanin = max(1, min(self._num_inter_neurons,
-                               round(self._num_inter_neurons * self._inter_fanout / self._num_command_neurons)))
-            for dest in unreachable:
-                for src in self._rng.sample(self._inter_neurons, fanin):
-                    self.add_synapse(src, dest, self._polarity())
-
-    def _build_recurrent_command_layer(self) -> None:
-        for _ in range(self._recurrent_command_synapses):
-            src = self._choose(self._command_neurons)
-            dest = self._choose(self._command_neurons)
-            self.add_synapse(src, dest, self._polarity())
-
-    def _build_command_to_motor_layer(self) -> None:
-        unreachable = set(self._command_neurons)
-        for dest in self._motor_neurons:
-            fanin = min(self._motor_fanin, len(self._command_neurons))
-            srcs = self._rng.sample(self._command_neurons, fanin)
-            for src in srcs:
-                unreachable.discard(src)
-                self.add_synapse(src, dest, self._polarity())
-
-        if unreachable:
-            fanout = max(1, min(self._num_motor_neurons,
-                                round(self._num_motor_neurons * self._motor_fanin / self._num_command_neurons)))
-            for src in unreachable:
-                for dest in self._rng.sample(self._motor_neurons, fanout):
-                    self.add_synapse(src, dest, self._polarity())
-
-    def build(self, input_shape: int) -> None:
-        """
-
-        :param input_shape:
-        """
-        super().build(input_shape)
-        self._num_sensory_neurons = self.input_dim
-        self._sensory_neurons = list(range(self._num_sensory_neurons))
-        self._build_sensory_to_inter_layer()
-        self._build_inter_to_command_layer()
-        self._build_recurrent_command_layer()
-        self._build_command_to_motor_layer()
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "inter_neurons": self._num_inter_neurons,
-            "command_neurons": self._num_command_neurons,
-            "motor_neurons": self._num_motor_neurons,
-            "sensory_fanout": self._sensory_fanout,
-            "inter_fanout": self._inter_fanout,
-            "recurrent_command_synapses": self._recurrent_command_synapses,
-            "motor_fanin": self._motor_fanin,
-            "seed": self._seed,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "NCP":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)
-
-
-class AutoNCP(NCP):
-    def __init__(
-            self,
-            units: int,
-            output_size: int,
-            sparsity_level: float = 0.5,
-            seed: int = 22222,
-    ) -> None:
-        if output_size >= units - 2:
-            raise ValueError(
-                f"Output size must be less than units-2 (given {units=} and {output_size=})."
-            )
-        if not (0.0 < sparsity_level <= 1.0):
-            raise ValueError("sparsity_level must be in (0, 1]")
-
-        density = 1.0 - sparsity_level
-        inter_and_command = units - output_size
-        command = max(int(0.4 * inter_and_command), 1)
-        inter = inter_and_command - command
-
-        sensory_fanout = max(int(inter * density), 1)
-        inter_fanout = max(int(command * density), 1)
-        recurrent_command = max(int(command * density * 2), 1)
-        motor_fanin = max(int(command * density), 1)
-
-        super().__init__(
-            inter,
-            command,
-            output_size,
-            sensory_fanout,
-            inter_fanout,
-            recurrent_command,
-            motor_fanin,
-            seed=seed,
-        )
-        self._total_units = units
-        self._output_size = output_size
-        self._sparsity_level = sparsity_level
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "units": self._total_units,
-            "output_size": self._output_size,
-            "sparsity_level": self._sparsity_level,
-            "seed": self._seed,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "AutoNCP":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)

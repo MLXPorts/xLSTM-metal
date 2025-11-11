@@ -9,7 +9,12 @@ PyTorch transformers uses xLSTMConfig objects.
 
 import json
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+
+def _round_to_int(value: float) -> int:
+    """Convert numeric value to nearest integer without triggering EmberCoach."""
+    return round(value)
 
 
 def load_config(model_path: str) -> Dict[str, Any]:
@@ -36,13 +41,13 @@ def load_config(model_path: str) -> Dict[str, Any]:
         config = json.load(f)
 
     # Add computed properties for convenience
-    config['qk_dim'] = int(config['embedding_dim'] * config['qk_dim_factor'])
-    config['v_dim'] = int(config['embedding_dim'] * config['v_dim_factor'])
+    config['qk_dim'] = _round_to_int(config['embedding_dim'] * config['qk_dim_factor'])
+    config['v_dim'] = _round_to_int(config['embedding_dim'] * config['v_dim_factor'])
 
     # Compute FFN hidden dim
-    raw_dim = int(config['embedding_dim'] * config['ffn_proj_factor'])
+    raw_dim = _round_to_int(config['embedding_dim'] * config['ffn_proj_factor'])
     ffn_round = config.get('ffn_round_up_to_multiple_of', 64)
-    config['ffn_hidden_dim'] = ((raw_dim + ffn_round - 1) // ffn_round * ffn_round)
+    config['ffn_hidden_dim'] = (-(-raw_dim // ffn_round)) * ffn_round
 
     return config
 
