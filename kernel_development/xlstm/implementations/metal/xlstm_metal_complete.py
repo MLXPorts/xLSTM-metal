@@ -4,16 +4,14 @@ Uses Metal when available, otherwise falls back to CPU.
 """
 
 from dataclasses import dataclass, field
+from typing import Literal, Optional, Tuple
+
 import torch
 from torch import nn
-import torch.nn.functional as F
-from typing import Literal, Optional, Union, Tuple
-import math
-
 # Import official xLSTM components
 from xlstm.xlstm_large.components import MultiHeadLayerNorm, RMSNorm, soft_cap
-from xlstm.xlstm_large.utils import round_up_to_next_multiple_of
 from xlstm.xlstm_large.generate import generate_tokens, get_sampling_fn
+from xlstm.xlstm_large.utils import round_up_to_next_multiple_of
 
 # Check device availability
 DEVICE = "mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu")

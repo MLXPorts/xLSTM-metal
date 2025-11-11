@@ -15,11 +15,10 @@ import mlx.core as mx
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from xlstm_metal.mlx_jit.utils import load_config, load_weights_into_wired_model
-
-
-# soft_cap is not in our NCPS cells - will be added when needed
-# from xlstm_metal.blocks.mlstm import soft_cap
+from xlstm_metal.mlx_jit.utils import load_config
+from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
+from xlstm_metal.mlx_jit.wiring.auto_wiring import create_auto_wiring
+from xlstm_metal.mlx_jit.blocks.soft_cap import soft_cap
 
 
 class xLSTMRunner:
@@ -68,23 +67,19 @@ class xLSTMRunner:
         self.vocab_size = self.config['vocab_size']
         self.output_logit_soft_cap = self.config['output_logit_soft_cap']
 
-        # Create wiring from config
-        print(f"Creating xLSTM MAD wiring ({self.num_blocks} blocks, {self.embedding_dim}d)...")
-        self.wiring = create_xlstm_wiring(self.config)
+        # Build NCPS wiring/model
+        print(f"Creating NCPS auto-wiring ({self.num_blocks} blocks, {self.embedding_dim}d)...")
+        self.wiring = create_auto_wiring(str(self.model_path), self.config)
+        self.wiring.print_diagram(include_sensory=False)
 
-        # Create wired model
-        print("Creating WiredMADModel...")
-        self.model = WiredMADModel(
+        print("Creating WiredxLSTM model...")
+        self.model = WiredxLSTM(
             wiring=self.wiring,
-            input_block='embedding',
-            output_block='lm_head'
+            load_weights=True,
+            model_dir=self.model_path,
         )
 
-        print(f"✓ xLSTM model created with {self.num_blocks} blocks, {self.embedding_dim}d")
-
-        # Load weights automatically
-        print("Loading weights...")
-        self._load_weights()
+        print(f"✓ xLSTM NCPS model created with {self.num_blocks} blocks, {self.embedding_dim}d")
 
         # State for stateful generation
         self.state = None
@@ -156,30 +151,6 @@ class xLSTMRunner:
                 f"Error: {e}"
             )
 
-    def _load_weights(self):
-        """
-        Load pretrained weights from model directory.
-
-        Automatically detects format (safetensors or NPZ) and loads weights.
-        """
-        from xlstm_metal.mlx_jit.utils.safetensors_loader import load_safetensors_into_wired_model
-
-        # Check for safetensors files
-        if (self.model_path / "model.safetensors").exists() or \
-                (self.model_path / "model.safetensors.index.json").exists():
-            # Load from safetensors directory
-            load_safetensors_into_wired_model(str(self.model_path), self.model)
-            print(f"✓ Weights loaded from safetensors")
-        elif (self.model_path / "model.npz").exists():
-            # Load from NPZ file
-            load_weights_into_wired_model(str(self.model_path / "model.npz"), self.model)
-            print(f"✓ Weights loaded from NPZ")
-        else:
-            raise ValueError(
-                f"No weights found in {self.model_path}. "
-                f"Expected model.safetensors or model.npz"
-            )
-
     def reset_state(self):
         """Reset the internal state for stateful generation."""
         self.state = None
@@ -200,8 +171,11 @@ class xLSTMRunner:
             logits: Output logits [B, S, vocab_size]
             new_state: Updated state dict
         """
-        # WiredMADModel forward returns (output, hidden_states)
-        logits, new_state = self.model(input_ids, state)
+        logits, new_state = self.model(
+            input_ids,
+            state,
+            return_last_states=True
+        )
 
         # Apply output soft-cap
         logits_capped = soft_cap(logits, self.output_logit_soft_cap)
@@ -347,6 +321,11 @@ class xLSTMRunner:
             'gate_soft_cap': self.config['gate_soft_cap'],
             'output_logit_soft_cap': self.output_logit_soft_cap,
             'total_blocks': len(self.model.blocks),
-            'execution_stages': len(self.model.stages),
-            'block_names': list(self.model.blocks.keys())
+            'block_types': [
+                self.wiring.get_block_info(i)['type']
+                for i in range(self.num_blocks)
+            ],
+            'has_embedding': self.wiring.structure['has_embedding'],
+            'has_out_norm': self.wiring.structure['has_out_norm'],
+            'has_lm_head': self.wiring.structure['has_lm_head'],
         }

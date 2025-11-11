@@ -4,10 +4,11 @@ Simplified xLSTM with PyTorch JIT + Metal Integration
 Clean implementation that properly separates eager execution from JIT compilation.
 """
 
+import time
+from typing import Tuple, Optional, List, Dict
+
 import torch
 import torch.nn as nn
-from typing import Tuple, Optional, List, Dict, Any
-import time
 
 # Ensure MPS is available
 if not torch.backends.mps.is_available():

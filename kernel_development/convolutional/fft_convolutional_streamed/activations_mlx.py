@@ -97,7 +97,8 @@ def register_activation(name: str, fn: Callable[[mx.array], mx.array]) -> None:
     _REGISTRY[name] = fn
 
 
-def get_activation(name: str, *, scale: Optional[float] = None, slope: Optional[float] = None) -> Callable[[mx.array], mx.array]:
+def get_activation(name: str, *, scale: Optional[float] = None,
+                   slope: Optional[float] = None) -> Callable[[mx.array], mx.array]:
     """Return a callable activation by name.
 
     Supports optional tuning for LeCun tanh:

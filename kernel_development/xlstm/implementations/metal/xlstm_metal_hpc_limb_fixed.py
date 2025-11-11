@@ -5,11 +5,9 @@ Uses 16-bit limb arithmetic inspired by ember-ml to work around Metal buffer lim
 Fixed version with proper MLX kernel body format.
 """
 
-import mlx.core as mx
-import mlx.nn as mnn
-from typing import Tuple, Optional, List
-import numpy as np
 import time
+
+import mlx.core as mx
 
 # HPC Limb Metal kernel for xLSTM operations - ONLY THE BODY
 HPC_LIMB_KERNEL = r"""

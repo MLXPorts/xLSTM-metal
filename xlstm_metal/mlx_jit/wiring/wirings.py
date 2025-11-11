@@ -293,6 +293,34 @@ class Wiring:
         plt.axis("off")
         return legend_patches
 
+    def print_diagram(self, include_sensory: bool = True) -> None:
+        """Print a simple textual wiring diagram (src -> dest [polarity])."""
+        print("\nWIRING DIAGRAM")
+        print("--------------")
+
+        if include_sensory and self.sensory_adjacency_matrix is not None and self.input_dim:
+            print("Sensory connections:")
+            sensory = self.sensory_adjacency_matrix.tolist()
+            for src in range(self.input_dim):
+                for dest in range(self.units):
+                    val = sensory[src][dest]
+                    if val != 0:
+                        polarity = "+" if val > 0 else "-"
+                        print(f"  sensory_{src} -> neuron_{dest} [{polarity}]")
+
+        print("Neural connections:")
+        adj = self.adjacency_matrix.tolist()
+        found = False
+        for src in range(self.units):
+            for dest in range(self.units):
+                val = adj[src][dest]
+                if val != 0:
+                    polarity = "+" if val > 0 else "-"
+                    print(f"  neuron_{src} -> neuron_{dest} [{polarity}]")
+                    found = True
+        if not found:
+            print("  (no synapses)")
+
     # ------------------------------------------------------------------
     @property
     def synapse_count(self) -> mx.array:

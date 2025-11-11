@@ -6,13 +6,9 @@ This approach packs multiple float16 values into fewer Metal buffers, enabling
 complex computations that would otherwise exceed Metal's 64-buffer limit.
 """
 
-import torch
-import torch.nn as nn
-import mlx.core as mx
-import mlx.nn as mnn
-from typing import Tuple, Optional, List
-import numpy as np
 import time
+
+import mlx.core as mx
 
 # HPC Limb Metal kernel for xLSTM operations
 HPC_LIMB_KERNEL = r"""

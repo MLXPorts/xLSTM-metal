@@ -20,7 +20,7 @@ Example:
     >>> # Auto-detect model structure
     >>> wiring = create_auto_wiring("xlstm_7b_model")
     >>> model = WiredxLSTM(wiring=wiring)
-    >>>
+
     >>> # Or use convenience method
     >>> model = WiredxLSTM.from_pretrained("xlstm_7b_model")
 """

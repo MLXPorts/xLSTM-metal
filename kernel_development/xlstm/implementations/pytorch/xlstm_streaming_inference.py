@@ -3,17 +3,15 @@ Streaming Inference xLSTM with Advanced Weight Fusion and State Management
 Optimized for real-time text generation and production deployment
 """
 
+import math
+import time
+from collections import defaultdict
+from dataclasses import dataclass
+from typing import Tuple, Optional, List, Literal, Dict
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.checkpoint import checkpoint
-from typing import Tuple, Optional, List, Literal, Dict, Any, Union
-from dataclasses import dataclass, field
-import math
-import time
-import threading
-import queue
-from collections import defaultdict
 
 
 @dataclass

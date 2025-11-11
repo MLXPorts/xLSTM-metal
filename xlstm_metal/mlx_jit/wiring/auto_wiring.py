@@ -5,11 +5,9 @@ detected in safetensors files, making the system agnostic to specific model type
 """
 
 import json
-from pathlib import Path
-from typing import Dict, List, Tuple, Optional
 from collections import defaultdict
-
-import mlx.core as mx
+from pathlib import Path
+from typing import Dict, List, Optional
 
 from .wirings import Wiring
 

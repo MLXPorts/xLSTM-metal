@@ -3,12 +3,13 @@ Chunked Parallel xLSTM Implementation
 Advanced parallel processing with chunk-based sequence handling
 """
 
+import math
+from dataclasses import dataclass
+from typing import Tuple, Optional, Literal
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Optional, List, Literal
-from dataclasses import dataclass
-import math
 
 
 @dataclass

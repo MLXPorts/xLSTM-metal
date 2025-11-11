@@ -13,7 +13,7 @@ from typing import Optional, Tuple, Dict, Any
 import mlx.core as mx
 import mlx.nn as nn
 
-from xlstm_metal.mlx_jit.blocks.slstm.slstm_block import sLSTMNeuron
+from xlstm_metal.mlx_jit.blocks.slstm import sLSTMNeuron
 
 
 class xLSTMsLSTMCell(nn.Module):

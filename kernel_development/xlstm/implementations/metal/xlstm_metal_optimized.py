@@ -18,7 +18,7 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 
-from kernel_development.implementations.metal.xlstm_jit_simple import MetalSoftCap
+from kernel_development.xlstm.implementations.metal.xlstm_jit_simple import MetalSoftCap
 from scripts.benchmarks.xlstm_ultimate_benchmark import MPS_AVAILABLE
 
 # Import official xLSTM components

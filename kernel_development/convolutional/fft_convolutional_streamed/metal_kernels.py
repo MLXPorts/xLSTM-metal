@@ -233,15 +233,19 @@ _DD_HEADER = _HEADER + r"""
 // Double-Double support (minimal subset)
 struct dd_t { float hi; float lo; };
 inline dd_t quick_two_sum(float a, float b) { float s = a + b; float e = b - (s - a); return dd_t{s, e}; }
-inline dd_t two_sum(float a, float b) { float s = a + b; float v = s - a; float e = (a - (s - v)) + (b - v); return dd_t{s, e}; }
+inline dd_t two_sum(float a, float b) { float s = a + b; float v = s - a; float e = (a - (s - v)) + (b - v); 
+return dd_t{s, e}; }
 inline dd_t two_prod(float a, float b) { float p = a * b; float e = fma(a, b, -p); return dd_t{p, e}; }
-inline dd_t dd_add(dd_t a, dd_t b) { dd_t s = two_sum(a.hi, b.hi); dd_t t = two_sum(a.lo, b.lo); s.lo += t.hi; s = quick_two_sum(s.hi, s.lo); s.lo += t.lo; s = quick_two_sum(s.hi, s.lo); return s; }
+inline dd_t dd_add(dd_t a, dd_t b) { dd_t s = two_sum(a.hi, b.hi); dd_t t = two_sum(a.lo, b.lo); s.lo += t.hi; 
+s = quick_two_sum(s.hi, s.lo); s.lo += t.lo; s = quick_two_sum(s.hi, s.lo); return s; }
 inline dd_t dd_sub(dd_t a, dd_t b) { return dd_add(a, dd_t{-b.hi, -b.lo}); }
-inline dd_t dd_mul(dd_t a, dd_t b) { dd_t p = two_prod(a.hi, b.hi); p.lo += a.hi * b.lo + a.lo * b.hi; p = quick_two_sum(p.hi, p.lo); return p; }
+inline dd_t dd_mul(dd_t a, dd_t b) { dd_t p = two_prod(a.hi, b.hi); p.lo += a.hi * b.lo + a.lo * b.hi; 
+p = quick_two_sum(p.hi, p.lo); return p; }
 inline float dd_to_float(dd_t a) { return a.hi + a.lo; }
 
 struct cdd_t { dd_t re; dd_t im; };
-inline cdd_t cdd_mul(cdd_t a, cdd_t b) { dd_t ac = dd_mul(a.re, b.re); dd_t bd = dd_mul(a.im, b.im); dd_t re = dd_sub(ac, bd); dd_t ad = dd_mul(a.re, b.im); dd_t bc = dd_mul(a.im, b.re); dd_t im = dd_add(ad, bc); return cdd_t{re, im}; }
+inline cdd_t cdd_mul(cdd_t a, cdd_t b) { dd_t ac = dd_mul(a.re, b.re); dd_t bd = dd_mul(a.im, b.im); 
+dd_t re = dd_sub(ac, bd); dd_t ad = dd_mul(a.re, b.im); dd_t bc = dd_mul(a.im, b.re); dd_t im = dd_add(ad, bc); return cdd_t{re, im}; }
 """
 
 _COMPLEX_MUL_DD_SOURCE = r"""

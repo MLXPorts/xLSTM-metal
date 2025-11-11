@@ -2,12 +2,12 @@
 Enhanced PyTorch xLSTM with optimized inference and generation capabilities
 """
 
+from dataclasses import dataclass
+from typing import Tuple, Optional, List
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Tuple, Optional, Dict, List
-import math
-from dataclasses import dataclass
 
 
 @dataclass

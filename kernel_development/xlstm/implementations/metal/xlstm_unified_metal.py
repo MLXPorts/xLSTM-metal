@@ -2,12 +2,12 @@
 Unified xLSTM implementation with optimized Metal Performance Shaders backend
 """
 
+from dataclasses import dataclass
+from typing import Optional, Tuple, List, Union
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from typing import Optional, Tuple, List, Union, Dict
-import math
-from dataclasses import dataclass
 
 
 @dataclass

@@ -28,7 +28,7 @@ class SoftCapMLXJitKernel:
         """Initialize the SoftCapMLXFastKernel with no compiled kernel."""
         self.kernel: Optional[mx.fast.metal_kernel] = None
 
-    def compile(self) -> mx.fast.metal_kernel:
+    def compile(self):
         """
         Compile the Metal kernel and return it.
 

@@ -72,7 +72,8 @@ kernel void liquid_cfc_xlstm_kernel(
             uint row = gid.y * TILE_SIZE + lid.y;
             uint col = tile * TILE_SIZE + lid.x;
             if (row < uint(params.N) && col < uint(params.N)) {
-                W_tile[lid.y][lid.x] = atomic_load_explicit(&W_recurrent[row * uint(params.N) + col], memory_order_relaxed); // Atomic Load
+                W_tile[lid.y][lid.x] = atomic_load_explicit(&W_recurrent[row * uint(params.N) + col],
+                memory_order_relaxed); // Atomic Load
             } else {
                 W_tile[lid.y][lid.x] = 0.0f;
             }
@@ -139,7 +140,8 @@ kernel void liquid_cfc_xlstm_kernel(
         if (params.use_hebbian) {
             for (uint j = 0; j < uint(params.N); j++) {
                 float delta_w = params.eta * h_liquid_next[j] * h_new * i_t;  // Gated by input, use next state
-                float w_recurrent_value = atomic_load_explicit(&W_recurrent[j * uint(params.N) + i], memory_order_relaxed); // Get value
+                float w_recurrent_value = atomic_load_explicit(&W_recurrent[j * uint(params.N) + i],
+                memory_order_relaxed); // Get value
                 delta_w -= params.decay_rate * w_recurrent_value; // Weight decay and correct index
                 atomic_fetch_add_explicit((device atomic_float*)&W_recurrent[j * uint(params.N) + i], delta_w, memory_order_relaxed); // Atomic update
             }
