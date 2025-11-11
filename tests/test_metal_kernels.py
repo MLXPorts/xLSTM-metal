@@ -15,14 +15,14 @@ def setup_data():
 
     :return:
     """
-    B = 1;
-    NH = 1;
-    S = 32;
-    DHQK = 16;
-    DHHV = 16;
-    NC = 2;
+    B = 1
+    NH = 1
+    S = 32
+    DHQK = 16
+    DHHV = 16
+    NC = 2
     L = 16
-    qk_scale = 1.0;
+    qk_scale = 1.0
     save_states_every_nth_chunk = 1
     rng_shapes = {
         'matQ': (B, NH, S, DHQK),

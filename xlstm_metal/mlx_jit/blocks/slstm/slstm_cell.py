@@ -59,14 +59,7 @@ class sLSTMCell(nn.Module):
         if conv1d_kernel_size > 0:
             # Causal padding for temporal causality
             self.causal_pad = conv1d_kernel_size - 1
-            self.conv1d = nn.Conv1d(
-                in_channels=input_size,
-                out_channels=input_size,
-                kernel_size=conv1d_kernel_size,
-                stride=1,
-                padding=0,
-                bias=True,
-            )
+            self.conv1d = nn.Conv1d(in_channels=input_size, out_channels=input_size, kernel_size=conv1d_kernel_size)
             self.conv_act = nn.SiLU()
         else:
             self.conv1d = None
@@ -74,20 +67,13 @@ class sLSTMCell(nn.Module):
         # Gate projections (canonical uses LinearHeadwiseExpand, we use Linear for now)
         # i, f use conv'd input; z, o use raw input
         self.z_proj = nn.Linear(input_size, hidden_size, bias=use_bias)
-        self.igate_proj = nn.Linear(input_size, num_heads, bias=True)
-        self.fgate_proj = nn.Linear(input_size, num_heads, bias=True)
-        self.ogate_proj = nn.Linear(input_size, num_heads, bias=True)
+        self.igate_proj = nn.Linear(input_size, num_heads)
+        self.fgate_proj = nn.Linear(input_size, num_heads)
+        self.ogate_proj = nn.Linear(input_size, num_heads)
 
         # Group norm (per-head layer norm)
         from xlstm_metal.mlx_jit.blocks.mlstm.multihead_norm.multihead_norm import MultiHeadLayerNorm
-        self.group_norm = MultiHeadLayerNorm(
-            num_heads=num_heads,
-            head_dim=head_dim,
-            eps=eps,
-            use_weight=True,
-            use_bias=False,
-            force_float32_reductions=True
-        )
+        self.group_norm = MultiHeadLayerNorm(num_heads=num_heads, head_dim=head_dim, eps=eps)
 
         # Output projection
         self.out_proj = nn.Linear(hidden_size, input_size, bias=use_bias)

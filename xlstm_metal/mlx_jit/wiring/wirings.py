@@ -23,15 +23,32 @@ class Wiring:
     # ------------------------------------------------------------------
     @property
     def num_layers(self) -> int:
+        """
+
+        :return:
+        """
         return 1
 
     def get_neurons_of_layer(self, layer_id: int) -> List[int]:
+        """
+
+        :param layer_id:
+        :return:
+        """
         return list(range(self.units))
 
     def is_built(self) -> bool:
+        """
+
+        :return:
+        """
         return self.input_dim is not None
 
     def build(self, input_dim: int) -> None:
+        """
+
+        :param input_dim:
+        """
         if self.input_dim is not None and self.input_dim != input_dim:
             raise ValueError(
                 "Conflicting input dimensions provided: expected "
@@ -42,29 +59,60 @@ class Wiring:
 
     # ------------------------------------------------------------------
     def erev_initializer(self, *_: object, **__: object) -> mx.array:
+        """
+
+        :param _:
+        :param __:
+        :return:
+        """
         return mx.array(self.adjacency_matrix, dtype=mx.int32)
 
     def sensory_erev_initializer(self, *_: object, **__: object) -> mx.array:
+        """
+
+        :param _:
+        :param __:
+        :return:
+        """
         if self.sensory_adjacency_matrix is None:
             raise ValueError("Sensory adjacency matrix not initialised.")
         return mx.array(self.sensory_adjacency_matrix, dtype=mx.int32)
 
     def set_input_dim(self, input_dim: int) -> None:
+        """
+
+        :param input_dim:
+        """
         self.input_dim = input_dim
         self.sensory_adjacency_matrix = mx.zeros(
             (input_dim, self.units), dtype=mx.int32
         )
 
     def set_output_dim(self, output_dim: int) -> None:
+        """
+
+        :param output_dim:
+        """
         self.output_dim = output_dim
 
     # ------------------------------------------------------------------
     def get_type_of_neuron(self, neuron_id: int) -> str:
+        """
+
+        :param neuron_id:
+        :return:
+        """
         if self.output_dim is None:
             return "inter"
         return "motor" if neuron_id < self.output_dim else "inter"
 
     def add_synapse(self, src: int, dest: int, polarity: int) -> None:
+        """
+
+        :param src:
+        :param dest:
+        :param polarity:
+        """
         if src < 0 or src >= self.units:
             raise ValueError(f"Invalid source neuron {src} for {self.units} units")
         if dest < 0 or dest >= self.units:
@@ -74,6 +122,12 @@ class Wiring:
         _set_matrix_entry(self.adjacency_matrix, src, dest, polarity)
 
     def add_sensory_synapse(self, src: int, dest: int, polarity: int) -> None:
+        """
+
+        :param src:
+        :param dest:
+        :param polarity:
+        """
         if self.input_dim is None or self.sensory_adjacency_matrix is None:
             raise ValueError("Cannot add sensory synapse before build().")
         if src < 0 or src >= self.input_dim:
@@ -86,6 +140,10 @@ class Wiring:
 
     # ------------------------------------------------------------------
     def get_config(self) -> Dict[str, object]:
+        """
+
+        :return:
+        """
         return {
             "units": self.units,
             "adjacency_matrix": self.adjacency_matrix.tolist(),
@@ -98,6 +156,11 @@ class Wiring:
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "Wiring":
+        """
+
+        :param config:
+        :return:
+        """
         wiring = cls(int(config['units']))
         wiring.adjacency_matrix = mx.array(
             config["adjacency_matrix"], dtype=mx.int32
@@ -112,6 +175,11 @@ class Wiring:
 
     # ------------------------------------------------------------------
     def get_graph(self, include_sensory_neurons: bool = True):  # pragma: no cover
+        """
+
+        :param include_sensory_neurons:
+        :return:
+        """
         if not self.is_built():
             raise ValueError(
                 "Wiring is not built yet; call build() with the input dimension."
@@ -163,6 +231,14 @@ class Wiring:
             synapse_colors: Optional[Dict[str, str]] = None,
             draw_labels: bool = False,
     ):
+        """
+
+        :param layout:
+        :param neuron_colors:
+        :param synapse_colors:
+        :param draw_labels:
+        :return:
+        """
         import matplotlib.patches as mpatches
         import matplotlib.pyplot as plt
         import networkx as nx
@@ -220,10 +296,18 @@ class Wiring:
     # ------------------------------------------------------------------
     @property
     def synapse_count(self) -> mx.array:
+        """
+
+        :return:
+        """
         return mx.sum(mx.abs(self.adjacency_matrix))
 
     @property
     def sensory_synapse_count(self) -> mx.array:
+        """
+
+        :return:
+        """
         if self.sensory_adjacency_matrix is None:
             return mx.array(0, dtype=mx.int32)
         return mx.sum(mx.abs(self.sensory_adjacency_matrix))
@@ -252,6 +336,10 @@ class FullyConnected(Wiring):
         return -1 if self._rng.random() < (1.0 / 3.0) else 1
 
     def build(self, input_shape: int) -> None:
+        """
+
+        :param input_shape:
+        """
         super().build(input_shape)
         assert self.input_dim is not None
         for src in range(self.input_dim):
@@ -259,6 +347,10 @@ class FullyConnected(Wiring):
                 self.add_sensory_synapse(src, dest, self._polarity())
 
     def get_config(self) -> Dict[str, object]:
+        """
+
+        :return:
+        """
         return {
             "units": self.units,
             "output_dim": self.output_dim,
@@ -268,6 +360,11 @@ class FullyConnected(Wiring):
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "FullyConnected":
+        """
+
+        :param config:
+        :return:
+        """
         return cls(**config)
 
 
@@ -299,6 +396,10 @@ class Random(Wiring):
         return -1 if self._rng.random() < (1.0 / 3.0) else 1
 
     def build(self, input_shape: int) -> None:
+        """
+
+        :param input_shape:
+        """
         super().build(input_shape)
         assert self.input_dim is not None
         total = self.input_dim * self.units
@@ -308,6 +409,10 @@ class Random(Wiring):
             self.add_sensory_synapse(src, dest, self._polarity())
 
     def get_config(self) -> Dict[str, object]:
+        """
+
+        :return:
+        """
         return {
             "units": self.units,
             "output_dim": self.output_dim,
@@ -317,6 +422,11 @@ class Random(Wiring):
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "Random":
+        """
+
+        :param config:
+        :return:
+        """
         return cls(**config)
 
 
@@ -365,9 +475,18 @@ class NCP(Wiring):
 
     @property
     def num_layers(self) -> int:
+        """
+
+        :return:
+        """
         return 3
 
     def get_neurons_of_layer(self, layer_id: int) -> List[int]:
+        """
+
+        :param layer_id:
+        :return:
+        """
         if layer_id == 0:
             return list(self._inter_neurons)
         if layer_id == 1:
@@ -377,6 +496,11 @@ class NCP(Wiring):
         raise ValueError(f"Unknown layer {layer_id}")
 
     def get_type_of_neuron(self, neuron_id: int) -> str:
+        """
+
+        :param neuron_id:
+        :return:
+        """
         if neuron_id in self._motor_neurons:
             return "motor"
         if neuron_id in self._command_neurons:
@@ -442,6 +566,10 @@ class NCP(Wiring):
                     self.add_synapse(src, dest, self._polarity())
 
     def build(self, input_shape: int) -> None:
+        """
+
+        :param input_shape:
+        """
         super().build(input_shape)
         self._num_sensory_neurons = self.input_dim
         self._sensory_neurons = list(range(self._num_sensory_neurons))
@@ -451,6 +579,10 @@ class NCP(Wiring):
         self._build_command_to_motor_layer()
 
     def get_config(self) -> Dict[str, object]:
+        """
+
+        :return:
+        """
         return {
             "inter_neurons": self._num_inter_neurons,
             "command_neurons": self._num_command_neurons,
@@ -464,6 +596,11 @@ class NCP(Wiring):
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "NCP":
+        """
+
+        :param config:
+        :return:
+        """
         return cls(**config)
 
 
@@ -507,6 +644,10 @@ class AutoNCP(NCP):
         self._sparsity_level = sparsity_level
 
     def get_config(self) -> Dict[str, object]:
+        """
+
+        :return:
+        """
         return {
             "units": self._total_units,
             "output_size": self._output_size,
@@ -516,4 +657,9 @@ class AutoNCP(NCP):
 
     @classmethod
     def from_config(cls, config: Dict[str, object]) -> "AutoNCP":
+        """
+
+        :param config:
+        :return:
+        """
         return cls(**config)

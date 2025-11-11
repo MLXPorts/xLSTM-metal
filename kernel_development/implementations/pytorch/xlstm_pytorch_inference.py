@@ -186,7 +186,7 @@ class xLSTMInference(nn.Module):
 
             # Check for EOS token
             if generation_config.eos_token_id is not None:
-                unfinished_sequences = unfinished_sequences & (next_tokens != generation_config.eos_token_id)
+                unfinished_sequences &= next_tokens != generation_config.eos_token_id
                 if not unfinished_sequences.any():
                     break
 
@@ -200,7 +200,7 @@ class xLSTMInference(nn.Module):
         """Sample next token from logits"""
         # Apply temperature
         if config.temperature != 1.0:
-            logits = logits / config.temperature
+            logits /= config.temperature
 
         # Apply top-k filtering
         if config.top_k is not None and config.top_k > 0:
@@ -219,8 +219,8 @@ class xLSTMInference(nn.Module):
 
         return next_tokens
 
+    @staticmethod
     def _top_k_filtering(
-            self,
             logits: torch.Tensor,
             top_k: int
     ) -> torch.Tensor:
@@ -229,8 +229,8 @@ class xLSTMInference(nn.Module):
         logits[indices_to_remove] = float('-inf')
         return logits
 
+    @staticmethod
     def _top_p_filtering(
-            self,
             logits: torch.Tensor,
             top_p: float
     ) -> torch.Tensor:
@@ -250,8 +250,8 @@ class xLSTMInference(nn.Module):
         logits[indices_to_remove] = float('-inf')
         return logits
 
+    @staticmethod
     def _apply_repetition_penalty(
-            self,
             logits: torch.Tensor,
             generated: torch.Tensor,
             penalty: float

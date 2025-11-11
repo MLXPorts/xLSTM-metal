@@ -79,9 +79,9 @@ def time_prefill_and_decode(model, seq_len: int, new_tokens: int) -> Tuple[float
     # Synthetic byte tokens for simplicity; tokenizer choice doesn't affect compute scale much
     tokens = mx.random.randint(0, 256, (1, seq_len))
     # Prefill
-    t0 = time.time();
-    logits, state = model(tokens, return_hidden=True);
-    mx.eval(logits);
+    t0 = time.time()
+    logits, state = model(tokens, return_hidden=True)
+    mx.eval(logits)
     t1 = time.time()
     # Decode
     last_logits = logits[:, -1, :]
@@ -182,10 +182,10 @@ def main():
             if prof not in profs:
                 raise ValueError(f"Unknown profile: {prof}")
             cfg = profs[prof].copy()
-            layers = cfg["layers"];
-            model_dim = cfg["model_dim"];
-            head_dim = cfg["head_dim"];
-            heads = cfg["heads"];
+            layers = cfg["layers"]
+            model_dim = cfg["model_dim"]
+            head_dim = cfg["head_dim"]
+            heads = cfg["heads"]
             vocab = cfg["vocab"]
 
             # Construct model
@@ -215,19 +215,19 @@ def main():
                 # Warm-up
                 _ = time_prefill_and_decode(model, seq_len=int(args.seq_len), new_tokens=4)
                 # Repeats
-                prefill_times = [];
-                decode_times = [];
+                prefill_times = []
+                decode_times = []
                 total_times = []
                 for _ in range(int(args.repeats)):
                     p_s, d_s, tot_s = time_prefill_and_decode(model, seq_len=int(args.seq_len),
                                                               new_tokens=int(args.new_tokens))
-                    prefill_times.append(p_s);
-                    decode_times.append(d_s);
+                    prefill_times.append(p_s)
+                    decode_times.append(d_s)
                     total_times.append(tot_s)
                 # Median
                 import statistics as stats
-                p = float(stats.median(prefill_times));
-                d = float(stats.median(decode_times));
+                p = float(stats.median(prefill_times))
+                d = float(stats.median(decode_times))
                 tot = float(stats.median(total_times))
                 prefill_tok_s = int(args.seq_len) / max(1e-9, p)
                 decode_tok_s = int(args.new_tokens) / max(1e-9, d)

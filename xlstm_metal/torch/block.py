@@ -96,7 +96,7 @@ class mLSTMLayer(nn.Module):
 
         # Import native kernel
         try:
-            from kernel_development.mlstm_block.mlstm_recurrent.recurrent.native_sequence import (
+            from kernel_development.xlstm.mlstm_block import (
                 mlstm_recurrent_sequence_loop
             )
             self.mlstm_kernel = mlstm_recurrent_sequence_loop
@@ -193,8 +193,8 @@ class mLSTMLayer(nn.Module):
 
         return out, new_state
 
+    @staticmethod
     def _recurrent_fallback(
-            self,
             q: torch.Tensor,  # [B, NH, S, qk_dim]
             k: torch.Tensor,  # [B, NH, S, qk_dim]
             v: torch.Tensor,  # [B, NH, S, head_dim]

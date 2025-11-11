@@ -57,8 +57,8 @@ class mLSTMProjectionCell(nn.Module):
 
         # Input/forget gates (excitatory/inhibitory neurons)
         # Gates always have bias=True for proper initialization
-        self.igate_proj = nn.Linear(input_size, num_heads, bias=True)
-        self.fgate_proj = nn.Linear(input_size, num_heads, bias=True)
+        self.igate_proj = nn.Linear(input_size, num_heads)
+        self.fgate_proj = nn.Linear(input_size, num_heads)
 
     def __call__(
             self,

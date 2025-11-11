@@ -25,10 +25,20 @@ MATH_FUNCS = {
 
 
 def is_numeric_constant(node: ast.AST) -> bool:
+    """
+
+    :param node:
+    :return:
+    """
     return isinstance(node, ast.Constant) and isinstance(node.value, (int, float))
 
 
 def is_tensor_suspect(node: ast.AST) -> bool:
+    """
+
+    :param node:
+    :return:
+    """
     # Heuristic: name like x, y, v, t and attributes starting with mx., torch.
     if isinstance(node, ast.Attribute):
         base = node.value
@@ -48,6 +58,11 @@ def is_tensor_suspect(node: ast.AST) -> bool:
 
 
 def visit_file(path: pathlib.Path) -> List[Tuple[int, str]]:
+    """
+
+    :param path:
+    :return:
+    """
     src = path.read_text(encoding='utf-8')
     try:
         tree = ast.parse(src)
@@ -58,15 +73,26 @@ def visit_file(path: pathlib.Path) -> List[Tuple[int, str]]:
     SHAPE_FUNCS = {'pad', 'reshape', 'transpose', 'permute', 'slice', 'take', 'stack', 'concatenate'}
 
     class V(ast.NodeVisitor):
+        """
+
+        """
         def __init__(self):
             self.stack = []
 
         def visit(self, node):
+            """
+
+            :param node:
+            """
             self.stack.append(node)
             super().visit(node)
             self.stack.pop()
 
         def visit_BinOp(self, node: ast.BinOp):
+            """
+
+            :param node:
+            """
             if is_numeric_constant(node.left) and is_tensor_suspect(node.right):
                 if not self._inside_shape_call():
                     findings.append((node.lineno, 'Numeric literal on left in BinOp with tensor suspect'))
@@ -76,6 +102,10 @@ def visit_file(path: pathlib.Path) -> List[Tuple[int, str]]:
             self.generic_visit(node)
 
         def visit_Call(self, node: ast.Call):
+            """
+
+            :param node:
+            """
             # flag mx.* or torch.* math funcs receiving numeric constants
             fn = node.func
             if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name) and fn.value.id in {'mx', 'torch'}:
@@ -99,6 +129,9 @@ def visit_file(path: pathlib.Path) -> List[Tuple[int, str]]:
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser()
     ap.add_argument('paths', nargs='+', help='Files or directories to scan')
     args = ap.parse_args()

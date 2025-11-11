@@ -87,7 +87,8 @@ class StateManager:
             states.append(layer_state)
         return states
 
-    def update_states(self, states: List[Dict[str, torch.Tensor]],
+    @staticmethod
+    def update_states(states: List[Dict[str, torch.Tensor]],
                       new_states: List[Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
         """Update states in-place for memory efficiency"""
         for i, (C_new, n_new, m_new) in enumerate(new_states):
@@ -312,7 +313,7 @@ class StreamingmLSTMBlock(nn.Module):
             out = self.hid_norm(h_t) + x_skip
             out = self.down_proj(out)
 
-        out = out * F.silu(r_t)
+        out *= F.silu(r_t)
         final_output = out + x
 
         # Package new state

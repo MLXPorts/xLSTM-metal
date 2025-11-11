@@ -101,7 +101,7 @@ def _select_tile_av() -> Tuple[int, int]:
         try:
             av, _ = _tiles_for_gemm()
             if av and "x" in av:
-                tm_s, t_s = av.lower().split("x");
+                tm_s, t_s = av.lower().split("x")
                 tm, t = int(tm_s), int(t_s)
                 if tm * t <= 1024 and tm > 0 and t > 0:
                     return tm, t
@@ -133,7 +133,7 @@ def _select_tile_atb() -> Tuple[int, int, int]:
         try:
             _, atb = _tiles_for_gemm()
             if atb and "x" in atb:
-                tn_s, tk_s = atb.lower().split("x");
+                tn_s, tk_s = atb.lower().split("x")
                 tn, tk = int(tn_s), int(tk_s)
                 if tn * tk <= 1024 and tn > 0 and tk > 0:
                     return tn, 16, tk

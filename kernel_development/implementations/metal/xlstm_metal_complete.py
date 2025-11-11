@@ -165,7 +165,8 @@ class mLSTMBackend(nn.Module):
         self.mode = config.mode
         self.return_last_states = config.return_last_states or config.mode == "inference"
 
-    def _init_state(self, B: int, NH: int, DH_v: int, DH_k: int, device) -> Tuple[
+    @staticmethod
+    def _init_state(B: int, NH: int, DH_v: int, DH_k: int, device) -> Tuple[
         torch.Tensor, torch.Tensor, torch.Tensor]:
         """Initialize state tensors
         

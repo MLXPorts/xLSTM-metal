@@ -182,7 +182,7 @@ class UltimatexLSTMBlock(nn.Module):
 
         # Final processing
         out = self.hid_norm(h_t)
-        out = out * F.silu(r_t)
+        out *= F.silu(r_t)
         out = self.down_proj(out)
 
         return out + x, (C_t, n_t, m_t)

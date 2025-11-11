@@ -57,7 +57,7 @@ class TinySLSTM(nn.Module):
         B, S, D = x.shape
         c = mx.zeros((B, D))
         n = mx.ones((B, D))
-        h = mx.zeros((B, D));
+        h = mx.zeros((B, D))
         m = mx.zeros((B, D))
         outs = []
         for t in range(S):
@@ -73,24 +73,24 @@ class TinySLSTM(nn.Module):
         """
         B, S, D = x.shape
         # Precompute all projections once
-        I = self.W_i(x);
+        I = self.W_i(x)
         F = self.W_f(x)
-        Z = self.W_z(x);
+        Z = self.W_z(x)
         O = self.W_o(x)
-        c = mx.zeros((B, D));
-        n = mx.ones((B, D));
-        h = mx.zeros((B, D));
+        c = mx.zeros((B, D))
+        n = mx.ones((B, D))
+        h = mx.zeros((B, D))
         m = mx.zeros((B, D))
         outs = []
         for t in range(S):
-            i = I[:, t, :];
-            f = F[:, t, :];
-            z = Z[:, t, :];
+            i = I[:, t, :]
+            f = F[:, t, :]
+            z = Z[:, t, :]
             o = O[:, t, :]
             m = mx.maximum(f + m, i)
-            i = mx.exp(i - m);
+            i = mx.exp(i - m)
             f = mx.exp(f - m + m)
-            z = mx.tanh(z);
+            z = mx.tanh(z)
             o = mx.sigmoid(o)
             c = f * c + i * z
             n = f * n + i
@@ -109,19 +109,19 @@ def bench(model, x):
     :return:
     """
     # Warmup
-    _ = model.forward_stepwise(x);
+    _ = model.forward_stepwise(x)
     mx.eval(_)
-    _ = model.forward_precompute(x);
+    _ = model.forward_precompute(x)
     mx.eval(_)
     iters = 5
     t0 = time.time()
     for _ in range(iters):
-        y = model.forward_stepwise(x);
+        y = model.forward_stepwise(x)
         mx.eval(y)
     t_step = (time.time() - t0) / iters
     t1 = time.time()
     for _ in range(iters):
-        y = model.forward_precompute(x);
+        y = model.forward_precompute(x)
         mx.eval(y)
     t_prec = (time.time() - t1) / iters
     return t_step, t_prec

@@ -26,14 +26,7 @@ def test_slstm_cell():
 
     try:
         # Create sLSTM neuron
-        cell = sLSTMNeuron(
-            input_size=512,
-            num_heads=4,
-            head_dim=128,
-            use_bias=False,
-            eps=1e-6,
-            gate_soft_cap=15.0
-        )
+        cell = sLSTMNeuron(input_size=512, num_heads=4, head_dim=128)
 
         print(f"✓ sLSTMNeuron created")
         print(f"  - input_size: {cell.input_size}")
@@ -42,7 +35,7 @@ def test_slstm_cell():
 
         # Create dummy input
         B, S, D = 2, 8, 512
-        x = mx.random.normal(shape=(B, S, D), dtype=mx.float32)
+        x = mx.random.normal(shape=(B, S, D))
 
         print(f"\n  Input shape: {x.shape}")
 
@@ -93,17 +86,7 @@ def test_slstm_block_wrapper():
 
     try:
         # Create block wrapper
-        block = xLSTMsLSTMCell(
-            block_index=0,
-            embedding_dim=1024,
-            num_heads=4,
-            head_dim=256,
-            gate_soft_cap=15.0,
-            ffn_proj_factor=2.667,
-            norm_eps=1e-6,
-            use_bias=False,
-            eps=1e-6
-        )
+        block = xLSTMsLSTMCell(block_index=0, embedding_dim=1024, head_dim=256)
 
         print(f"✓ xLSTMsLSTMCell created")
         print(f"  - block_index: {block.block_index}")
@@ -114,7 +97,7 @@ def test_slstm_block_wrapper():
 
         # Create dummy input
         B, S, D = 1, 16, 1024
-        x = mx.random.normal(shape=(B, S, D), dtype=mx.float32)
+        x = mx.random.normal(shape=(B, S, D))
 
         print(f"\n  Input shape: {x.shape}")
 
@@ -193,7 +176,7 @@ def test_slstm_from_config():
 
         # Test forward pass
         B, S, D = 1, 4, 2048
-        x = mx.random.normal(shape=(B, S, D), dtype=mx.float32)
+        x = mx.random.normal(shape=(B, S, D))
 
         output, state = block(x)
 
@@ -222,12 +205,7 @@ def test_stateful_generation():
 
     try:
         # Create block
-        block = xLSTMsLSTMCell(
-            block_index=0,
-            embedding_dim=512,
-            num_heads=4,
-            head_dim=128,
-        )
+        block = xLSTMsLSTMCell(block_index=0, embedding_dim=512, head_dim=128)
 
         print(f"✓ Block created for stateful generation")
 
@@ -240,7 +218,7 @@ def test_stateful_generation():
         state = None
         for step in range(num_steps):
             # Single token input
-            x = mx.random.normal(shape=(B, 1, D), dtype=mx.float32)
+            x = mx.random.normal(shape=(B, 1, D))
 
             # Forward with state
             output, state = block(x, state=state)
@@ -268,6 +246,10 @@ def test_stateful_generation():
 
 
 def main():
+    """
+
+    :return:
+    """
     print("\nTesting sLSTM NCPS Implementation")
     print("=" * 60)
 

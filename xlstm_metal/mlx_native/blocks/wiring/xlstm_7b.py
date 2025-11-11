@@ -68,10 +68,7 @@ def create_xlstm_wiring(config: Dict[str, Any]) -> MADWiring:
     inference_state_dtype = config.get('inference_state_dtype', 'float32')
     return_last_states = config.get('return_last_states', True)
     chunk_size = config.get('chunk_size', 64)
-    specs = {}
-
-    # Embedding layer
-    specs['embedding'] = BlockSpec(
+    specs = {'embedding': BlockSpec(
         name='embedding',
         block_type=BlockType.EMBEDDING,
         backend=BackendType.MLX,
@@ -79,7 +76,9 @@ def create_xlstm_wiring(config: Dict[str, Any]) -> MADWiring:
             'vocab_size': vocab_size,
             'embedding_dim': embedding_dim
         }
-    )
+    )}
+
+    # Embedding layer
 
     # xLSTM blocks (mLSTM + FFN in each block)
     for i in range(num_blocks):

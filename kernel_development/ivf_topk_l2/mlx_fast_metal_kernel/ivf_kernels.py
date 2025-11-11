@@ -374,7 +374,7 @@ def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tupl
     """
     P, kk = int(vals_parts.shape[0]), int(vals_parts.shape[1])
     shape = mx.array([P, kk, int(k)], dtype=mx.uint32)
-    grid = (1, 1, 1);
+    grid = (1, 1, 1)
     threadgroup = (32, 1, 1)
     (vals, ids) = _KERNEL_TOPK_MERGE(
         inputs=[vals_parts, ids_parts, shape],

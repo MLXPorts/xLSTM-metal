@@ -270,6 +270,7 @@ class MADWiring:
             elif spec.block_type == BlockType.NORM:
                 from ...blocks.mlstm_torch_compiled.block import MetalRMSNorm
                 return MetalRMSNorm(spec.params.get('d_model', 512))
+            return None
 
         elif spec.backend == BackendType.MLX:
             import mlx.nn as mlx_nn
@@ -508,15 +509,14 @@ def create_parallel_head_wiring(
         >>> model = WiredMADModel(wiring, 'input_norm', 'output_proj')
         >>> # 4 mLSTM heads run in PARALLEL
     """
-    specs = {}
-
-    # Input normalization
-    specs['input_norm'] = BlockSpec(
+    specs = {'input_norm': BlockSpec(
         name='input_norm',
         block_type=BlockType.NORM,
         backend=backend,
         params={'d_model': d_model}
-    )
+    )}
+
+    # Input normalization
 
     # Parallel mLSTM heads
     for i in range(num_heads):
@@ -567,15 +567,14 @@ def create_xlstm_7_1_wiring(
     Returns:
         MADWiring with 7:1 mLSTM:sLSTM pattern
     """
-    specs = {}
-
-    # Input embedding (would be separate, just using norm for now)
-    specs['input'] = BlockSpec(
+    specs = {'input': BlockSpec(
         name='input',
         block_type=BlockType.NORM,
         backend=backend,
         params={'d_model': d_model}
-    )
+    )}
+
+    # Input embedding (would be separate, just using norm for now)
 
     # Create blocks in 7:1 pattern
     prev_block = 'input'
@@ -660,13 +659,12 @@ def create_xlstm_7b_mlx_wiring(
     Returns:
         MADWiring configured for xLSTM-7B with MLX backend
     """
-    specs = {}
-
-    # Embedding layer
-    specs['embedding'] = BlockSpec(name='embedding', block_type=BlockType.EMBEDDING, params={
+    specs = {'embedding': BlockSpec(name='embedding', block_type=BlockType.EMBEDDING, params={
         'vocab_size': vocab_size,
         'embedding_dim': embedding_dim
-    })
+    })}
+
+    # Embedding layer
 
     # xLSTM blocks (mLSTM + FFN in each block)
     for i in range(num_blocks):

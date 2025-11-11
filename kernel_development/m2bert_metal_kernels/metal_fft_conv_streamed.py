@@ -13,7 +13,6 @@ Each phase gets its own compiled kernel. Orchestration uses MLX stream chaining.
 
 import mlx.core as mx
 import mlx.nn as nn
-from .typed import u32
 
 # Global kernel cache - compile once, reuse forever
 _KERNELS = {}
@@ -30,16 +29,21 @@ struct dd_t { float hi; float lo; };
 inline dd_t quick_two_sum(float a, float b) { float s=a+b; return dd_t{s, b-(s-a)}; }
 inline dd_t two_sum(float a, float b) { float s=a+b; float v=s-a; return dd_t{s, (a-(s-v))+(b-v)}; }
 inline dd_t two_prod(float a, float b) { float p=a*b; return dd_t{p, fma(a,b,-p)}; }
-inline dd_t dd_add(dd_t a, dd_t b) { dd_t s=two_sum(a.hi,b.hi); dd_t t=two_sum(a.lo,b.lo); s.lo+=t.hi; s=quick_two_sum(s.hi,s.lo); s.lo+=t.lo; return quick_two_sum(s.hi,s.lo); }
+inline dd_t dd_add(dd_t a, dd_t b) { dd_t s=two_sum(a.hi,b.hi); dd_t t=two_sum(a.lo,b.lo); s.lo+=t.hi; 
+    s=quick_two_sum(s.hi,s.lo); s.lo+=t.lo; return quick_two_sum(s.hi,s.lo); }
 inline dd_t dd_sub(dd_t a, dd_t b) { return dd_add(a, dd_t{-b.hi,-b.lo}); }
-inline dd_t dd_mul(dd_t a, dd_t b) { dd_t p=two_prod(a.hi,b.hi); p.lo+=a.hi*b.lo+a.lo*b.hi; return quick_two_sum(p.hi,p.lo); }
+inline dd_t dd_mul(dd_t a, dd_t b) { dd_t p=two_prod(a.hi,b.hi); p.lo+=a.hi*b.lo+a.lo*b.hi; 
+    return quick_two_sum(p.hi,p.lo); }
 
 inline float2 dd2_quick_two_sum(float a, float b) { float s=a+b; return float2(s, b-(s-a)); }
 inline float2 dd2_two_sum(float a, float b) { float s=a+b; float v=s-a; return float2(s, (a-(s-v))+(b-v)); }
 inline float2 dd2_two_prod(float a, float b) { float p=a*b; return float2(p, fma(a,b,-p)); }
-inline float2 dd2_add(float2 a, float2 b) { float2 s=dd2_two_sum(a.x,b.x); float2 t=dd2_two_sum(a.y,b.y); s.y+=t.x; s=dd2_quick_two_sum(s.x,s.y); s.y+=t.y; return dd2_quick_two_sum(s.x,s.y); }
+inline float2 dd2_add(float2 a, float2 b) { 
+    float2 s=dd2_two_sum(a.x,b.x); float2 t=dd2_two_sum(a.y,b.y); s.y+=t.x; 
+    s=dd2_quick_two_sum(s.x,s.y); s.y+=t.y; return dd2_quick_two_sum(s.x,s.y); }
 inline float2 dd2_sub(float2 a, float2 b) { return dd2_add(a, float2(-b.x,-b.y)); }
-inline float2 dd2_mul(float2 a, float2 b) { float2 p=dd2_two_prod(a.x,b.x); p.y+=a.x*b.y+a.y*b.x; return dd2_quick_two_sum(p.x,p.y); }
+inline float2 dd2_mul(float2 a, float2 b) { float2 p=dd2_two_prod(a.x,b.x); p.y+=a.x*b.y+a.y*b.x; 
+    return dd2_quick_two_sum(p.x,p.y); }
 inline float dd2_to_float(float2 a) { return a.x+a.y; }
 
 inline void cdd2_mul(float2 ar, float2 ai, float2 br, float2 bi, thread float2& rr, thread float2& ri) {
@@ -50,7 +54,8 @@ inline void cdd2_mul(float2 ar, float2 ai, float2 br, float2 bi, thread float2& 
 }
 
 // FFT helper (copied from unified)
-inline void fft_inplace_global_table(device float* re, device float* im, threadgroup const float* Twr, threadgroup const float* Twi, uint N, uint tid, uint tpg, bool inverse, bool comp_bfly) {
+inline void fft_inplace_global_table(device float* re, device float* im, threadgroup const float* Twr, 
+threadgroup const float* Twi, uint N, uint tid, uint tpg, bool inverse, bool comp_bfly) {
     uint logn=0; for(uint n=N; n>1; n>>=1) ++logn;
     // Bit reversal
     for(uint i=tid; i<N; i+=tpg) {
@@ -216,16 +221,23 @@ _SRC_IFFT = r"""
     }
 """
 
+
 def _get_kernel(name):
     if name not in _KERNELS:
         if name == 'fft_k':
-            _KERNELS[name] = mx.fast.metal_kernel(name="fft_k", input_names=["params","k_time"], output_names=["Kr_out","Ki_out"], header=_HEADER, source=_SRC_FFT_K)
+            _KERNELS[name] = mx.fast.metal_kernel(name="fft_k", input_names=["params", "k_time"],
+                                                  output_names=["Kr_out", "Ki_out"], header=_HEADER, source=_SRC_FFT_K)
         elif name == 'fft_u':
-            _KERNELS[name] = mx.fast.metal_kernel(name="fft_u", input_names=["params","u"], output_names=["Ur_out","Ui_out"], header=_HEADER, source=_SRC_FFT_U)
+            _KERNELS[name] = mx.fast.metal_kernel(name="fft_u", input_names=["params", "u"],
+                                                  output_names=["Ur_out", "Ui_out"], header=_HEADER, source=_SRC_FFT_U)
         elif name == 'cmul':
-            _KERNELS[name] = mx.fast.metal_kernel(name="cmul", input_names=["params","Ur_in","Ui_in","Kr_in","Ki_in"], output_names=["Ur_out","Ui_out"], header=_HEADER, source=_SRC_CMUL)
+            _KERNELS[name] = mx.fast.metal_kernel(name="cmul",
+                                                  input_names=["params", "Ur_in", "Ui_in", "Kr_in", "Ki_in"],
+                                                  output_names=["Ur_out", "Ui_out"], header=_HEADER, source=_SRC_CMUL)
         elif name == 'ifft':
-            _KERNELS[name] = mx.fast.metal_kernel(name="ifft", input_names=["params","Ur_in","Ui_in","u","D"], output_names=["Ur_work","Ui_work","y_out"], header=_HEADER, source=_SRC_IFFT)
+            _KERNELS[name] = mx.fast.metal_kernel(name="ifft", input_names=["params", "Ur_in", "Ui_in", "u", "D"],
+                                                  output_names=["Ur_work", "Ui_work", "y_out"], header=_HEADER,
+                                                  source=_SRC_IFFT)
     return _KERNELS[name]
 
 
@@ -234,74 +246,73 @@ class MetalFFTConvStreamed(nn.Module):
         super().__init__()
         self.num_streams = num_streams
         self.streams = [mx.new_stream(mx.default_device()) for _ in range(num_streams)]
-    
+
     def __call__(self, u, k, D):
         B, C, L = u.shape
         N = 2 * L
-        
+
         u, k = u.astype(mx.float32), k.astype(mx.float32)
         D = D.reshape(-1).astype(mx.float32) if D.ndim == 3 else D.astype(mx.float32)
-        
+
         # Allocate workspace
-        Kr = mx.zeros((C, N), dtype=mx.float32)
-        Ki = mx.zeros((C, N), dtype=mx.float32)
-        Ur = mx.zeros((B, C, N), dtype=mx.float32)
-        Ui = mx.zeros((B, C, N), dtype=mx.float32)
-        y = mx.zeros((B, C, L), dtype=mx.float32)
-        
-        one, tpg = u32(1), u32(min(256, N))
-        
+        Kr = mx.zeros((C, N))
+        Ki = mx.zeros((C, N))
+        Ur = mx.zeros((B, C, N))
+        Ui = mx.zeros((B, C, N))
+        y = mx.zeros((B, C, L))
+        one, tpg = mx.array(1, dtype=mx.uint32), mx.array(min(256, N), dtype=mx.uint32)
+
         # Phase 1: FFT(k) all channels on stream 0
         with mx.stream(self.streams[0]):
             params = mx.array([B, C, L, N], dtype=mx.uint32)
             Kr, Ki = _get_kernel('fft_k')(
                 inputs=[params, k.reshape(-1)],
-                output_shapes=[(C*N,), (C*N,)],
+                output_shapes=[(C * N,), (C * N,)],
                 output_dtypes=[mx.float32, mx.float32],
-                grid=(mx.multiply(u32(C), tpg), one, one),
+                grid=(mx.multiply(mx.array(C, dtype=mx.uint32), tpg), one, one),
                 threadgroup=(tpg, one, one)
             )
             Kr, Ki = Kr.reshape(C, N), Ki.reshape(C, N)
-        
+
         # Phases 2-4: per (b,c) with stream chaining
         y_slices = []
-        
+
         for b in range(B):
             for c in range(C):
-                s = self.streams[(b*C+c) % self.num_streams]
+                s = self.streams[(b * C + c) % self.num_streams]
                 with mx.stream(s):
                     p = mx.array([B, C, L, N, b, c], dtype=mx.uint32)
                     g, tg = (tpg, one, one), (tpg, one, one)
-                    
+
                     # Phase 2: FFT(u)
                     Ur_bc, Ui_bc = _get_kernel('fft_u')(
                         inputs=[p, u.reshape(-1)],
-                        output_shapes=[(B*C*N,), (B*C*N,)],
+                        output_shapes=[(B * C * N,), (B * C * N,)],
                         output_dtypes=[mx.float32, mx.float32],
                         grid=g, threadgroup=tg
                     )
-                    
+
                     # Phase 3: cmul
                     p2 = mx.array([B, C, N, b, c], dtype=mx.uint32)
                     Ur_bc, Ui_bc = _get_kernel('cmul')(
                         inputs=[p2, Ur_bc, Ui_bc, Kr.reshape(-1), Ki.reshape(-1)],
-                        output_shapes=[(B*C*N,), (B*C*N,)],
+                        output_shapes=[(B * C * N,), (B * C * N,)],
                         output_dtypes=[mx.float32, mx.float32],
                         grid=g, threadgroup=tg
                     )
-                    
+
                     # Phase 4: IFFT
                     _, _, y_full = _get_kernel('ifft')(
                         inputs=[p, Ur_bc, Ui_bc, u.reshape(-1), D],
-                        output_shapes=[(B*C*N,), (B*C*N,), (B*C*L,)],
+                        output_shapes=[(B * C * N,), (B * C * N,), (B * C * L,)],
                         output_dtypes=[mx.float32, mx.float32, mx.float32],
                         grid=g, threadgroup=tg
                     )
-                    
+
                     # Extract just this (b,c) slice
                     start = (b * C + c) * L
-                    y_slice = y_full[start:start+L]
+                    y_slice = y_full[start:start + L]
                     y_slices.append(y_slice)
-        
+
         mx.synchronize()
         return mx.stack(y_slices).reshape(B, C, L)

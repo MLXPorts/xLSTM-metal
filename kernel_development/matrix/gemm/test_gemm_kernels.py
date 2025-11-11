@@ -26,24 +26,24 @@ def check(shape=(64, 128, 32), tiles=(16, 16)):
     V = mx.random.normal(shape=(n, k))
 
     # AV
-    t0 = time.time();
-    B0 = mx.matmul(A, V);
-    mx.eval(B0);
+    t0 = time.time()
+    B0 = mx.matmul(A, V)
+    mx.eval(B0)
     t0 = time.time() - t0
-    t1 = time.time();
-    B1 = gemm_av(A, V);
-    mx.eval(B1);
+    t1 = time.time()
+    B1 = gemm_av(A, V)
+    mx.eval(B1)
     t1 = time.time() - t1
     diff_av = float(mx.max(mx.abs(B0 - B1)))
 
     # AT_B
-    t2 = time.time();
-    Z0 = mx.matmul(mx.transpose(A), B0);
-    mx.eval(Z0);
+    t2 = time.time()
+    Z0 = mx.matmul(mx.transpose(A), B0)
+    mx.eval(Z0)
     t2 = time.time() - t2
-    t3 = time.time();
-    Z1 = gemm_at_b(A, B0);
-    mx.eval(Z1);
+    t3 = time.time()
+    Z1 = gemm_at_b(A, B0)
+    mx.eval(Z1)
     t3 = time.time() - t3
     diff_atb = float(mx.max(mx.abs(Z0 - Z1)))
 

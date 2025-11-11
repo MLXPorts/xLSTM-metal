@@ -32,10 +32,7 @@ def test_load_pretrained():
 
     try:
         print("Loading model with pretrained weights...")
-        model = WiredxLSTM.from_pretrained(
-            model_dir,
-            load_weights=True
-        )
+        model = WiredxLSTM.from_pretrained(model_dir)
 
         print(f"✓ Model loaded successfully")
         print(f"  - Blocks: {len(model.blocks)}")
@@ -286,6 +283,10 @@ def test_batch_inference(model):
 
 
 def main():
+    """
+
+    :return:
+    """
     print("\nTesting Pretrained xLSTM-7B Inference")
     print("=" * 60)
 

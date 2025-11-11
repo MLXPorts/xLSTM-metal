@@ -197,14 +197,10 @@ def slstm_step_metal(
     eps_bits = mx.array([eps], dtype=mx.float32).view(mx.uint32)[0]
     params = mx.array([B, NH, H, int(eps_bits.item())], dtype=mx.uint32)
 
-    # Configure grid: one thread per (batch, head)
-    total_heads = B * NH
-    from .typed import u32
-    one = u32(1)
-    tpg = u32(256)
-    num_groups = mx.divide(mx.add(u32(total_heads), mx.subtract(tpg, one)), tpg)
-    grid = (num_groups, one, one)
-    threadgroup = (tpg, one, one)
+    # Configure grid: use fixed threadgroup size
+    # grid and threadgroup must match for single-threadgroup kernels
+    grid = (256, 1, 1)
+    threadgroup = (256, 1, 1)
 
     # Dispatch kernel
     kernel = _get_kernel('slstm_step')
@@ -268,9 +264,9 @@ class sLSTMMetalKernel(nn.Module):
 
         # Initialize state if needed
         if state is None:
-            c_state = mx.zeros((B, NH, H), dtype=mx.float32)
-            n_state = mx.zeros((B, NH, H), dtype=mx.float32)
-            m_state = mx.zeros((B, NH), dtype=mx.float32)
+            c_state = mx.zeros((B, NH, H))
+            n_state = mx.zeros((B, NH, H))
+            m_state = mx.zeros((B, NH))
         else:
             c_state, n_state, m_state = state
 

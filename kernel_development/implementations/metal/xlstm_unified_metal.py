@@ -46,7 +46,7 @@ class RMSNorm(nn.Module):
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.variance_epsilon)
+        hidden_states *= torch.rsqrt(variance + self.variance_epsilon)
         return self.weight * hidden_states.to(input_dtype)
 
 
@@ -98,7 +98,8 @@ class mLSTMBlock(nn.Module):
         else:
             self.layer_norm = nn.LayerNorm(config.d_model, eps=config.norm_eps)
 
-    def soft_cap(self, x: torch.Tensor, cap_value: float) -> torch.Tensor:
+    @staticmethod
+    def soft_cap(x: torch.Tensor, cap_value: float) -> torch.Tensor:
         """
 
         :param x:
@@ -181,7 +182,8 @@ class sLSTMBlock(nn.Module):
         else:
             self.layer_norm = nn.LayerNorm(config.d_model, eps=config.norm_eps)
 
-    def soft_cap(self, x: torch.Tensor, cap_value: float) -> torch.Tensor:
+    @staticmethod
+    def soft_cap(x: torch.Tensor, cap_value: float) -> torch.Tensor:
         """
 
         :param x:
@@ -266,7 +268,8 @@ class xLSTMModel(nn.Module):
 
         self.apply(self._init_weights)
 
-    def _init_weights(self, module):
+    @staticmethod
+    def _init_weights(module):
         if isinstance(module, nn.Linear):
             torch.nn.init.normal_(module.weight, std=0.02)
             if module.bias is not None:
@@ -389,7 +392,7 @@ class MetalOptimizedxLSTM(xLSTMModel):
 
             # Apply temperature
             if temperature != 1.0:
-                logits = logits / temperature
+                logits /= temperature
 
             # Apply top-k filtering
             if top_k is not None and top_k > 0:

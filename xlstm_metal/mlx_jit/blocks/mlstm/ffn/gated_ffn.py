@@ -85,6 +85,7 @@ class GatedFFN(nn.Module):
         Returns:
             (output, state): Output tensor and state (None for stateless FFN)
         """
+        global h_out
         is_batched = inputs.ndim == 3
         batch_dim = 0 if self.batch_first else 1
         seq_dim = 1 if self.batch_first else 0

@@ -129,13 +129,7 @@ class FFNBlock(nn.Module):
         # Import here to avoid circular dependency
         from .components import RMSNorm
 
-        self.norm_ffn = RMSNorm(
-            num_features=config.embedding_dim,
-            eps=norm_eps,
-            use_weight=True,
-            use_bias=config.use_bias,
-            force_float32_reductions=True
-        )
+        self.norm_ffn = RMSNorm(num_features=config.embedding_dim, eps=norm_eps, use_bias=config.use_bias)
 
         self.ffn = GatedFFN(config)
 

@@ -17,6 +17,7 @@ from typing import Tuple, Optional
 
 import mlx.core as mx
 import mlx.nn as nn
+from xlstm_metal.mlx_jit.blocks.slstm.causal_conv1d.causal_conv1d_kernel import CausalConv1dCell
 
 
 class sLSTMProjectionCell(nn.Module):
@@ -35,6 +36,7 @@ class sLSTMProjectionCell(nn.Module):
         num_heads: Number of sLSTM heads
         head_dim: Hidden dimension per head
         conv1d_kernel_size: Conv kernel size (0 = disabled, default 4)
+        conv_channel_mixing: Whether conv mixes channels (groups=1) or depthwise
         use_bias: Whether to use bias in z projection
         gate_soft_cap: Soft cap value for gates (default 15.0)
     """
@@ -45,6 +47,7 @@ class sLSTMProjectionCell(nn.Module):
             num_heads: int,
             head_dim: int,
             conv1d_kernel_size: int = 4,
+            conv_channel_mixing: bool = False,
             use_bias: bool = False,
             gate_soft_cap: float = 15.0,
     ):
@@ -54,20 +57,17 @@ class sLSTMProjectionCell(nn.Module):
         self.num_heads = num_heads
         self.head_dim = head_dim
         self.conv1d_kernel_size = conv1d_kernel_size
+        self.conv_channel_mixing = conv_channel_mixing
         self.gate_soft_cap = gate_soft_cap
 
         hidden_size = num_heads * head_dim
 
-        # Optional Conv1d for temporal context (canonical applies to i, f gates)
+        # Optional depthwise causal Conv1d (Metal), applied to i,f gates inputs
         if conv1d_kernel_size > 0:
-            self.causal_pad = conv1d_kernel_size - 1
-            self.conv1d = nn.Conv1d(
-                in_channels=input_size,
-                out_channels=input_size,
-                kernel_size=conv1d_kernel_size,
-                stride=1,
-                padding=0,
-                bias=True,
+            self.conv1d = CausalConv1dCell(
+                input_size,
+                conv1d_kernel_size,
+                channel_mixing=conv_channel_mixing,
             )
             self.conv_act = nn.SiLU()
         else:
@@ -77,9 +77,9 @@ class sLSTMProjectionCell(nn.Module):
         # Canonical: i, f use conv'd input (if enabled)
         # z, o use raw input
         # All gates have bias=True in canonical (for proper initialization)
-        self.igate_proj = nn.Linear(input_size, num_heads, bias=True)
-        self.fgate_proj = nn.Linear(input_size, num_heads, bias=True)
-        self.ogate_proj = nn.Linear(input_size, num_heads, bias=True)
+        self.igate_proj = nn.Linear(input_size, num_heads)
+        self.fgate_proj = nn.Linear(input_size, num_heads)
+        self.ogate_proj = nn.Linear(input_size, num_heads)
 
         # z projection (cell input candidate)
         self.z_proj = nn.Linear(input_size, hidden_size, bias=use_bias)
@@ -110,19 +110,9 @@ class sLSTMProjectionCell(nn.Module):
         """
         B, S, _ = x.shape
 
-        # Apply Conv1d if enabled (canonical applies to i, f gates)
+        # Apply Metal causal conv if enabled (already causal; no padding/transpose)
         if self.conv1d is not None:
-            # Causal padding: [B, S, D] needs to be [B, D, S] for Conv1d
-            x_transposed = x.transpose(0, 2, 1)  # [B, D, S]
-
-            # Causal padding on sequence dimension
-            if self.causal_pad > 0:
-                padding = mx.zeros((B, self.input_size, self.causal_pad), dtype=x.dtype)
-                x_transposed = mx.concatenate([padding, x_transposed], axis=2)
-
-            # Apply conv and activation
-            x_conv_transposed = self.conv_act(self.conv1d(x_transposed))  # [B, D, S]
-            x_conv = x_conv_transposed.transpose(0, 2, 1)  # [B, S, D]
+            x_conv = self.conv_act(self.conv1d(x))  # [B, S, D]
         else:
             x_conv = x
 

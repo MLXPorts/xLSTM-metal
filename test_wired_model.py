@@ -152,10 +152,7 @@ def test_weight_loading():
     try:
         # Create model with weight loading
         print("  Creating model and loading weights...")
-        model = WiredxLSTM.from_pretrained(
-            "xlstm_7b_model",
-            load_weights=True
-        )
+        model = WiredxLSTM.from_pretrained("xlstm_7b_model")
 
         print(f"✓ Model created with weights loaded")
 
@@ -190,6 +187,10 @@ def test_weight_loading():
 
 
 def main():
+    """
+
+    :return:
+    """
     print("\nTesting WiredxLSTM Model")
     print("=" * 60)
 

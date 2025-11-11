@@ -21,10 +21,10 @@ if __name__ == "__main__":
     model = create_xlstm_model(vocab_size=1024, num_layers=4, signature=(1, 1), inp_dim=512, head_dim=64, head_num=8,
                                dropout=0.0)
     tokens = mx.random.randint(0, 1024, (1, 64))
-    reset_runtime_config();
+    reset_runtime_config()
     configure_model(fast_head=False)
     seq_off = _decode_argmax(model, tokens)
-    reset_runtime_config();
+    reset_runtime_config()
     configure_model(fast_head=True)
     seq_on = _decode_argmax(model, tokens)
     print('parity:', seq_on == seq_off)

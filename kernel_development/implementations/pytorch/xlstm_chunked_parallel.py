@@ -324,12 +324,13 @@ class ChunkedParallelmLSTMBlock(nn.Module):
 
         # Final processing
         out = self.hid_norm(h) + x_skip
-        out = out * F.silu(r_t)
+        out *= F.silu(r_t)
         out = self.down_proj(out)
 
         return out + x, None  # No hidden state returned for sequence processing
 
-    def standard_attention(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
+    @staticmethod
+    def standard_attention(q: torch.Tensor, k: torch.Tensor, v: torch.Tensor,
                            i_gates: torch.Tensor, f_gates: torch.Tensor) -> torch.Tensor:
         """Standard sequential attention for comparison/short sequences"""
         B, NH, S, D = q.shape

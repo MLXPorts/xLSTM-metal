@@ -57,7 +57,7 @@ class MetalRMSNorm(nn.Module):
         input_dtype = hidden_states.dtype
         hidden_states = hidden_states.to(torch.float32)
         variance = hidden_states.pow(2).mean(-1, keepdim=True)
-        hidden_states = hidden_states * torch.rsqrt(variance + self.eps)
+        hidden_states *= torch.rsqrt(variance + self.eps)
         return self.weight * hidden_states.to(input_dtype)
 
 
@@ -123,7 +123,8 @@ class CompilablemLSTMBlock(nn.Module):
 
         return residual + self.out_proj(outputs), hidden_state
 
-    def _process_sequence_vectorized(self, q, k, v, i_gate, f_gate, o_gate, initial_hidden):
+    @staticmethod
+    def _process_sequence_vectorized(q, k, v, i_gate, f_gate, o_gate, initial_hidden):
         """
         Vectorized sequence processing that torch.compile can optimize.
         Avoids explicit loops that cause TorchScript issues.
@@ -222,7 +223,8 @@ class CompilablesLSTMBlock(nn.Module):
 
         return residual + self.out_proj(outputs), hidden_state
 
-    def _process_sequence_vectorized(self, c_input, i_gate, f_gate, o_gate, initial_hidden):
+    @staticmethod
+    def _process_sequence_vectorized(c_input, i_gate, f_gate, o_gate, initial_hidden):
         """Vectorized sLSTM sequence processing for torch.compile"""
         batch_size, seq_len, proj_dim = c_input.shape
 

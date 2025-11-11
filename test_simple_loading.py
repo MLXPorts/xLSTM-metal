@@ -162,7 +162,7 @@ def test_forward_pass():
 
         # Create dummy input: [batch=1, seq_len=4, embedding_dim]
         B, S, D = 1, 4, config['embedding_dim']
-        x = mx.random.normal(shape=(B, S, D), dtype=mx.float32)
+        x = mx.random.normal(shape=(B, S, D))
 
         print(f"  Input shape: {x.shape}")
 
@@ -185,6 +185,10 @@ def test_forward_pass():
 
 
 def main():
+    """
+
+    :return:
+    """
     print("\nTesting xLSTM-Metal Model Loading Pipeline (with Auto-Wiring)")
     print("=" * 60)
 

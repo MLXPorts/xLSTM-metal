@@ -14,6 +14,9 @@ except ModuleNotFoundError:
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser(
         description="Run emberlint on a path and summarize precision casts and tensor conversions")
     ap.add_argument("path", help="File or directory to analyze")

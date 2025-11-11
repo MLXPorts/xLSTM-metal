@@ -127,7 +127,7 @@ def sample_token(logits: torch.Tensor, temperature: float = 1.0, do_sample: bool
     if not do_sample or temperature == 0:
         return torch.argmax(logits, dim=-1, keepdim=True)
 
-    logits = logits / temperature
+    logits /= temperature
     probs = F.softmax(logits, dim=-1)
     next_tokens = torch.multinomial(probs, num_samples=1)
     return next_tokens
@@ -275,7 +275,8 @@ class mLSTMBlock(nn.Module):
         m_0 = torch.zeros(batch_size, self.head_num, device=self.device)
         return c_0, n_0, m_0
 
-    def update_hidden_inplace(self, hidden_state, new_state):
+    @staticmethod
+    def update_hidden_inplace(hidden_state, new_state):
         """Update hidden states in-place for memory efficiency"""
         c_tm1, n_tm1, m_tm1 = hidden_state
         c_new, n_new, m_new = new_state
@@ -330,7 +331,7 @@ class mLSTMBlock(nn.Module):
         h_t = o_t * (h_numerator / h_denominator).view(bs, self.hidden_dim)
 
         out = self.hid_norm(h_t) + x_skip
-        out = out * F.silu(r_t)
+        out *= F.silu(r_t)
         out = self.down_proj(out)
 
         return out + x, (c_t, n_t, m_t)
@@ -411,7 +412,8 @@ class sLSTMBlock(nn.Module):
         m_0 = torch.zeros(batch_size, self.hidden_dim, device=self.device)
         return c_0, n_0, h_0, m_0
 
-    def update_hidden_inplace(self, hidden_state, new_state):
+    @staticmethod
+    def update_hidden_inplace(hidden_state, new_state):
         """Update hidden states in-place for memory efficiency"""
         c_tm1, n_tm1, h_tm1, m_tm1 = hidden_state
         c_new, n_new, h_new, m_new = new_state

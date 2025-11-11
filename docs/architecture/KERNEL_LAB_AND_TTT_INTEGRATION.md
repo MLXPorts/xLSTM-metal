@@ -361,7 +361,7 @@ python ttt_update_bench.py --adapter_rank 8 --num_blocks 32
 7. **Distributed TTT** (already have Ray infrastructure):
    ```python
    # Use existing Ray setup
-   from kernel_development.mlstm_block.mlstm_chunkwise.ray import ...
+   from kernel_development.xlstm.mlstm_block.mlstm_chunkwise.ray import ...
 
    class DistributedTTT:
        def partition_blocks(self, num_nodes):

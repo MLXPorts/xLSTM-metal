@@ -146,7 +146,8 @@ class xLSTM7BCell(nn.Module):
         # Store gate soft cap for proper initialization/loading
         self.gate_soft_cap = gate_soft_cap
 
-    def _round_up_to_multiple(self, value: int, multiple: int) -> int:
+    @staticmethod
+    def _round_up_to_multiple(value: int, multiple: int) -> int:
         """Round up value to nearest multiple."""
         return ((value + multiple - 1) // multiple) * multiple
 

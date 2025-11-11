@@ -55,14 +55,7 @@ class sLSTMOutputCell(nn.Module):
 
         # Multi-head group normalization (per-head)
         # Canonical uses MultiHeadLayerNorm (not RMS) with force_float32=True
-        self.group_norm = MultiHeadLayerNorm(
-            num_heads=num_heads,
-            head_dim=head_dim,
-            eps=eps,
-            use_weight=True,
-            use_bias=False,
-            force_float32_reductions=True
-        )
+        self.group_norm = MultiHeadLayerNorm(num_heads=num_heads, head_dim=head_dim, eps=eps)
 
         # Final output projection
         self.out_proj = nn.Linear(hidden_size, input_size, bias=use_bias)
