@@ -10,13 +10,14 @@ from typing import Dict, TYPE_CHECKING
 
 import mlx.core as mx
 
-from ..models.xlstm_7b_model import xLSTM7BCell
+from xlstm_metal.mlx_jit.blocks.mlstm.mlstm_block import mLSTMBlock
+from xlstm_metal.mlx_jit.models import WiredxLSTM
 
 if TYPE_CHECKING:
-    from xlstm_metal.mlx_jit.wiring import WiredMADModel
+    from ..wiring import AutoWiring
 
 
-def load_npz_weights_to_block(npz_weights: Dict[str, mx.array], block_idx: int, block: xLSTM7BCell):
+def load_npz_weights_to_block(npz_weights: Dict[str, mx.array], block_idx: int, block: mLSTMBlock):
     """
     Load weights from NPZ into an xLSTM7BCell.
 
@@ -109,7 +110,7 @@ def load_npz_weights_to_block(npz_weights: Dict[str, mx.array], block_idx: int, 
         print(f"Warning: Missing weight {down_key}")
 
 
-def load_xLSTM_7b_weights(npz_path: str, blocks: list[xLSTMBlock]):
+def load_xLSTM_7b_weights(npz_path: str, blocks: list[mLSTMBlock]):
     """
     Load xLSTM-7B weights from NPZ file into list of xLSTMBlocks.
 
@@ -149,24 +150,24 @@ def load_xLSTM_7b_weights(npz_path: str, blocks: list[xLSTMBlock]):
     return embedding_weight, head_weight
 
 
-def load_weights_into_wired_model(npz_path: str, model: "WiredMADModel"):
+def load_weights_into_wired_model(npz_path: str, model: "WiredxLSTM"):
     """
-    Load xLSTM-7B weights from NPZ file into a WiredMADModel.
+    Load xLSTM-7B weights from NPZ file into a WiredxLSTM model.
 
     This function handles the MAD wiring structure where blocks are named
     'xlstm_0', 'xlstm_1', etc., and also loads embedding and lm_head weights.
 
     Args:
         npz_path: Path to xlstm_7b_mlx_converted.npz
-        model: WiredMADModel instance with xLSTM-7B wiring
+        model: WiredxLSTM instance with NCPS wiring
 
     The model is expected to have blocks named:
         - 'embedding': Token embedding
         - 'xlstm_0' through 'xlstm_31': xLSTM blocks
-        - 'final_norm': Final RMSNorm
+        - 'out_norm': Final RMSNorm
         - 'lm_head': Language model head
     """
-    print(f"Loading weights into WiredMADModel from {npz_path}...")
+    print(f"Loading weights into WiredxLSTM from {npz_path}...")
     weights = mx.load(npz_path)
 
     print(f"Loaded {len(weights)} weight tensors")

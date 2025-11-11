@@ -184,11 +184,11 @@ class AutoWiring(Wiring):
         block_type = block_info['type']
 
         if block_type == 'mlstm':
-            from xlstm_metal.mlx_jit.models.xlstm_7b_model import xLSTM7BCell
-            return xLSTM7BCell.from_config(block_idx, self.config)
+            from xlstm_metal.mlx_jit.blocks.mlstm.mlstm_block import mLSTMBlock
+            return mLSTMBlock.from_config(block_idx, self.config)
         elif block_type == 'slstm':
-            from xlstm_metal.mlx_jit.models.xlstm_original_model import xLSTMsLSTMCell
-            return xLSTMsLSTMCell.from_config(block_idx, self.config)
+            from xlstm_metal.mlx_jit.blocks.slstm.slstm_block import sLSTMBlock
+            return sLSTMBlock.from_config(block_idx, self.config)
         elif block_type == 'attention':
             # TODO: Implement attention cell
             raise NotImplementedError("Attention cells not yet implemented")

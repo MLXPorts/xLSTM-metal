@@ -13,12 +13,12 @@ from typing import Optional, Tuple, Dict, Any
 import mlx.core as mx
 import mlx.nn as nn
 
-from xlstm_metal.mlx_jit.blocks.mlstm.neurons.mlstm_chunkwise.mlstm_neuron import mLSTMChunkwiseCell
+from xlstm_metal.mlx_jit.blocks.mlstm.mlstm_chunkwise.mlstm_neuron import mLSTMNeuron
 
 
-class xLSTM7BCell(nn.Module):
+class mLSTMBlock(nn.Module):
     """
-    Complete xLSTM-7B block cell (mLSTM + FFN) for NCPS.
+    Complete mLSTM (xlSTM-7B block) (mLSTM + FFN) for NCPS.
     
     This represents one full xLSTM block from the model:
         input -> norm_mlstm -> mLSTM -> residual
@@ -122,7 +122,7 @@ class xLSTM7BCell(nn.Module):
         )
 
         # mLSTM cell
-        self.mlstm_cell = mLSTMChunkwiseCell(
+        self.mlstm_cell = mLSTMNeuron(
             input_size=embedding_dim,
             num_heads=num_heads,
             qk_dim_per_head=self.qk_dim_per_head,
@@ -266,7 +266,7 @@ class xLSTM7BCell(nn.Module):
             block_index: int,
             config: Dict[str, Any],
             sparsity_mask: Optional[mx.array] = None
-    ) -> "xLSTM7BCell":
+    ) -> "mLSTMBlock":
         """
         Create cell from config.json dict.
         
@@ -276,13 +276,13 @@ class xLSTM7BCell(nn.Module):
             sparsity_mask: Optional NCPS wiring sparsity mask
             
         Returns:
-            Initialized xLSTM7BCell
+            Initialized mLSTMBlock
             
         Example:
             >>> import json
             >>> with open("xlstm_7b_model/config.json") as f:
             ...     config = json.load(f)
-            >>> cell = xLSTM7BCell.from_config(0, config)
+            >>> cell = mLSTMBlock.from_config(0, config)
         """
         return cls(
             block_index=block_index,

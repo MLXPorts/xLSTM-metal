@@ -122,6 +122,7 @@ _SRC_SLSTM_STEP = r"""
     }
 """
 
+
 def _get_kernel(name):
     """Get or compile kernel on first use."""
     if name not in _KERNELS:
@@ -129,7 +130,7 @@ def _get_kernel(name):
             _KERNELS[name] = mx.fast.metal_kernel(
                 name="slstm_step",
                 input_names=["params", "z", "i_preact", "f_preact", "o_preact",
-                            "c_state", "n_state", "m_state"],
+                             "c_state", "n_state", "m_state"],
                 output_names=["h_out", "c_state_out", "n_state_out", "m_state_out"],
                 header=_HEADER,
                 source=_SRC_SLSTM_STEP
@@ -138,14 +139,14 @@ def _get_kernel(name):
 
 
 def slstm_step_metal(
-    z: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    o_preact: mx.array,
-    c_state: mx.array,
-    n_state: mx.array,
-    m_state: mx.array,
-    eps: float = 1e-6
+        z: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        o_preact: mx.array,
+        c_state: mx.array,
+        n_state: mx.array,
+        m_state: mx.array,
+        eps: float = 1e-6
 ) -> Tuple[mx.array, mx.array, mx.array, mx.array]:
     """
     Single sLSTM step using Metal kernel with canonical equations.
@@ -206,7 +207,7 @@ def slstm_step_metal(
     kernel = _get_kernel('slstm_step')
     h_flat, c_new_flat, n_new_flat, m_new_flat = kernel(
         inputs=[params, z_flat, i_flat, f_flat, o_flat, c_flat, n_flat, m_flat],
-        output_shapes=[(B*NH*H,), (B*NH*H,), (B*NH*H,), (B*NH,)],
+        output_shapes=[(B * NH * H,), (B * NH * H,), (B * NH * H,), (B * NH,)],
         output_dtypes=[mx.float32, mx.float32, mx.float32, mx.float32],
         grid=grid,
         threadgroup=threadgroup
@@ -239,12 +240,12 @@ class sLSTMMetalKernel(nn.Module):
         self.eps = eps
 
     def __call__(
-        self,
-        z: mx.array,
-        i_preact: mx.array,
-        f_preact: mx.array,
-        o_preact: mx.array,
-        state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+            self,
+            z: mx.array,
+            i_preact: mx.array,
+            f_preact: mx.array,
+            o_preact: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:
         """
         Process sequence through sLSTM.

@@ -13,7 +13,7 @@ from typing import Optional, Tuple
 import mlx.core as mx
 import mlx.nn as nn
 
-from .slstm_metal_kernel import sLSTMMetalKernel
+from xlstm_metal.mlx_jit.blocks.slstm.slstm_layers.stepwise.slstm_metal_kernel import sLSTMMetalKernel
 
 
 class sLSTMStepwiseKernelCell(nn.Module):
@@ -74,7 +74,7 @@ class sLSTMStepwiseKernelCell(nn.Module):
             h: Hidden states [B, NH, H]
             new_state: Updated state (c, n, m)
         """
-        from .slstm_metal_kernel import slstm_step_metal
+        from xlstm_metal.mlx_jit.blocks.slstm.slstm_layers.stepwise.slstm_metal_kernel import slstm_step_metal
 
         B, NH, H = z.shape
 

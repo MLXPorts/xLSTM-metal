@@ -7,7 +7,7 @@ the canonical sLSTM equations from xlstm package.
 """
 
 import mlx.core as mx
-from xlstm_metal.mlx_jit.blocks.slstm.slstm_stepwise.slstm_metal_kernel import slstm_step_metal
+from xlstm_metal.mlx_jit.blocks.slstm.slstm_layers.stepwise.slstm_metal_kernel import slstm_step_metal
 
 
 def logsigmoid_mlx(x: mx.array) -> mx.array:

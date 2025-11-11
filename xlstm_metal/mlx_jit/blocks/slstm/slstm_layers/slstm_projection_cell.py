@@ -13,11 +13,11 @@ Based on canonical xLSTM sLSTMLayer structure where:
 """
 
 from __future__ import annotations
-from typing import Tuple, Optional
+from typing import Tuple
 
 import mlx.core as mx
 import mlx.nn as nn
-from xlstm_metal.mlx_jit.blocks.slstm.causal_conv1d.causal_conv1d_kernel import CausalConv1dCell
+from xlstm_metal.mlx_jit.blocks.slstm.slstm_layers.causal_conv1d.causal_conv1d_kernel import CausalConv1dCell
 
 
 class sLSTMProjectionCell(nn.Module):

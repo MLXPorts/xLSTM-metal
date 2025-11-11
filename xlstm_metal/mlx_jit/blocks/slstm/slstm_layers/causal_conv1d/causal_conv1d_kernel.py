@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import mlx.core as mx
 import mlx.nn as nn
 
 from .depthwise_kernel import metal_causal_conv1d_depthwise
 from .mixing_kernel import metal_causal_conv1d_mixing
+
 
 class CausalConv1dCell(nn.Module):
     """Causal Conv1d cell used in sLSTM projection (NCPS before-cell).

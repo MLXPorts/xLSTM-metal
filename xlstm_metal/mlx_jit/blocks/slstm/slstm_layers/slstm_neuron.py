@@ -13,7 +13,7 @@ import mlx.core as mx
 import mlx.nn as nn
 
 from .slstm_projection_cell import sLSTMProjectionCell
-from .slstm_stepwise.slstm_stepwise_kernel import sLSTMStepwiseKernelCell
+from xlstm_metal.mlx_jit.blocks.slstm.slstm_layers.stepwise.slstm_stepwise_kernel_cell import sLSTMStepwiseKernelCell
 from .slstm_output_cell import sLSTMOutputCell
 
 

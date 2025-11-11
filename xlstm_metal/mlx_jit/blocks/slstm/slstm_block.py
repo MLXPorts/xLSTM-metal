@@ -16,7 +16,7 @@ import mlx.nn as nn
 from xlstm_metal.mlx_jit.blocks.slstm import sLSTMNeuron
 
 
-class xLSTMsLSTMCell(nn.Module):
+class sLSTMBlock(nn.Module):
     """
     Complete xLSTM sLSTM block cell (sLSTM + FFN) for NCPS.
 
@@ -171,7 +171,7 @@ class xLSTMsLSTMCell(nn.Module):
             block_index: int,
             config: Dict[str, Any],
             **kwargs
-    ) -> "xLSTMsLSTMCell":
+    ) -> "sLSTMBlock":
         """
         Create cell from config.json dict.
 
@@ -211,4 +211,4 @@ class xLSTMsLSTMCell(nn.Module):
         }
 
 
-__all__ = ['xLSTMsLSTMCell']
+__all__ = ['sLSTMBlock']
