@@ -17,7 +17,6 @@ _KERNEL = r"""
     """
 
 
-
 class SoftCapMLXFastKernel:
     """Apply an elementwise soft cap: out = cap * tanh(x/cap).
 

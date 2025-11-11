@@ -34,15 +34,15 @@ import mlx.core as mx
 
 
 def _mlstm_chunkwise_recurrent_fw_C(
-    k: mx.array,  # (B, NH, S, DHQK)
-    v: mx.array,  # (B, NH, S, DHHV)
-    vec_b: mx.array,  # (B, NH, NC, L) - cumsum(logsigmoid(f))
-    vec_i: mx.array,  # (B, NH, NC, L) - input gate preact
-    c_initial: Optional[mx.array] = None,  # (B, NH, DHQK, DHHV)
-    n_initial: Optional[mx.array] = None,  # (B, NH, DHQK)
-    m_initial: Optional[mx.array] = None,  # (B, NH)
-    chunk_size: int = 64,
-    num_chunks: int = 1,
+        k: mx.array,  # (B, NH, S, DHQK)
+        v: mx.array,  # (B, NH, S, DHHV)
+        vec_b: mx.array,  # (B, NH, NC, L) - cumsum(logsigmoid(f))
+        vec_i: mx.array,  # (B, NH, NC, L) - input gate preact
+        c_initial: Optional[mx.array] = None,  # (B, NH, DHQK, DHHV)
+        n_initial: Optional[mx.array] = None,  # (B, NH, DHQK)
+        m_initial: Optional[mx.array] = None,  # (B, NH)
+        chunk_size: int = 64,
+        num_chunks: int = 1,
 ) -> Tuple[mx.array, mx.array, mx.array]:
     """
     Recurrent computation of inter-chunk states (Triton mlstm_chunkwise_recurrent_fw_C.py).
@@ -117,17 +117,17 @@ def _mlstm_chunkwise_recurrent_fw_C(
 
 
 def mlstm_chunkwise_mlx(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    chunk_size: int = 64,
-    c_initial: Optional[mx.array] = None,
-    n_initial: Optional[mx.array] = None,
-    m_initial: Optional[mx.array] = None,
-    eps: float = 1e-6,
-    return_last_states: bool = True
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        chunk_size: int = 64,
+        c_initial: Optional[mx.array] = None,
+        n_initial: Optional[mx.array] = None,
+        m_initial: Optional[mx.array] = None,
+        eps: float = 1e-6,
+        return_last_states: bool = True
 ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
     """
     Chunkwise mLSTM using MLX operations (based on Triton kernels).

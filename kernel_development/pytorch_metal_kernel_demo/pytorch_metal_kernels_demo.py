@@ -1,4 +1,3 @@
-
 # Archived demo: moved from repo root; not used by production backends.
 """
 PyTorch Metal Kernel Implementation for xLSTM
@@ -35,7 +34,7 @@ def create_pytorch_metal_extension():
     3. Python wrapper with pybind11
     4. Custom setup.py with Metal framework linking
     """
-    
+
     # This would be the structure for a complete implementation:
     extension_files = {
         'setup.py': '''
@@ -69,7 +68,7 @@ setup(
     zip_safe=False,
 )
 ''',
-        
+
         'pytorch_metal_xlstm.mm': '''
 #include <torch/extension.h>
 #include <Metal/Metal.h>
@@ -153,7 +152,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("metal_soft_cap", &metal_soft_cap_pytorch, "Metal soft cap implementation");
 }
 ''',
-        
+
         'xlstm_kernels.metal': '''
 #include <metal_stdlib>
 using namespace metal;
@@ -222,7 +221,7 @@ kernel void mlstm_step_kernel(
 }
 '''
     }
-    
+
     return extension_files
 
 
@@ -231,11 +230,11 @@ class PyTorchMetalSoftCap(nn.Module):
     PyTorch implementation using fallback to MPS operations
     until custom Metal extension is built
     """
-    
+
     def __init__(self, cap_value: float = 15.0):
         super().__init__()
         self.cap_value = cap_value
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
 
@@ -248,12 +247,12 @@ class PyTorchMetalSoftCap(nn.Module):
 
 class PyTorchMetalRMSNorm(nn.Module):
     """RMSNorm optimized for MPS backend"""
-    
+
     def __init__(self, hidden_size: int, eps: float = 1e-6):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.eps = eps
-    
+
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """
 
@@ -270,28 +269,29 @@ class PyTorchMetalRMSNorm(nn.Module):
 
 class PyTorchMetalmLSTMBlock(nn.Module):
     """mLSTM block optimized for PyTorch MPS backend"""
-    
+
     def __init__(self, d_model: int = 512, num_heads: int = 8, head_dim: int = 64):
         super().__init__()
         self.d_model = d_model
         self.num_heads = num_heads
         self.head_dim = head_dim
-        
+
         # Projections
         self.q_proj = nn.Linear(d_model, num_heads * head_dim, bias=False)
         self.k_proj = nn.Linear(d_model, num_heads * head_dim, bias=False)
         self.v_proj = nn.Linear(d_model, num_heads * head_dim, bias=False)
-        
+
         # Gates with Metal soft capping
         self.i_proj = nn.Linear(d_model, num_heads, bias=False)
         self.f_proj = nn.Linear(d_model, num_heads, bias=False)
         self.o_proj = nn.Linear(d_model, num_heads, bias=False)
-        
+
         self.out_proj = nn.Linear(num_heads * head_dim, d_model, bias=False)
         self.soft_cap = PyTorchMetalSoftCap()
         self.layer_norm = PyTorchMetalRMSNorm(d_model)
-    
-    def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+
+    def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[
+        torch.Tensor, torch.Tensor]:
         """
 
         :param x:
@@ -301,24 +301,24 @@ class PyTorchMetalmLSTMBlock(nn.Module):
         batch_size, seq_len, d_model = x.shape
         residual = x
         x = self.layer_norm(x)
-        
+
         # Projections
         q = self.q_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
         k = self.k_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
         v = self.v_proj(x).view(batch_size, seq_len, self.num_heads, self.head_dim)
-        
+
         # Gates with soft capping
         i_gate = torch.sigmoid(self.soft_cap(self.i_proj(x)))
         f_gate = torch.sigmoid(self.soft_cap(self.f_proj(x)))
         o_gate = torch.sigmoid(self.soft_cap(self.o_proj(x)))
-        
+
         # Initialize hidden state
         if hidden_state is None:
             hidden_state = torch.zeros(
                 batch_size, self.num_heads, self.head_dim, self.head_dim,
                 device=x.device, dtype=x.dtype
             )
-        
+
         outputs = []
         for t in range(seq_len):
             q_t = q[:, t]  # [batch_size, num_heads, head_dim]
@@ -327,41 +327,41 @@ class PyTorchMetalmLSTMBlock(nn.Module):
             i_t = i_gate[:, t]  # [batch_size, num_heads]
             f_t = f_gate[:, t]
             o_t = o_gate[:, t]
-            
+
             # Matrix memory update (optimized for MPS)
             kv_outer = torch.einsum('bhd,bhe->bhde', k_t, v_t)
             hidden_state = f_t.unsqueeze(-1).unsqueeze(-1) * hidden_state + i_t.unsqueeze(-1).unsqueeze(-1) * kv_outer
-            
+
             # Compute output
             h_t = torch.einsum('bhd,bhde->bhe', q_t, hidden_state)
             h_t = o_t.unsqueeze(-1) * h_t
             outputs.append(h_t)
-        
+
         output = torch.stack(outputs, dim=1)
         output = output.view(batch_size, seq_len, -1)
-        
+
         return residual + self.out_proj(output), hidden_state
 
 
 class PyTorchMetalxLSTMModel(nn.Module):
     """Complete xLSTM model optimized for PyTorch MPS backend"""
-    
+
     def __init__(self, vocab_size: int = 50257, num_layers: int = 6, d_model: int = 512):
         super().__init__()
-        
+
         # Embeddings
         self.embedding = nn.Embedding(vocab_size, d_model)
-        
+
         # xLSTM blocks optimized for MPS
         self.blocks = nn.ModuleList([
             PyTorchMetalmLSTMBlock(d_model=d_model)
             for _ in range(num_layers)
         ])
-        
+
         # Output head
         self.head = nn.Linear(d_model, vocab_size, bias=False)
         self.soft_cap = PyTorchMetalSoftCap(30.0)
-        
+
     def forward(self, tokens: torch.Tensor, hidden_states: Optional[List] = None) -> Tuple[torch.Tensor, List]:
         """
 
@@ -370,18 +370,18 @@ class PyTorchMetalxLSTMModel(nn.Module):
         :return:
         """
         x = self.embedding(tokens)
-        
+
         if hidden_states is None:
             hidden_states = [None] * len(self.blocks)
-        
+
         for i, block in enumerate(self.blocks):
             x, hidden_states[i] = block(x, hidden_states[i])
-        
+
         logits = self.head(x)
-        
+
         # Apply soft capping to output logits
         logits = self.soft_cap(logits)
-        
+
         return logits, hidden_states
 
 
@@ -392,7 +392,7 @@ def build_metal_extension():
     This function provides the template and instructions for creating
     a full C++/Metal extension for PyTorch.
     """
-    
+
     instructions = """
     To build the complete Metal extension:
     
@@ -417,23 +417,23 @@ def build_metal_extension():
     
     Recommended approach: JIT-compile Metal kernels at runtime
     """
-    
+
     return instructions
 
 
 def create_metal_kernel_files():
     """Create the Metal kernel files for the extension"""
-    
+
     # Create directory
     os.makedirs("pytorch_metal_xlstm_ext", exist_ok=True)
-    
+
     # Write extension files
     extension_files = create_pytorch_metal_extension()
-    
+
     for filename, content in extension_files.items():
         with open(f"pytorch_metal_xlstm_ext/{filename}", "w") as f:
             f.write(content)
-    
+
     print("Created PyTorch Metal extension files in pytorch_metal_xlstm_ext/")
     print("To build: cd pytorch_metal_xlstm_ext && pip install -e .")
 
@@ -441,45 +441,45 @@ def create_metal_kernel_files():
 # Example usage and testing
 if __name__ == "__main__":
     import time
-    
+
     print("Testing PyTorch Metal xLSTM implementation...")
     print(f"MPS available: {torch.backends.mps.is_available()}")
-    
+
     # Create model
     model = PyTorchMetalxLSTMModel(
         vocab_size=1000,
         num_layers=4,
         d_model=256
     ).to(device)
-    
+
     # Test data
     batch_size = 1
     seq_len = 32
     prompt = torch.randint(0, 1000, (batch_size, seq_len), device=device)
-    
+
     print(f"Prompt shape: {prompt.shape}")
     print(f"Model device: {next(model.parameters()).device}")
-    
+
     # Forward pass
     start_time = time.time()
     with torch.no_grad():
         logits, hidden_states = model(prompt)
     torch.mps.synchronize()  # Ensure MPS operations complete
     forward_time = time.time() - start_time
-    
+
     print(f"Forward pass completed in {forward_time:.3f}s")
     print(f"Output shape: {logits.shape}")
-    
+
     # Test soft capping
     test_tensor = torch.randn(100, device=device) * 10
     soft_cap = PyTorchMetalSoftCap(5.0)
     capped = soft_cap(test_tensor)
-    
+
     print(f"Soft capping: max uncapped = {test_tensor.max():.2f}, max capped = {capped.max():.2f}")
-    
+
     # Create Metal extension files
     create_metal_kernel_files()
-    
+
     print("\n" + build_metal_extension())
-    
+
     print("PyTorch Metal xLSTM implementation complete!")

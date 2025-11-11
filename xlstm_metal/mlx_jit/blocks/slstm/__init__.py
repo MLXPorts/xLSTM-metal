@@ -2,21 +2,17 @@
 sLSTM MLX Implementation for xLSTM
 
 MLX-based sLSTM blocks implementing scalar LSTM from xLSTM paper Appendix A.
+Follows NCPS pattern with modular cells, kernels, and neurons.
 """
 
-from .block import sLSTMBlock, sLSTMConfig, sLSTMLayer
-from .components import RMSNorm, soft_cap, MultiHeadLayerNorm
-from .kernel import slstm_recurrent_step, slstm_sequential
-from .slstm_neuron import sLSTMCell
+from .slstm_projection_cell import sLSTMProjectionCell
+from .slstm_stepwise.slstm_stepwise_kernel import sLSTMStepwiseKernelCell
+from .slstm_output_cell import sLSTMOutputCell
+from .slstm_neuron import sLSTMNeuron
 
 __all__ = [
-    'sLSTMBlock',
-    'sLSTMConfig',
-    'sLSTMLayer',
-    'sLSTMCell',
-    'RMSNorm',
-    'soft_cap',
-    'MultiHeadLayerNorm',
-    'slstm_recurrent_step',
-    'slstm_sequential',
+    'sLSTMProjectionCell',
+    'sLSTMStepwiseKernelCell',
+    'sLSTMOutputCell',
+    'sLSTMNeuron',
 ]

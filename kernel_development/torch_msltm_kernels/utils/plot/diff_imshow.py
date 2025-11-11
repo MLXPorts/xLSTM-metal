@@ -58,15 +58,15 @@ def convert_to_diff_imarray_numpy(target, baseline=None):
 
 
 def plot_numerical_diffs(
-    pt_fp32_baseline,
-    cu_fp32,
-    cu_bf16,
-    cu_half,
-    title,
-    vmin=0.0,
-    vmax=1e-2,
-    figsize=(10, 6),
-    convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
+        pt_fp32_baseline,
+        cu_fp32,
+        cu_bf16,
+        cu_half,
+        title,
+        vmin=0.0,
+        vmax=1e-2,
+        figsize=(10, 6),
+        convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
 ):
     """
 
@@ -109,13 +109,13 @@ def plot_numerical_diffs(
 
 
 def plot_numerical_diffs_single(
-    baseline,
-    target=None,
-    title="",
-    vmin=0.0,
-    vmax=1e-2,
-    figsize=(10, 6),
-    convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
+        baseline,
+        target=None,
+        title="",
+        vmin=0.0,
+        vmax=1e-2,
+        figsize=(10, 6),
+        convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
 ):
     """
 
@@ -140,16 +140,16 @@ def plot_numerical_diffs_single(
 
 
 def plot_numerical_diffs_per_batchhead(
-    baseline,
-    target=None,
-    title="",
-    vmin=0.0,
-    vmax=1e-2,
-    figsize=(10, 6),
-    rtol: float = None,
-    atol: float = None,
-    max_num_batchhead_plots: int = -1,  # -1 means all
-    convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
+        baseline,
+        target=None,
+        title="",
+        vmin=0.0,
+        vmax=1e-2,
+        figsize=(10, 6),
+        rtol: float = None,
+        atol: float = None,
+        max_num_batchhead_plots: int = -1,  # -1 means all
+        convert_to_diff_imarray_fn: callable = convert_to_diff_imarray_numpy,
 ):
     """
 

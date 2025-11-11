@@ -2,9 +2,11 @@
 
 Utilities and entrypoints for running, benchmarking, optimizing, and debugging xLSTM on Apple Silicon (MPS).
 
-**PYTHON NOTE (READ ME FIRST): python3 is trash - it's the MacOS python which I can't upgrade. python is the 3.12 version from conda.**
+**PYTHON NOTE (READ ME FIRST): python3 is trash - it's the MacOS python which I can't upgrade. python is the 3.12
+version from conda.**
 
 Subfolders
+
 - benchmarks: Throughput and performance runners (prefill/decode timing).
 - build: Build helpers (e.g., extension or toolchain setup scripts).
 - checks: Lightweight validators and sanity checks.
@@ -14,6 +16,7 @@ Subfolders
 - experiments: Isolated sandboxes for algorithmic or scheduling experiments.
 
 Calling graph (high-level)
+
 - runners/run_local_xlstm_mps.py → xlstm_official_full.xlstm_large (model) → mlstm_kernels (compiled MPS backends)
 - benchmarks/* → runners/load helpers → model.forward/generate
 - optimize: scripts/optimize_mps.py (tuning) → model.forward/generate; save/judge complete the loop.

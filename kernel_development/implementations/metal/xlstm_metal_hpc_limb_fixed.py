@@ -1,4 +1,3 @@
-
 """
 xLSTM with HPC Limb Metal Optimization (Fixed)
 
@@ -110,6 +109,7 @@ HPC_LIMB_KERNEL = r"""
     }
 """
 
+
 class HPCLimbMetalxLSTM:
     """An xLSTM model that uses a custom Metal kernel with HPC limb arithmetic.
 
@@ -124,12 +124,12 @@ class HPCLimbMetalxLSTM:
         num_heads (int, optional): The number of heads. Defaults to 8.
         head_dim (int, optional): The dimension of each head. Defaults to 64.
     """
-    
+
     def __init__(self, d_model=512, num_heads=8, head_dim=64):
         self.d_model = d_model
         self.num_heads = num_heads
         self.head_dim = head_dim
-        
+
         # Initialize weights as float32 (MLX will handle conversion)
         self.q_weight = mx.random.normal((num_heads, head_dim, d_model)) * 0.02
         self.k_weight = mx.random.normal((num_heads, head_dim, d_model)) * 0.02
@@ -137,48 +137,48 @@ class HPCLimbMetalxLSTM:
         self.i_weight = mx.random.normal((num_heads, d_model)) * 0.02
         self.f_weight = mx.random.normal((num_heads, d_model)) * 0.02
         self.o_weight = mx.random.normal((num_heads, d_model)) * 0.02
-        
+
         # Compile Metal kernel
         self.kernel = mx.fast.metal_kernel(name="hpc_limb_xlstm", source=HPC_LIMB_KERNEL,
                                            input_names=["input", "q_weight", "k_weight", "v_weight",
                                                         "i_weight", "f_weight", "o_weight",
                                                         "hidden_state", "cell_state", "shape"],
                                            output_names=["output", "hidden_state_out", "cell_state_out", "debug"])
-        
+
     def forward(self, x, hidden_state=None, cell_state=None):
         """Forward pass using HPC limb Metal kernel"""
         batch_size, seq_len, _ = x.shape
-        
+
         # Initialize states if needed
         if hidden_state is None:
             hidden_state = mx.zeros((batch_size, self.num_heads, self.head_dim))
         if cell_state is None:
             cell_state = mx.zeros((batch_size, self.num_heads, self.head_dim))
-            
+
         # Shape information
         shape = mx.array([batch_size, seq_len, self.d_model, self.num_heads, self.head_dim], dtype=mx.uint32)
-        
+
         # Allocate output
         output_shape = (batch_size, seq_len, self.num_heads * self.head_dim)
         debug_shape = (16,)
-        
+
         # Run kernel with grid configuration
         grid = (batch_size * self.num_heads, 1, 1)
         threads = (1, 1, 1)
-        
+
         # MLX metal_kernel expects inputs as a list
         inputs = [x, self.q_weight, self.k_weight, self.v_weight,
                   self.i_weight, self.f_weight, self.o_weight,
                   hidden_state, cell_state, shape]
-        
+
         outputs = self.kernel(
             inputs=inputs,
-            grid=grid, 
+            grid=grid,
             threadgroup=threads,
             output_shapes=[output_shape, hidden_state.shape, cell_state.shape, debug_shape],
             output_dtypes=[mx.float32, mx.float32, mx.float32, mx.float32]
         )
-        
+
         return outputs[0], outputs[1], outputs[2], outputs[3]
 
 
@@ -193,34 +193,34 @@ def test_hpc_limb_implementation():
         A tuple containing a boolean indicating success, the output tensor, and
         the debug tensor.
     """
-    
+
     print("Testing HPC Limb Metal xLSTM Implementation (Fixed)")
     print("=" * 50)
-    
+
     # Create model with smaller dimensions for testing
     model = HPCLimbMetalxLSTM(d_model=64, num_heads=2, head_dim=16)
-    
+
     # Test input
     batch_size = 1
     seq_len = 8
     d_model = 64
     x = mx.random.normal((batch_size, seq_len, d_model))
-    
+
     print(f"Input shape: {x.shape}")
     print(f"Input dtype: {x.dtype}")
-    
+
     try:
         # Forward pass
         start = time.perf_counter()
         output, hidden, cell, debug = model.forward(x)
         mx.eval(output)  # Force evaluation
         elapsed = time.perf_counter() - start
-        
+
         print(f"\nOutput shape: {output.shape}")
         print(f"Hidden state shape: {hidden.shape}")
         print(f"Cell state shape: {cell.shape}")
         print(f"Forward pass time: {elapsed:.4f}s")
-        
+
         # Check debug values
         debug_vals = debug.tolist()
         print(f"\nDebug values:")
@@ -230,25 +230,26 @@ def test_hpc_limb_implementation():
         print(f"  Input gate: {debug_vals[3]:.6f}")
         print(f"  Forget gate: {debug_vals[4]:.6f}")
         print(f"  Output gate: {debug_vals[5]:.6f}")
-        
+
         # Memory usage analysis
         param_count = (
-            model.q_weight.size + model.k_weight.size + model.v_weight.size +
-            model.i_weight.size + model.f_weight.size + model.o_weight.size
+                model.q_weight.size + model.k_weight.size + model.v_weight.size +
+                model.i_weight.size + model.f_weight.size + model.o_weight.size
         )
         param_memory = param_count * 4  # float32 = 4 bytes
-        
+
         print(f"\nMemory Analysis:")
         print(f"  Total parameters: {param_count:,}")
         print(f"  Parameter memory: {param_memory / 1024:.2f} KB")
         print(f"  Metal buffers used: 14 (well below 64 limit)")
-        
+
         # Verify soft capping is working
         print(f"\nSoft capping verification:")
-        print(f"  All gate values in [0, 1]: ✓" if all(0 <= debug_vals[i] <= 1 for i in [3,4,5]) else "  Gate values out of range!")
-        
+        print(f"  All gate values in [0, 1]: ✓" if all(
+            0 <= debug_vals[i] <= 1 for i in [3, 4, 5]) else "  Gate values out of range!")
+
         return True, output, debug
-        
+
     except Exception as e:
         print(f"\nError during execution: {e}")
         return False, None, None
@@ -257,12 +258,12 @@ def test_hpc_limb_implementation():
 if __name__ == "__main__":
     # Test implementation
     success, output, debug = test_hpc_limb_implementation()
-    
+
     if success:
         print("\n" + "=" * 50)
         print("HPC Limb Metal xLSTM Implementation Working!")
         print("✓ Metal kernel compiled and executed")
-        print("✓ Stays within Metal's buffer limitations")  
+        print("✓ Stays within Metal's buffer limitations")
         print("✓ Soft capping working correctly")
         print("✓ Ready for 16-bit limb optimization")
     else:

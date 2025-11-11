@@ -27,19 +27,19 @@ from einops import rearrange
 
 
 def mlstm_chunkwise__recurrent_fw_C(
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecB: torch.Tensor,  # (B, NH, NC, L) # cumsum(logsigmoid(f))
-    vecI: torch.Tensor,  # (B, NH, NC, L)
-    matC_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
-    vecN_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK)
-    scaMinter_states: torch.Tensor = None,  # (B, NH, (NC + 1)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaMinter_initial: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    chunk_size: int = 64,
-    num_chunks: int = 1,
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecB: torch.Tensor,  # (B, NH, NC, L) # cumsum(logsigmoid(f))
+        vecI: torch.Tensor,  # (B, NH, NC, L)
+        matC_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
+        vecN_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK)
+        scaMinter_states: torch.Tensor = None,  # (B, NH, (NC + 1)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaMinter_initial: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        chunk_size: int = 64,
+        num_chunks: int = 1,
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1))
@@ -65,7 +65,7 @@ def mlstm_chunkwise__recurrent_fw_C(
     _dtype, _device = matK.dtype, matK.device
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     # initialize the states tensors
     if matC_states is None:
@@ -105,8 +105,8 @@ def mlstm_chunkwise__recurrent_fw_C(
     for k in range(0, num_chunks):
         # store the states from the previous iteration before updating them
         # in the first iteration, these are the initial states
-        matC_states[:, :, k * DHQK : (k + 1) * DHQK, :] = matC_k
-        vecN_states[:, :, k * DHQK : (k + 1) * DHQK] = vecN_k
+        matC_states[:, :, k * DHQK: (k + 1) * DHQK, :] = matC_k
+        vecN_states[:, :, k * DHQK: (k + 1) * DHQK] = vecN_k
         scaMinter_states[:, :, k] = scaM_inter_k
 
         # m_k update
@@ -114,8 +114,8 @@ def mlstm_chunkwise__recurrent_fw_C(
         scaG_k = scaG[:, :, k]
         scaM_inter_k_next = torch.max(scaG_k + scaM_inter_k, scaA_max_k)
         # C_k update
-        matK_chunk = matK[:, :, k * chunk_size : (k + 1) * chunk_size, :]  # * qk_scale
-        matV_chunk = matV[:, :, k * chunk_size : (k + 1) * chunk_size, :]
+        matK_chunk = matK[:, :, k * chunk_size: (k + 1) * chunk_size, :]  # * qk_scale
+        matV_chunk = matV[:, :, k * chunk_size: (k + 1) * chunk_size, :]
         vecA_k = vecA[:, :, k, :]
 
         vecAbar_k = torch.exp(vecA_k - scaM_inter_k_next[..., None])[:, :, :, None]
@@ -146,19 +146,19 @@ def mlstm_chunkwise__recurrent_fw_C(
 
 
 def mlstm_chunkwise__parallel_fw_H(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    # these states must be all states up to the last chunk, i.e. :-1
-    matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
-    vecN_states: torch.Tensor,  # (B, NH, NC * DHQK)
-    scaMinter_states: torch.Tensor,  # (B, NH, NC)
-    vecI: torch.Tensor,  # (B, NH, NC, L)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    qk_scale: float,
-    chunk_size: int = 64,
-    num_chunks: int = 1,
-    eps: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        # these states must be all states up to the last chunk, i.e. :-1
+        matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
+        vecN_states: torch.Tensor,  # (B, NH, NC * DHQK)
+        scaMinter_states: torch.Tensor,  # (B, NH, NC)
+        vecI: torch.Tensor,  # (B, NH, NC, L)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        qk_scale: float,
+        chunk_size: int = 64,
+        num_chunks: int = 1,
+        eps: float = 1e-6,
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matH_out (B, NH, S, DHHV), vecN_out (B, NH, S), vecM_out (B, NH, S)
@@ -231,7 +231,7 @@ def mlstm_chunkwise__parallel_fw_H(
     matQ_chunk_gated = matQ * vecBbar * qk_scale
 
     matNumerator_common = (
-        matQ_chunk_gated @ matC_k_states + matM_chunk @ matV
+            matQ_chunk_gated @ matC_k_states + matM_chunk @ matV
     )  # (B, NH, NC, L, DHHV)
 
     vecDenom_l_common = matQ_chunk_gated @ vecN_k_states.unsqueeze(-1) + matM_chunk.sum(
@@ -255,31 +255,32 @@ def mlstm_chunkwise__parallel_fw_H(
 
 
 def mlstm_chunkwise_fw(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_initial: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    return_last_states: bool = False,
-    return_all_states: bool = False,
-    chunk_size: int = 64,
-    eps: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_initial: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        return_last_states: bool = False,
+        return_all_states: bool = False,
+        chunk_size: int = 64,
+        eps: float = 1e-6,
 ) -> tuple[
     torch.Tensor,  # matH_out (B, NH, S, DHHV)
     torch.Tensor,  # vecN_out (B, NH, S)
     torch.Tensor,  # vecM_out (B, NH, S)
     None
     | (
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ),  # last_states (matC_states (B, NH, DHQK, DHHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH, 1))
     None
     | (
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    ),  # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    ),
+    # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
 ]:
     """
 
@@ -300,7 +301,7 @@ def mlstm_chunkwise_fw(
     """
     B, NH, S, DHQK = matQ.shape
     assert (
-        S % chunk_size == 0
+            S % chunk_size == 0
     ), f"Sequence length {S} is not divisible by chunk size {chunk_size}."
     NC = S // chunk_size
 
@@ -312,7 +313,7 @@ def mlstm_chunkwise_fw(
     vecB = vecF_logsig.cumsum(-1)
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     #! materialize the  C_k, n_k, m_k states for each chunk
     matC_k_states, vecN_k_states, scaMinter_k_states = mlstm_chunkwise__recurrent_fw_C(
@@ -369,20 +370,20 @@ def mlstm_chunkwise_fw(
 
 
 def mlstm_chunkwise(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_initial: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    return_last_states: bool = False,
-    chunk_size: int = 64,
-    eps: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_initial: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        return_last_states: bool = False,
+        chunk_size: int = 64,
+        eps: float = 1e-6,
 ) -> (
-    torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+        torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):  # matH_out (B, NH, S, DHHV), optional(last_states (matC_states (B, NH, DHQK, DHHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH, 1)))
     """
 

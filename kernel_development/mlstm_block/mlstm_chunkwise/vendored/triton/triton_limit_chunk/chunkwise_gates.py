@@ -6,12 +6,13 @@
 
 import torch
 
-# Note: we separate this into a extra function for torch.compile. 
+
+# Note: we separate this into a extra function for torch.compile.
 # torch.compile will compile this into a single kernel with ca. 0.2 ms runtime (compared to 2.5 ms non-fused kernels)
 # for a 1.3B sized model with ctx8192.
 @torch.compile
 def compute_gate_grads_vecDeltaI_vecDeltaF(
-    matQ: torch.Tensor, matK: torch.Tensor, matDeltaQ: torch.Tensor, matDeltaK: torch.Tensor, vecF: torch.Tensor
+        matQ: torch.Tensor, matK: torch.Tensor, matDeltaQ: torch.Tensor, matDeltaK: torch.Tensor, vecF: torch.Tensor
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
 

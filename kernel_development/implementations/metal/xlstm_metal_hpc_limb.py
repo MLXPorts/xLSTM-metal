@@ -1,4 +1,3 @@
-
 """
 xLSTM with HPC Limb Metal Optimization
 
@@ -188,6 +187,7 @@ HPC_LIMB_KERNEL = r"""
 }
 """
 
+
 class HPCLimbMetalxLSTM:
     """An xLSTM model that uses a custom Metal kernel with HPC limb arithmetic.
 
@@ -202,12 +202,12 @@ class HPCLimbMetalxLSTM:
         num_heads (int, optional): The number of heads. Defaults to 8.
         head_dim (int, optional): The dimension of each head. Defaults to 64.
     """
-    
+
     def __init__(self, d_model=512, num_heads=8, head_dim=64):
         self.d_model = d_model
         self.num_heads = num_heads
         self.head_dim = head_dim
-        
+
         # Initialize weights as float16 for memory efficiency
         self.q_weight = mx.random.normal((num_heads, head_dim, d_model), dtype=mx.float16) * 0.02
         self.k_weight = mx.random.normal((num_heads, head_dim, d_model), dtype=mx.float16) * 0.02
@@ -215,52 +215,52 @@ class HPCLimbMetalxLSTM:
         self.i_weight = mx.random.normal((num_heads, d_model), dtype=mx.float16) * 0.02
         self.f_weight = mx.random.normal((num_heads, d_model), dtype=mx.float16) * 0.02
         self.o_weight = mx.random.normal((num_heads, d_model), dtype=mx.float16) * 0.02
-        
+
         # Compile Metal kernel
         self.kernel = mx.fast.metal_kernel(name="hpc_limb_xlstm", source=HPC_LIMB_KERNEL,
                                            input_names=["input", "q_weight", "k_weight", "v_weight",
                                                         "i_weight", "f_weight", "o_weight",
                                                         "hidden_state", "cell_state", "shape"],
                                            output_names=["output", "hidden_state_out", "cell_state_out", "debug"])
-        
+
     def forward(self, x, hidden_state=None, cell_state=None):
         """Forward pass using HPC limb Metal kernel"""
         batch_size, seq_len, _ = x.shape
-        
+
         # Initialize states if needed
         if hidden_state is None:
             hidden_state = mx.zeros((batch_size, self.num_heads, self.head_dim), dtype=mx.float16)
         if cell_state is None:
             cell_state = mx.zeros((batch_size, self.num_heads, self.head_dim), dtype=mx.float16)
-            
+
         # Shape information
         shape = mx.array([batch_size, seq_len, self.d_model, self.num_heads, self.head_dim], dtype=mx.uint32)
-        
+
         # Convert input to float16
         x_fp16 = x.astype(mx.float16)
-        
+
         # Allocate output
         output_shape = (batch_size, seq_len, self.num_heads * self.head_dim)
         output = mx.zeros(output_shape, dtype=mx.float16)
         debug = mx.zeros(16)
-        
+
         # Run kernel with grid configuration
         grid = ((batch_size * self.num_heads + 255) // 256, 1, 1)
         threads = (256, 1, 1)
-        
+
         # MLX metal_kernel expects inputs as a list
         inputs = [x_fp16, self.q_weight, self.k_weight, self.v_weight,
                   self.i_weight, self.f_weight, self.o_weight,
                   hidden_state, cell_state, shape]
-        
+
         outputs = self.kernel(
             inputs=inputs,
-            grid=grid, 
+            grid=grid,
             threadgroup=threads,
             output_shapes=[output_shape, hidden_state.shape, cell_state.shape, debug.shape],
             output_dtypes=[mx.float16, mx.float16, mx.float16, mx.float32]
         )
-        
+
         return outputs[0], outputs[1], outputs[2], outputs[3]
 
 
@@ -274,33 +274,33 @@ def test_hpc_limb_implementation():
     Returns:
         A tuple containing the output tensor and the debug tensor.
     """
-    
+
     print("Testing HPC Limb Metal xLSTM Implementation")
     print("=" * 50)
-    
+
     # Create model
     model = HPCLimbMetalxLSTM(d_model=256, num_heads=4, head_dim=32)
-    
+
     # Test input
     batch_size = 2
     seq_len = 16
     d_model = 256
     x = mx.random.normal((batch_size, seq_len, d_model))
-    
+
     print(f"Input shape: {x.shape}")
     print(f"Input dtype: {x.dtype}")
-    
+
     # Forward pass
     start = time.perf_counter()
     output, hidden, cell, debug = model.forward(x)
     mx.eval(output)  # Force evaluation
     elapsed = time.perf_counter() - start
-    
+
     print(f"\nOutput shape: {output.shape}")
     print(f"Hidden state shape: {hidden.shape}")
     print(f"Cell state shape: {cell.shape}")
     print(f"Forward pass time: {elapsed:.4f}s")
-    
+
     # Check debug values
     debug_vals = debug.tolist()
     print(f"\nDebug values:")
@@ -310,19 +310,19 @@ def test_hpc_limb_implementation():
     print(f"  Input gate: {debug_vals[3]:.6f}")
     print(f"  Forget gate: {debug_vals[4]:.6f}")
     print(f"  Output gate: {debug_vals[5]:.6f}")
-    
+
     # Memory usage analysis
     param_count = (
-        model.q_weight.size + model.k_weight.size + model.v_weight.size +
-        model.i_weight.size + model.f_weight.size + model.o_weight.size
+            model.q_weight.size + model.k_weight.size + model.v_weight.size +
+            model.i_weight.size + model.f_weight.size + model.o_weight.size
     )
     param_memory = param_count * 2  # float16 = 2 bytes
-    
+
     print(f"\nMemory Analysis:")
     print(f"  Total parameters: {param_count:,}")
     print(f"  Parameter memory: {param_memory / 1024 / 1024:.2f} MB")
     print(f"  Metal buffers used: 12 (well below 64 limit)")
-    
+
     return output, debug
 
 
@@ -337,26 +337,26 @@ def benchmark_vs_standard():
     global _
     print("\nBenchmarking HPC Limb vs Standard Implementation")
     print("=" * 50)
-    
+
     # Test configurations
     configs = [
-        (1, 32, 256),   # Small
-        (2, 64, 512),   # Medium
-        (4, 128, 1024), # Large
+        (1, 32, 256),  # Small
+        (2, 64, 512),  # Medium
+        (4, 128, 1024),  # Large
     ]
-    
+
     for batch, seq, dim in configs:
         print(f"\nConfig: batch={batch}, seq={seq}, dim={dim}")
-        
+
         # HPC Limb implementation
         model_hpc = HPCLimbMetalxLSTM(d_model=dim, head_dim=dim // 8)
         x = mx.random.normal((batch, seq, dim))
-        
+
         # Warmup
         for _ in range(3):
             _ = model_hpc.forward(x)
         mx.eval(_)
-        
+
         # Benchmark
         times = []
         for _ in range(10):
@@ -364,10 +364,10 @@ def benchmark_vs_standard():
             out, _, _, _ = model_hpc.forward(x)
             mx.eval(out)
             times.append(time.perf_counter() - start)
-            
+
         avg_time = sum(times) / len(times)
         throughput = batch * seq / avg_time
-        
+
         print(f"  HPC Limb time: {avg_time:.4f}s")
         print(f"  Throughput: {throughput:.1f} tokens/sec")
         print(f"  Memory efficient: ✓ (float16 storage)")
@@ -377,13 +377,13 @@ def benchmark_vs_standard():
 if __name__ == "__main__":
     # Test implementation
     output, debug = test_hpc_limb_implementation()
-    
+
     # Run benchmark
     benchmark_vs_standard()
-    
+
     print("\n" + "=" * 50)
     print("HPC Limb Metal xLSTM Implementation Complete!")
     print("✓ 16-bit limb arithmetic for memory efficiency")
-    print("✓ Stays within Metal's buffer limitations")  
+    print("✓ Stays within Metal's buffer limitations")
     print("✓ Float16 storage reduces memory by 50%")
     print("✓ Exact computation with carry propagation")

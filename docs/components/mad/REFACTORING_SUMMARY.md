@@ -2,7 +2,8 @@
 
 ## Summary
 
-Successfully refactored the xLSTM-Metal codebase to follow proper NCPS (Neural Circuit Policies) architecture patterns and eliminate redundant naming conventions.
+Successfully refactored the xLSTM-Metal codebase to follow proper NCPS (Neural Circuit Policies) architecture patterns
+and eliminate redundant naming conventions.
 
 ## Changes Made
 
@@ -19,7 +20,8 @@ xlstm_metal/blocks/
 └── tokenizer/              (unchanged)
 ```
 
-**Rationale**: Since we're already in `xlstm_metal.blocks.mlstm`, adding `_mlx` is redundant and makes diffs harder to read. The backend is clear from the package hierarchy.
+**Rationale**: Since we're already in `xlstm_metal.blocks.mlstm`, adding `_mlx` is redundant and makes diffs harder to
+read. The backend is clear from the package hierarchy.
 
 ### 2. Import Updates
 
@@ -38,6 +40,7 @@ from ...blocks.mlstm import mLSTMLayer
 ```
 
 Updated import patterns:
+
 - Absolute imports: `xlstm_metal.blocks.{mlstm,slstm,ffn}`
 - Relative imports: `..blocks.{mlstm,slstm,ffn}`
 - Package imports: `.{mlstm,slstm,ffn}.module`
@@ -49,6 +52,7 @@ Implemented proper **Neural Circuit Policies** architecture based on NCPS MLX:
 #### Cell/Block Separation
 
 **Cell**: Core computational unit
+
 ```python
 class mLSTMCell(nn.Module):
     """Core mLSTM computation with optional wiring"""
@@ -60,6 +64,7 @@ class mLSTMCell(nn.Module):
 ```
 
 **Block**: Wrapper with pre-norm and residuals
+
 ```python
 class xLSTMBlock(nn.Module):
     """Block wraps cell + adds norms/residuals/FFN"""
@@ -73,6 +78,7 @@ class xLSTMBlock(nn.Module):
 #### Wiring Hierarchy
 
 **Wiring Base Class** (from NCPS):
+
 ```python
 class Wiring:
     """NCPS wiring blueprint"""
@@ -83,6 +89,7 @@ class Wiring:
 ```
 
 **xLSTM Wiring Implementations**:
+
 ```python
 class xLSTMWiring(Wiring):
     """Simple sequential connectivity"""
@@ -106,73 +113,78 @@ Following NCPS patterns provides:
 Created comprehensive documentation:
 
 - **Cell/Block Architecture** (`docs/architecture/CELL_BLOCK_ARCHITECTURE.md`)
-  - Cell types: mLSTM, sLSTM, Conv1d
-  - Weight sharing via wiring
-  - Hierarchical composition
-  - xLSTM-1B vs xLSTM-7B differences
+    - Cell types: mLSTM, sLSTM, Conv1d
+    - Weight sharing via wiring
+    - Hierarchical composition
+    - xLSTM-1B vs xLSTM-7B differences
 
 - **Training Integration** (from scratch notes)
-  - Sequence vs step execution
-  - State threading
-  - Loss computation
-  - Mixed precision
+    - Sequence vs step execution
+    - State threading
+    - Loss computation
+    - Mixed precision
 
 - **MAD Composition** (proposal docs)
-  - LFM2's `layer_types` pattern
-  - EdgeSpec for rich connectivity
-  - Learned combiners
-  - Neuromodulation
+    - LFM2's `layer_types` pattern
+    - EdgeSpec for rich connectivity
+    - Learned combiners
+    - Neuromodulation
 
 ## Files Modified
 
 ### Core Architecture
+
 - `xlstm_metal/wiring/core.py` - NCPS Wiring base class
 - `xlstm_metal/wiring/mlx/xlstm_7b.py` - xLSTM wiring implementations
 - `xlstm_metal/blocks/mlstm/mlstm_cell.py` - **NEW** Cell implementation
 - `xlstm_metal/blocks/mlstm/xlstm_block.py` - Refactored to use cells
 
 ### Directory Renames
+
 - `blocks/mlstm_mlx/` → `blocks/mlstm/`
 - `blocks/slstm_mlx/` → `blocks/slstm/`
 - `blocks/ffn_mlx/` → `blocks/ffn/`
 
 ### Import Updates
+
 - All Python files in `xlstm_metal/` updated automatically
 
 ## Testing Status
 
 ✓ Import validation passed
+
 - Clean imports: no `_mlx` redundancy
 - Proper NCPS wiring structure
 - Cell/block separation
 
 ⚠ Tests need update
+
 - Test file uses old MADWiring API
 - Need to update to use proper Wiring base class
 
 ## Next Steps
 
 1. **Update Tests**
-   - Migrate test to use `Wiring` instead of `MADWiring`
-   - Test cell/block separation
-   - Validate NCPS patterns
+    - Migrate test to use `Wiring` instead of `MADWiring`
+    - Test cell/block separation
+    - Validate NCPS patterns
 
 2. **Add Cell Types**
-   - Implement `sLSTMCell`
-   - Implement `Conv1dCell`
-   - Test heterogeneous circuits
+    - Implement `sLSTMCell`
+    - Implement `Conv1dCell`
+    - Test heterogeneous circuits
 
 3. **Training Support**
-   - Add sequence execution
-   - State threading
-   - Loss computation
-   - Optimizer integration
+    - Add sequence execution
+    - State threading
+    - Loss computation
+    - Optimizer integration
 
 4. **Advanced Wiring**
-   - Weight sharing
-   - Sparse connectivity
-   - Learned combiners
-   - AutoNCP patterns
+    - Weight sharing
+    - Sparse connectivity
+    - Learned combiners
+    - AutoNCP patterns
 
 ## References
 
@@ -184,12 +196,14 @@ Created comprehensive documentation:
 ## Naming Conventions Going Forward
 
 **Guidelines**:
+
 1. ✓ NO redundant backend suffixes when package hierarchy is clear
 2. ✓ Cells vs Blocks: Clear separation
 3. ✓ Wiring vs Model: Connectivity vs Execution
 4. ✓ Clean imports that read naturally
 
 **Examples**:
+
 ```python
 # Good
 from xlstm_metal.blocks.mlstm import mLSTMCell

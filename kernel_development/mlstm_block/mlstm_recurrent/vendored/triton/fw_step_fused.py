@@ -17,39 +17,39 @@ import triton.language as tl
 
 @triton.jit
 def recurrent_step_fw_kernel(
-    matC_old,  # (B, NH, DHQK, DHHV)
-    vecN_old,  # (B, NH, DHQK)
-    scaM_old,  # (B, NH, 1)
-    vecQ,  # (B, NH, DHQK)
-    vecK,  # (B, NH, DHQK)
-    vecV,  # (B, NH, DHHV)
-    scaI,  # (B, NH, 1)
-    scaF,  # (B, NH, 1)
-    vecH,  # (B, NH, DHHV)
-    matC_new,  # (B, NH, DHQK, DHHV)
-    vecN_new,  # (B, NH, DHQK)
-    scaM_new,  # (B, NH, 1)
-    qk_scale: tl.constexpr,
-    str_matC_B_NH: tl.constexpr,
-    str_matC_DHQK: tl.constexpr,
-    str_matC_DHHV: tl.constexpr,
-    str_vecN_B_NH: tl.constexpr,
-    str_vecN_DHQK: tl.constexpr,
-    str_scaM_B_NH: tl.constexpr,
-    str_vecQK_NH: tl.constexpr,
-    str_vecQK_DHQK: tl.constexpr,
-    str_vecVH_B_NH: tl.constexpr,
-    str_vecVH_DHHV: tl.constexpr,
-    str_scaIF_B_NH: tl.constexpr,
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    EPS: tl.constexpr = 1e-6,
-    DTYPE: tl.constexpr = tl.float32,
-    DTYPE_STATE: tl.constexpr = tl.float32,
+        matC_old,  # (B, NH, DHQK, DHHV)
+        vecN_old,  # (B, NH, DHQK)
+        scaM_old,  # (B, NH, 1)
+        vecQ,  # (B, NH, DHQK)
+        vecK,  # (B, NH, DHQK)
+        vecV,  # (B, NH, DHHV)
+        scaI,  # (B, NH, 1)
+        scaF,  # (B, NH, 1)
+        vecH,  # (B, NH, DHHV)
+        matC_new,  # (B, NH, DHQK, DHHV)
+        vecN_new,  # (B, NH, DHQK)
+        scaM_new,  # (B, NH, 1)
+        qk_scale: tl.constexpr,
+        str_matC_B_NH: tl.constexpr,
+        str_matC_DHQK: tl.constexpr,
+        str_matC_DHHV: tl.constexpr,
+        str_vecN_B_NH: tl.constexpr,
+        str_vecN_DHQK: tl.constexpr,
+        str_scaM_B_NH: tl.constexpr,
+        str_vecQK_NH: tl.constexpr,
+        str_vecQK_DHQK: tl.constexpr,
+        str_vecVH_B_NH: tl.constexpr,
+        str_vecVH_DHHV: tl.constexpr,
+        str_scaIF_B_NH: tl.constexpr,
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        EPS: tl.constexpr = 1e-6,
+        DTYPE: tl.constexpr = tl.float32,
+        DTYPE_STATE: tl.constexpr = tl.float32,
 ):
     """
 
@@ -107,10 +107,10 @@ def recurrent_step_fw_kernel(
         order=(0, 1),
     )
     vecH_ptr = (
-        vecH
-        + idx_b_BNH * str_vecVH_B_NH
-        + idx_b_DHHV * siz_b_DHHV * str_vecVH_DHHV
-        + tl.arange(0, siz_b_DHHV)
+            vecH
+            + idx_b_BNH * str_vecVH_B_NH
+            + idx_b_DHHV * siz_b_DHHV * str_vecVH_DHHV
+            + tl.arange(0, siz_b_DHHV)
     )
 
     scaI_ptr = scaI + idx_b_BNH * str_scaIF_B_NH
@@ -148,35 +148,35 @@ def recurrent_step_fw_kernel(
 
     for i_dhqk in range(NUM_BLOCKS_DQK):
         vecN_old_ptr = (
-            vecN_old
-            + idx_b_BNH * str_vecN_B_NH
-            + i_dhqk * siz_b_DHQK * str_vecN_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecN_old
+                + idx_b_BNH * str_vecN_B_NH
+                + i_dhqk * siz_b_DHQK * str_vecN_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
         vecN_new_ptr = (
-            vecN_new
-            + idx_b_BNH * str_vecN_B_NH
-            + i_dhqk * siz_b_DHQK * str_vecN_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecN_new
+                + idx_b_BNH * str_vecN_B_NH
+                + i_dhqk * siz_b_DHQK * str_vecN_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
 
         vecQ_ptr = (
-            vecQ
-            + idx_b_BNH * str_vecQK_NH
-            + i_dhqk * siz_b_DHQK * str_vecQK_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecQ
+                + idx_b_BNH * str_vecQK_NH
+                + i_dhqk * siz_b_DHQK * str_vecQK_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
         vecK_ptr = (
-            vecK
-            + idx_b_BNH * str_vecQK_NH
-            + i_dhqk * siz_b_DHQK * str_vecQK_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecK
+                + idx_b_BNH * str_vecQK_NH
+                + i_dhqk * siz_b_DHQK * str_vecQK_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
         vecV_ptr = (
-            vecV
-            + idx_b_BNH * str_vecVH_B_NH
-            + idx_b_DHHV * siz_b_DHHV * str_vecVH_DHHV
-            + tl.arange(0, siz_b_DHHV)
+                vecV
+                + idx_b_BNH * str_vecVH_B_NH
+                + idx_b_DHHV * siz_b_DHHV * str_vecVH_DHHV
+                + tl.arange(0, siz_b_DHHV)
         )
 
         # update rule
@@ -190,17 +190,17 @@ def recurrent_step_fw_kernel(
         ).to(dtype=DTYPE_STATE)
 
         matC_new_val = scaF_act * matC_old_val + scaI_act * (
-            vecK_val[:, None] * vecV_val[None, :]
+                vecK_val[:, None] * vecV_val[None, :]
         )
         matC_new_val = scaF_act * matC_old_val + scaI_act * (
-            vecK_val[:, None] * vecV_val[None, :]
+                vecK_val[:, None] * vecV_val[None, :]
         )
 
         vecN_new_val = (
-            scaF_act * tl.load(vecN_old_ptr).to(dtype=DTYPE_STATE) + scaI_act * vecK_val
+                scaF_act * tl.load(vecN_old_ptr).to(dtype=DTYPE_STATE) + scaI_act * vecK_val
         )
         vecN_new_val = (
-            scaF_act * tl.load(vecN_old_ptr).to(dtype=DTYPE_STATE) + scaI_act * vecK_val
+                scaF_act * tl.load(vecN_old_ptr).to(dtype=DTYPE_STATE) + scaI_act * vecK_val
         )
         # ? Store data
         tl.store(

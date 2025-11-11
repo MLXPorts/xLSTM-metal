@@ -12,48 +12,48 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__recurrent_fw_C_kernel(
-    matK,  # (B, NH, S, DHQK)
-    matV,  # (B, NH, S, DHHV)
-    vecF,  # (B, NH, NC * L) = (B, NH, S)
-    vecI,  # (B, NH, NC * L) = (B, NH, S)
-    matC_initial,  # (B, NH, DHQK, DHHV)
-    vecN_initial,  # (B, NH, DHQK)
-    scaMinter_initial,  # (B, NH)
-    matC_states,  # (B, NH, (NC + 1) * DHQK, DHHV)
-    vecN_states,  # (B, NH, (NC + 1) * DHQK)
-    scaMinter_states,  # (B, NH, (NC + 1))
-    str_matK_B_NH: tl.constexpr,
-    str_matK_S: tl.constexpr,
-    str_matK_DHQK: tl.constexpr,
-    str_matV_B_NH: tl.constexpr,
-    str_matV_S: tl.constexpr,
-    str_matV_DHHV: tl.constexpr,
-    str_vecFI_B_NH: tl.constexpr,
-    str_matCstates_B_NH: tl.constexpr,
-    str_matCstates_NCDHQK: tl.constexpr,
-    str_matCstates_DHHV: tl.constexpr,
-    str_vecNstates_B_NH: tl.constexpr,
-    str_vecNstates_NCDHQK: tl.constexpr,
-    str_scaMinterstates_B_NH: tl.constexpr,
-    str_scaMinterstates_NC: tl.constexpr,
-    str_matCinitial_B_NH: tl.constexpr,
-    str_matCinitial_DHQK: tl.constexpr,
-    str_matCinitial_DHHV: tl.constexpr,
-    str_vecNinitial_B_NH: tl.constexpr,
-    str_vecNinitial_DHQK: tl.constexpr,
-    str_scaMinterinitial_B_NH: tl.constexpr,
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    save_states_every_nth_chunk: tl.constexpr,
-    USE_INITIAL_STATE: tl.constexpr,
-    DTYPE: tl.constexpr = tl.float32,
+        matK,  # (B, NH, S, DHQK)
+        matV,  # (B, NH, S, DHHV)
+        vecF,  # (B, NH, NC * L) = (B, NH, S)
+        vecI,  # (B, NH, NC * L) = (B, NH, S)
+        matC_initial,  # (B, NH, DHQK, DHHV)
+        vecN_initial,  # (B, NH, DHQK)
+        scaMinter_initial,  # (B, NH)
+        matC_states,  # (B, NH, (NC + 1) * DHQK, DHHV)
+        vecN_states,  # (B, NH, (NC + 1) * DHQK)
+        scaMinter_states,  # (B, NH, (NC + 1))
+        str_matK_B_NH: tl.constexpr,
+        str_matK_S: tl.constexpr,
+        str_matK_DHQK: tl.constexpr,
+        str_matV_B_NH: tl.constexpr,
+        str_matV_S: tl.constexpr,
+        str_matV_DHHV: tl.constexpr,
+        str_vecFI_B_NH: tl.constexpr,
+        str_matCstates_B_NH: tl.constexpr,
+        str_matCstates_NCDHQK: tl.constexpr,
+        str_matCstates_DHHV: tl.constexpr,
+        str_vecNstates_B_NH: tl.constexpr,
+        str_vecNstates_NCDHQK: tl.constexpr,
+        str_scaMinterstates_B_NH: tl.constexpr,
+        str_scaMinterstates_NC: tl.constexpr,
+        str_matCinitial_B_NH: tl.constexpr,
+        str_matCinitial_DHQK: tl.constexpr,
+        str_matCinitial_DHHV: tl.constexpr,
+        str_vecNinitial_B_NH: tl.constexpr,
+        str_vecNinitial_DHQK: tl.constexpr,
+        str_scaMinterinitial_B_NH: tl.constexpr,
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        save_states_every_nth_chunk: tl.constexpr,
+        USE_INITIAL_STATE: tl.constexpr,
+        DTYPE: tl.constexpr = tl.float32,
 ):
     """
 
@@ -123,10 +123,10 @@ def mlstm_chunkwise__recurrent_fw_C_kernel(
         )
         # each thread block loads a (siz_b_DHQK,) chunk from vecN_initial
         vecNinitial_ptr = (
-            vecN_initial
-            + idx_b_BNH * str_vecNinitial_B_NH
-            + idx_b_DHQK * siz_b_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecN_initial
+                + idx_b_BNH * str_vecNinitial_B_NH
+                + idx_b_DHQK * siz_b_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
         # each thread block loads the scaMinter_initial
         scaMinterinitial_ptr = scaMinter_initial + idx_b_BNH * str_scaMinterinitial_B_NH
@@ -162,8 +162,8 @@ def mlstm_chunkwise__recurrent_fw_C_kernel(
             # create pointer for matCstates_k, vecNstates_k, scaMinterstates_k
             matCstates_k_ptr = tl.make_block_ptr(
                 base=matC_states
-                + idx_b_BNH * str_matCstates_B_NH
-                + idx_k_save * DHQK * DHHV,
+                     + idx_b_BNH * str_matCstates_B_NH
+                     + idx_k_save * DHQK * DHHV,
                 shape=(DHQK, DHHV),
                 strides=(str_matCstates_NCDHQK, str_matCstates_DHHV),
                 offsets=(idx_b_DHQK * siz_b_DHQK, idx_b_DHHV * siz_b_DHHV),
@@ -171,14 +171,14 @@ def mlstm_chunkwise__recurrent_fw_C_kernel(
                 order=(1, 0),
             )
             vecNstates_k_ptr = (
-                vecN_states
-                + idx_b_BNH * str_vecNstates_B_NH
-                + idx_k_save * DHQK
-                + idx_b_DHQK * siz_b_DHQK
-                + tl.arange(0, siz_b_DHQK)
+                    vecN_states
+                    + idx_b_BNH * str_vecNstates_B_NH
+                    + idx_k_save * DHQK
+                    + idx_b_DHQK * siz_b_DHQK
+                    + tl.arange(0, siz_b_DHQK)
             )
             scaMinterstates_k_ptr = (
-                scaMinter_states + idx_b_BNH * str_scaMinterstates_B_NH + idx_k_save
+                    scaMinter_states + idx_b_BNH * str_scaMinterstates_B_NH + idx_k_save
             )
 
             # store the states from the previous iteration
@@ -248,8 +248,8 @@ def mlstm_chunkwise__recurrent_fw_C_kernel(
         idx_k_save = k // save_states_every_nth_chunk
         matCstates_k_ptr = tl.make_block_ptr(
             base=matC_states
-            + idx_b_BNH * str_matCstates_B_NH
-            + idx_k_save * DHQK * DHHV,
+                 + idx_b_BNH * str_matCstates_B_NH
+                 + idx_k_save * DHQK * DHHV,
             shape=(DHQK, DHHV),
             strides=(str_matCstates_NCDHQK, str_matCstates_DHHV),
             offsets=(idx_b_DHQK * siz_b_DHQK, idx_b_DHHV * siz_b_DHHV),
@@ -257,14 +257,14 @@ def mlstm_chunkwise__recurrent_fw_C_kernel(
             order=(1, 0),
         )
         vecNstates_k_ptr = (
-            vecN_states
-            + idx_b_BNH * str_vecNstates_B_NH
-            + idx_k_save * DHQK
-            + idx_b_DHQK * siz_b_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecN_states
+                + idx_b_BNH * str_vecNstates_B_NH
+                + idx_k_save * DHQK
+                + idx_b_DHQK * siz_b_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
         scaMinterstates_k_ptr = (
-            scaMinter_states + idx_b_BNH * str_scaMinterstates_B_NH + idx_k_save
+                scaMinter_states + idx_b_BNH * str_scaMinterstates_B_NH + idx_k_save
         )
         tl.store(
             matCstates_k_ptr, matC_k_val.to(dtype=tl.float32), boundary_check=(0, 1)

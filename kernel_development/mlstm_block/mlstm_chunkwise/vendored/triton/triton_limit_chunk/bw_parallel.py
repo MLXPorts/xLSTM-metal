@@ -5,26 +5,27 @@ import torch
 import triton
 
 from kernel_development.mlstm_block.mslstm_parallel.torch.utils import torch2triton_dtype
-from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import mlstm_chunkwise__parallel_bw_dQKV_kernel
+from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import \
+    mlstm_chunkwise__parallel_bw_dQKV_kernel
 from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_bw_dQKV(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    vecI: torch.Tensor,  # (B, NH, NC, L)
-    vecM_combine: torch.Tensor,  # (B, NH, S) = (B, NH, NC * L)
-    scaM_inter: torch.Tensor,  # (B, NH, NC+1)
-    matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
-    matDeltaH: torch.Tensor,  # (B, NH, S, DHHV)
-    vecN_out: torch.Tensor,  # (B, NH, S)
-    matDeltaC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
-    qk_scale: float = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
-    EPS: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        vecI: torch.Tensor,  # (B, NH, NC, L)
+        vecM_combine: torch.Tensor,  # (B, NH, S) = (B, NH, NC * L)
+        scaM_inter: torch.Tensor,  # (B, NH, NC+1)
+        matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
+        matDeltaH: torch.Tensor,  # (B, NH, S, DHHV)
+        vecN_out: torch.Tensor,  # (B, NH, S)
+        matDeltaC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
+        qk_scale: float = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
+        EPS: float = 1e-6,
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matDeltaQ (B,NH,S,DHQK), matDeltaK (B,NH,S,DHQK), matDeltaV (B,NH,S,DHHV)
@@ -55,7 +56,7 @@ def mlstm_chunkwise__parallel_bw_dQKV(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = min(32 if _dtype == torch.float32 else 64, triton.next_power_of_2(DHQK))
     siz_b_DHHV = min(32 if _dtype == torch.float32 else 64, triton.next_power_of_2(DHHV))

@@ -13,20 +13,20 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_recurrent_step__triton_fw(
-    matC_state: jax.Array,  # (B, NH, DHQK, DHV)
-    vecN_state: jax.Array,  # (B, NH, DHQK)
-    scaM_state: jax.Array,  # (B, NH, 1)
-    vecQ: jax.Array,  # (B, NH, DHQK)
-    vecK: jax.Array,  # (B, NH, DHQK)
-    vecV: jax.Array,  # (B, NH, DHV)
-    scaI: jax.Array,  # (B, NH, 1)
-    scaF: jax.Array,  # (B, NH, 1)
-    matC_new: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-    vecN_new: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_new: jax.Array | None = None,  # (B, NH, 1)
-    qk_scale: float | None = None,
-    eps: float = 1e-6,
-    dtype_state: jnp.dtype = jnp.float32,
+        matC_state: jax.Array,  # (B, NH, DHQK, DHV)
+        vecN_state: jax.Array,  # (B, NH, DHQK)
+        scaM_state: jax.Array,  # (B, NH, 1)
+        vecQ: jax.Array,  # (B, NH, DHQK)
+        vecK: jax.Array,  # (B, NH, DHQK)
+        vecV: jax.Array,  # (B, NH, DHV)
+        scaI: jax.Array,  # (B, NH, 1)
+        scaF: jax.Array,  # (B, NH, 1)
+        matC_new: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+        vecN_new: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_new: jax.Array | None = None,  # (B, NH, 1)
+        qk_scale: float | None = None,
+        eps: float = 1e-6,
+        dtype_state: jnp.dtype = jnp.float32,
 ):
     """
 
@@ -51,28 +51,28 @@ def mlstm_recurrent_step__triton_fw(
     DTYPE = matC_state.dtype
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     if matC_new is None:
         assert (
-            vecN_new is None and scaM_new is None
+                vecN_new is None and scaM_new is None
         ), "Initial states must be provided together."
         matC_new = jax.ShapeDtypeStruct(shape=matC_state.shape, dtype=matC_state.dtype)
         vecN_new = jax.ShapeDtypeStruct(shape=vecN_state.shape, dtype=vecN_state.dtype)
         scaM_new = jax.ShapeDtypeStruct(shape=scaM_state.shape, dtype=scaM_state.dtype)
     else:
         assert (
-            vecN_new is not None and scaM_new is not None
+                vecN_new is not None and scaM_new is not None
         ), "Initial states must be provided together."
 
     min_siz_b_DHQK = 64
     min_siz_b_DHHV = 64
 
     assert (
-        is_power_of_2(DHQK) or DHQK % min_siz_b_DHQK == 0
+            is_power_of_2(DHQK) or DHQK % min_siz_b_DHQK == 0
     ), f"DHQK must be a power of 2 or multiple of {min_siz_b_DHQK}. Got {DHQK}."
     assert (
-        is_power_of_2(DHHV) or DHHV % min_siz_b_DHHV == 0
+            is_power_of_2(DHHV) or DHHV % min_siz_b_DHHV == 0
     ), f"DHHV must be a power of 2 or multiple of {min_siz_b_DHHV}. Got {DHHV}."
 
     siz_b_DHQK = min(min_siz_b_DHQK, triton.next_power_of_2(DHQK))
@@ -129,17 +129,17 @@ def mlstm_recurrent_step__triton_fw(
 
 
 def mlstm_recurrent_step__triton(
-    q: jax.Array,  # (B, NH, DHQK)
-    k: jax.Array,  # (B, NH, DHQK)
-    v: jax.Array,  # (B, NH, DHV)
-    i: jax.Array,  # (B, NH, 1)
-    f: jax.Array,  # (B, NH, 1)
-    c: jax.Array,  # (B, NH, DHQK, DHV)
-    n: jax.Array,  # (B, NH, DHQK)
-    m: jax.Array,  # (B, NH, 1)
-    eps: float = 1e-6,
-    dtype_state: jnp.dtype = jnp.float32,
-    **kwargs,
+        q: jax.Array,  # (B, NH, DHQK)
+        k: jax.Array,  # (B, NH, DHQK)
+        v: jax.Array,  # (B, NH, DHV)
+        i: jax.Array,  # (B, NH, 1)
+        f: jax.Array,  # (B, NH, 1)
+        c: jax.Array,  # (B, NH, DHQK, DHV)
+        n: jax.Array,  # (B, NH, DHQK)
+        m: jax.Array,  # (B, NH, 1)
+        eps: float = 1e-6,
+        dtype_state: jnp.dtype = jnp.float32,
+        **kwargs,
 ) -> tuple[
     jax.Array, tuple[jax.Array, jax.Array, jax.Array]
 ]:  # vecH, (matC_state_new (B, NH, DHQK, DHV), vecN_state_new (B, NH, DHQK), vecM_state_new (B, NH, 1))

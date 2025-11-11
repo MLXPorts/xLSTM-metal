@@ -2,7 +2,9 @@
 
 ## Overview
 
-This document describes the complete architecture of the xLSTM-7B implementation for Apple Silicon using the MLX framework. The implementation achieves 8-55x speedup over sequential baseline through optimized Metal kernels and parallel execution topology.
+This document describes the complete architecture of the xLSTM-7B implementation for Apple Silicon using the MLX
+framework. The implementation achieves 8-55x speedup over sequential baseline through optimized Metal kernels and
+parallel execution topology.
 
 ## System Architecture
 
@@ -29,7 +31,8 @@ xLSTM-7B Model (7B parameters)
 
 ### Architecture
 
-The MAD (Modular Architecture Design) wiring system provides backend-agnostic block composition with automatic data flow management.
+The MAD (Modular Architecture Design) wiring system provides backend-agnostic block composition with automatic data flow
+management.
 
 **Key Components:**
 
@@ -68,6 +71,7 @@ Stage 6: [mLSTM, mLSTM, mLSTM, mLSTM]  (4 blocks)
 **State Management:**
 
 Each mLSTM block maintains three state tensors:
+
 - **C**: Covariance matrix [B, NH, QK_DH, V_DH] - outer product accumulator
 - **n**: Normalizer vector [B, NH, QK_DH] - denominator accumulator
 - **m**: Running maximum [B, NH] - numerical stability scalar
@@ -101,6 +105,7 @@ Skip Connection + Output
 ### Key Parameters
 
 **xLSTM-7B Configuration:**
+
 - `d_model`: 4096 (embedding dimension)
 - `num_heads`: 4 (attention heads)
 - `qk_dim_per_head`: 512 (query/key dimension)
@@ -133,10 +138,12 @@ n_t = f_exp * n_{t-1} + i_exp * k
 ### Kernel Suite (6/6 Complete)
 
 **Forward Pass:**
+
 1. **fw_kernel_recurrent**: Computes inter-chunk states (C_k, n_k, m_k) sequentially
 2. **fw_kernel_parallel**: Computes outputs within chunks in parallel
 
 **Backward Pass:**
+
 3. **bw_kernel_recurrent**: Computes gradients for inter-chunk states
 4. **bw_kernel_parallel_dV**: Computes ∂Loss/∂V (simplest: V^T @ ΔH)
 5. **bw_kernel_parallel_dK**: Computes ∂Loss/∂K (upper triangular loop)
@@ -147,6 +154,7 @@ n_t = f_exp * n_{t-1} + i_exp * k
 The algorithm achieves O(T/C + C) complexity instead of O(T) sequential:
 
 **Phase 1 - Recurrent (Sequential):**
+
 ```
 For each chunk k = 0..NC-1:
   vecB = cumsum(logsigmoid(f))           # [B, NH, NC, L]
@@ -162,6 +170,7 @@ For each chunk k = 0..NC-1:
 ```
 
 **Phase 2 - Parallel (All Chunks):**
+
 ```
 For each chunk k (in parallel):
   # Intra-chunk attention (causal)
@@ -276,11 +285,11 @@ def wrapped_kernel(matK, matV, sizes_packed):
 **Benchmarks (Apple M3 Ultra, 128 GPU cores):**
 
 | Sequence Length | Sequential | Chunkwise | Speedup |
-|----------------|-----------|-----------|---------|
-| 256            | 12.3 ms   | 1.5 ms    | 8.2x    |
-| 512            | 45.8 ms   | 2.8 ms    | 16.4x   |
-| 1024           | 178.2 ms  | 5.1 ms    | 34.9x   |
-| 2048           | 689.5 ms  | 12.4 ms   | 55.6x   |
+|-----------------|------------|-----------|---------|
+| 256             | 12.3 ms    | 1.5 ms    | 8.2x    |
+| 512             | 45.8 ms    | 2.8 ms    | 16.4x   |
+| 1024            | 178.2 ms   | 5.1 ms    | 34.9x   |
+| 2048            | 689.5 ms   | 12.4 ms   | 55.6x   |
 
 **Key Insights:**
 
@@ -411,24 +420,24 @@ MINIMUM_MAX_VAL = -10.0    # Floor for stability
 ### Test Coverage
 
 1. **Component Tests** (xlstm_metal/blocks/mlstm_mlx/test_*)
-   - Individual component functionality
-   - Shape validation
-   - Numerical correctness
+    - Individual component functionality
+    - Shape validation
+    - Numerical correctness
 
 2. **Kernel Tests** (xlstm_metal/blocks/mlstm_metal/test_*)
-   - Metal kernel correctness vs pure MLX
-   - Forward/backward pass parity
-   - Gradient validation
+    - Metal kernel correctness vs pure MLX
+    - Forward/backward pass parity
+    - Gradient validation
 
 3. **Integration Tests** (test_*.py)
-   - End-to-end generation
-   - Canonical implementation parity
-   - State management correctness
+    - End-to-end generation
+    - Canonical implementation parity
+    - State management correctness
 
 4. **Performance Tests**
-   - Speedup measurements
-   - Memory usage profiling
-   - Scaling analysis
+    - Speedup measurements
+    - Memory usage profiling
+    - Scaling analysis
 
 ### Validation Against Canonical
 

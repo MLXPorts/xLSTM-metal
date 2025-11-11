@@ -13,12 +13,12 @@ import torch.nn.functional as F
 
 
 def mlstm_parallel_fw(
-    matQ: torch.Tensor,
-    matK: torch.Tensor,
-    matV: torch.Tensor,
-    vecI: torch.Tensor,
-    vecF: torch.Tensor,
-    eps: float = 1e-6,
+        matQ: torch.Tensor,
+        matK: torch.Tensor,
+        matV: torch.Tensor,
+        vecI: torch.Tensor,
+        vecF: torch.Tensor,
+        eps: float = 1e-6,
 ) -> torch.Tensor:
     """
 
@@ -59,7 +59,7 @@ def mlstm_parallel_fw(
 
     matD = torch.exp(matLogD_stabilized)  # (B, NH, S, S)
 
-    matS = (matQ @ matK.transpose(-2, -1)) * (DHQK**-0.5)  # (B, NH, S, S)
+    matS = (matQ @ matK.transpose(-2, -1)) * (DHQK ** -0.5)  # (B, NH, S, S)
 
     matCtilde = matS * matD  # (B, NH, S, S)
     vecN = torch.maximum(matCtilde.sum(dim=-1, keepdim=True).abs(), torch.exp(-vecM))  # (B, NH, S, 1)

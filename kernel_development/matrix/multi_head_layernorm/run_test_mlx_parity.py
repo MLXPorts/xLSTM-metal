@@ -18,10 +18,13 @@ def _decode_argmax(model, tokens, new_tokens=16):
 
 if __name__ == "__main__":
     mx.random.seed(0)
-    model = create_xlstm_model(vocab_size=1024, num_layers=4, signature=(1,1), inp_dim=512, head_dim=64, head_num=8, dropout=0.0)
+    model = create_xlstm_model(vocab_size=1024, num_layers=4, signature=(1, 1), inp_dim=512, head_dim=64, head_num=8,
+                               dropout=0.0)
     tokens = mx.random.randint(0, 1024, (1, 64))
-    reset_runtime_config(); configure_model(fast_head=False)
+    reset_runtime_config();
+    configure_model(fast_head=False)
     seq_off = _decode_argmax(model, tokens)
-    reset_runtime_config(); configure_model(fast_head=True)
+    reset_runtime_config();
+    configure_model(fast_head=True)
     seq_on = _decode_argmax(model, tokens)
     print('parity:', seq_on == seq_off)

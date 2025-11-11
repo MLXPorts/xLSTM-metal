@@ -1,10 +1,10 @@
-
 import sys
 from pathlib import Path
 import torch
 from torch.utils.cpp_extension import load
 
 ROOT = Path(__file__).resolve().parents[1]
+
 
 def main():
     """
@@ -23,6 +23,6 @@ def main():
     diff = (x - y).abs().max().item()
     print(f"debug_memcpy max diff: {diff:.3e}")
 
+
 if __name__ == "__main__":
     main()
-

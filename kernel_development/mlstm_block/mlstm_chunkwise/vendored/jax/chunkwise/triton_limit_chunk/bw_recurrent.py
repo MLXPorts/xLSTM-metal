@@ -15,17 +15,17 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__recurrent_bw_dC(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    vecB: jax.Array,  # (B, NH, NC, L)
-    scaM_inter: jax.Array,  # (B, NH, NC+1)
-    vecM_combine: jax.Array,  # (B, NH, S)
-    matDeltaH: jax.Array,  # (B, NH, S, DHHV)
-    vecN_out: jax.Array,  # (B, NH, S)
-    matDeltaC_last: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
-    qk_scale: float | None = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
-    EPS: float = 1e-6,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        vecB: jax.Array,  # (B, NH, NC, L)
+        scaM_inter: jax.Array,  # (B, NH, NC+1)
+        vecM_combine: jax.Array,  # (B, NH, S)
+        matDeltaH: jax.Array,  # (B, NH, S, DHHV)
+        vecN_out: jax.Array,  # (B, NH, S)
+        matDeltaC_last: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
+        qk_scale: float | None = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
+        EPS: float = 1e-6,
 ) -> jax.Array:  # matDeltaC_states (B, NH, (NC+1) * DHQK, DHHV)
     """
     Computes only the deltaC gradients for the backward pass.
@@ -60,7 +60,7 @@ def mlstm_chunkwise__recurrent_bw_dC(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     USE_LAST_STATE = matDeltaC_last is not None
 

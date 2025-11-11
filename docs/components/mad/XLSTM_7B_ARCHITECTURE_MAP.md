@@ -193,6 +193,7 @@ m_t: Running max (log-space) [B, num_heads]                     = [B, 8]
 ```
 
 Full model state:
+
 ```python
 model_state = {
     0: (C_0, n_0, m_0),   # Block 0 state
@@ -207,6 +208,7 @@ model_state = {
 ### 1. Per-Head Gating (CRITICAL!)
 
 **NOT** per-feature gating like standard LSTM:
+
 ```python
 igate_preact: Linear(4096 -> 8)     # 8 outputs for 8 heads
 fgate_preact: Linear(4096 -> 8)     # 8 outputs for 8 heads
@@ -269,6 +271,7 @@ ffn_dim_rounded = round_up_to_64(10923) = 10944
 ### 5. Weight Mode: "single"
 
 The 7B model uses `weight_mode: "single"`, meaning:
+
 - Separate `q`, `k`, `v` weight matrices
 - Separate `igate_preact`, `fgate_preact`, `ogate_preact` matrices
 
@@ -330,16 +333,18 @@ for i in range(32):
 ## Tokenizer
 
 From `xlstm_7b_model/tokenizer.json`:
+
 - Type: BPE (Byte-Pair Encoding)
 - Vocab size: 50304
 - Special tokens:
-  - BOS: 0
-  - EOS: 2
-  - PAD: 1
+    - BOS: 0
+    - EOS: 2
+    - PAD: 1
 
 ## References
 
 Source code locations for canonical implementation:
+
 - `xlstm-solace-torch/src/xlstm_solace_torch/models/model.py` - Main model
 - `xlstm-solace-torch/src/xlstm_solace_torch/models/mlstm/layer.py` - mLSTM layer
 - `xlstm-solace-torch/src/xlstm_solace_torch/models/components.py` - MultiHeadLayerNorm, soft_cap

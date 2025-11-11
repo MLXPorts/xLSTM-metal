@@ -5,24 +5,25 @@ import torch
 import triton
 
 from kernel_development.mlstm_block.mslstm_parallel.torch.utils import torch2triton_dtype
-from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import mlstm_chunkwise__parallel_fw_H_kernel
+from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import \
+    mlstm_chunkwise__parallel_fw_H_kernel
 from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_fw_H(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    # these states must be all states up to the last chunk, i.e. :-1
-    matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
-    vecN_states: torch.Tensor,  # (B, NH, NC * DHQK)
-    scaMinter_states: torch.Tensor,  # (B, NH, NC)
-    vecI: torch.Tensor,  # (B, NH, NC, L)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    qk_scale: float = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
-    EPS: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        # these states must be all states up to the last chunk, i.e. :-1
+        matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHHV)
+        vecN_states: torch.Tensor,  # (B, NH, NC * DHQK)
+        scaMinter_states: torch.Tensor,  # (B, NH, NC)
+        vecI: torch.Tensor,  # (B, NH, NC, L)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        qk_scale: float = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
+        EPS: float = 1e-6,
 ) -> tuple[torch.Tensor, torch.Tensor]:  # matH_out (B, NH, S, DHHV), vecN_out (B, NH, S)
     """This function defines the grid and block sizes for the kernel launch and calls the kernel."""
     B, NH, S, DHQK = matK.shape
@@ -34,7 +35,7 @@ def mlstm_chunkwise__parallel_fw_H(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = min(64, triton.next_power_of_2(DHQK))
     siz_b_DHHV = min(64, triton.next_power_of_2(DHHV))

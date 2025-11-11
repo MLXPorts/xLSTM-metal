@@ -33,19 +33,19 @@ def analyze_safetensors_structure(model_dir: str) -> Dict[str, any]:
     """
     model_path = Path(model_dir)
     index_path = model_path / "model.safetensors.index.json"
-    
+
     if not index_path.exists():
         raise FileNotFoundError(f"Safetensors index not found: {index_path}")
-    
+
     with open(index_path) as f:
         index = json.load(f)
-    
+
     # Analyze structure
     block_structure = defaultdict(set)
     has_embedding = False
     has_lm_head = False
     has_out_norm = False
-    
+
     for key in index['weight_map'].keys():
         if key.startswith('backbone.blocks.'):
             parts = key.split('.')
@@ -59,13 +59,13 @@ def analyze_safetensors_structure(model_dir: str) -> Dict[str, any]:
             has_lm_head = True
         elif key.startswith('backbone.out_norm'):
             has_out_norm = True
-    
+
     # Convert sets to sorted lists
     block_components = {
-        idx: sorted(list(comps)) 
+        idx: sorted(list(comps))
         for idx, comps in sorted(block_structure.items(), key=lambda x: int(x[0]))
     }
-    
+
     return {
         'num_blocks': len(block_structure),
         'block_components': block_components,
@@ -86,7 +86,7 @@ def detect_block_type(components: List[str]) -> str:
         Block type string: 'mlstm', 'slstm', 'attention', etc.
     """
     components_set = set(components)
-    
+
     if 'mlstm_layer' in components_set:
         return 'mlstm'
     elif 'slstm_layer' in components_set:
@@ -104,11 +104,11 @@ class AutoWiring(Wiring):
     Creates appropriate cell connections based on discovered model architecture.
     Follows NCPS patterns where each block is a neuron and blocks connect sequentially.
     """
-    
+
     def __init__(
-        self,
-        model_dir: str,
-        config: Optional[Dict] = None,
+            self,
+            model_dir: str,
+            config: Optional[Dict] = None,
     ):
         """
         Create automatic wiring from model directory.
@@ -121,12 +121,12 @@ class AutoWiring(Wiring):
         self.structure = analyze_safetensors_structure(model_dir)
         self.config = config or {}
         self.model_dir = Path(model_dir)
-        
+
         # Detect block types
         self.block_types = {}
         for idx, components in self.structure['block_components'].items():
             self.block_types[idx] = detect_block_type(components)
-        
+
         # Number of units = number of blocks + special layers (embed, norm, lm_head)
         num_blocks = self.structure['num_blocks']
         num_special = sum([
@@ -135,25 +135,25 @@ class AutoWiring(Wiring):
             self.structure['has_lm_head']
         ])
         units = num_blocks + num_special
-        
+
         super().__init__(units=units)
-        
+
         # Build connectivity
         self._build_connections()
-        
+
     def _build_connections(self):
         """Build sequential connections between blocks."""
         # Sequential connections between all blocks
         num_blocks = self.structure['num_blocks']
-        
+
         # Connect blocks sequentially
         for i in range(num_blocks - 1):
             self.add_synapse(i, i + 1, polarity=1)
-        
+
         # Output dimension is determined by model structure
         # For xLSTM models, output comes from last block
         self.set_output_dim(1)
-    
+
     def get_block_info(self, block_idx: int) -> Dict[str, any]:
         """
         Get information about a specific block.
@@ -165,13 +165,13 @@ class AutoWiring(Wiring):
             Dict with block information
         """
         block_idx_str = str(block_idx)
-        
+
         return {
             'index': block_idx,
             'type': self.block_types.get(block_idx_str, 'unknown'),
             'components': self.structure['block_components'].get(block_idx_str, []),
         }
-    
+
     def create_block_cell(self, block_idx: int):
         """
         Create appropriate cell for this block based on detected type.
@@ -184,12 +184,12 @@ class AutoWiring(Wiring):
         """
         block_info = self.get_block_info(block_idx)
         block_type = block_info['type']
-        
+
         if block_type == 'mlstm':
             from xlstm_metal.mlx_jit.models.xlstm_7b_model import xLSTM7BCell
             return xLSTM7BCell.from_config(block_idx, self.config)
         elif block_type == 'slstm':
-            from xlstm_metal.mlx_jit.models.xlstm_slstm_model import xLSTMsLSTMCell
+            from xlstm_metal.mlx_jit.models.xlstm_original_model import xLSTMsLSTMCell
             return xLSTMsLSTMCell.from_config(block_idx, self.config)
         elif block_type == 'attention':
             # TODO: Implement attention cell
@@ -220,7 +220,7 @@ def create_auto_wiring(model_dir: str, config: Optional[Dict] = None) -> AutoWir
     if config is None:
         from xlstm_metal.mlx_jit.load_model import load_config
         config = load_config(model_dir)
-    
+
     return AutoWiring(model_dir, config)
 
 

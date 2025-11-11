@@ -102,9 +102,9 @@ class sLSTMLayer(nn.Module):
                                              force_float32_reductions=config.norm_reduction_force_float32)
 
     def __call__(
-        self,
-        x: mx.array,
-        state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+            self,
+            x: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
         """
         Forward pass through sLSTM layer.
@@ -234,9 +234,9 @@ class sLSTMBlock(nn.Module):
         self.slstm_layer = sLSTMLayer(config)
 
     def __call__(
-        self,
-        x: mx.array,
-        state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+            self,
+            x: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
         """
         Forward pass with pre-norm and residual connection.

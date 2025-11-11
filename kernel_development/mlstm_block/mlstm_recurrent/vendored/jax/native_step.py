@@ -14,16 +14,16 @@ import jax.numpy as jnp
 
 
 def mlstm_recurrent_step__native_fw(
-    matC_state: jax.Array,  # (B, NH, DHQK, DHV)
-    vecN_state: jax.Array,  # (B, NH, DHQK)
-    scaM_state: jax.Array,  # (B, NH, 1)
-    vecQ: jax.Array,  # (B, NH, DHQK)
-    vecK: jax.Array,  # (B, NH, DHQK)
-    vecV: jax.Array,  # (B, NH, DHV)
-    scaI: jax.Array,  # (B, NH, 1)
-    scaF: jax.Array,  # (B, NH, 1)
-    eps: float = 1e-6,
-    **kwargs,
+        matC_state: jax.Array,  # (B, NH, DHQK, DHV)
+        vecN_state: jax.Array,  # (B, NH, DHQK)
+        scaM_state: jax.Array,  # (B, NH, 1)
+        vecQ: jax.Array,  # (B, NH, DHQK)
+        vecK: jax.Array,  # (B, NH, DHQK)
+        vecV: jax.Array,  # (B, NH, DHV)
+        scaI: jax.Array,  # (B, NH, 1)
+        scaF: jax.Array,  # (B, NH, 1)
+        eps: float = 1e-6,
+        **kwargs,
 ) -> tuple[
     jax.Array, tuple[jax.Array, jax.Array, jax.Array]
 ]:  # vecH, (matC_state_new (B, NH, DHQK, DHV), vecN_state_new (B, NH, DHQK), vecM_state_new (B, NH, 1))
@@ -58,7 +58,7 @@ def mlstm_recurrent_step__native_fw(
     vecQ_scaled = vecQ * (DHQK ** (-0.5))  # (B, NH, DHQK)
 
     matC_state_new = scaF_act[:, :, :, None] * matC_state + scaI_act[:, :, :, None] * (
-        vecK[:, :, :, None] @ vecV[:, :, None, :]
+            vecK[:, :, :, None] @ vecV[:, :, None, :]
     )  # (B, NH, DHQK, DHV)
     vecN_state_new = scaF_act * vecN_state + scaI_act * vecK  # (B, NH, DHQK)
 
@@ -66,7 +66,7 @@ def mlstm_recurrent_step__native_fw(
     h_num = h_num.squeeze(2)  # (B, NH, DHV)
 
     qn_dotproduct = (
-        vecQ_scaled[:, :, None, :] @ vecN_state_new[:, :, :, None]
+            vecQ_scaled[:, :, None, :] @ vecN_state_new[:, :, :, None]
     )  # (B, NH, 1, 1)
     qn_dotproduct = qn_dotproduct.squeeze(2)  # (B, NH, 1)
     max_val = jnp.exp(-scaM_state_new)  # (B, NH, 1)
@@ -77,16 +77,16 @@ def mlstm_recurrent_step__native_fw(
 
 
 def mlstm_recurrent_step__native(
-    q: jax.Array,  # (B, NH, DHQK)
-    k: jax.Array,  # (B, NH, DHQK)
-    v: jax.Array,  # (B, NH, DHV)
-    i: jax.Array,  # (B, NH, 1)
-    f: jax.Array,  # (B, NH, 1)
-    c: jax.Array,  # (B, NH, DHQK, DHV)
-    n: jax.Array,  # (B, NH, DHQK)
-    m: jax.Array,  # (B, NH, 1)
-    eps: float = 1e-6,
-    **kwargs,
+        q: jax.Array,  # (B, NH, DHQK)
+        k: jax.Array,  # (B, NH, DHQK)
+        v: jax.Array,  # (B, NH, DHV)
+        i: jax.Array,  # (B, NH, 1)
+        f: jax.Array,  # (B, NH, 1)
+        c: jax.Array,  # (B, NH, DHQK, DHV)
+        n: jax.Array,  # (B, NH, DHQK)
+        m: jax.Array,  # (B, NH, 1)
+        eps: float = 1e-6,
+        **kwargs,
 ) -> tuple[
     jax.Array, tuple[jax.Array, jax.Array, jax.Array]
 ]:  # vecH, (matC_state_new (B, NH, DHQK, DHV), vecN_state_new (B, NH, DHQK), vecM_state_new (B, NH, 1))

@@ -12,22 +12,22 @@ from typing import Any, Literal
 def count_flops_fw_C(L, Nc, dqk, dv, Nh, factor_exp, factor_max, factor_mask) -> int:
     """Flops for a single sequence."""
     return (
-        Nc
-        * Nh
-        * (3 + 3 * L + factor_max + factor_exp * (1 + 2 * L) + 2 * dqk * dv + dqk + L * (4 * dqk * dv + 7 * dqk))
+            Nc
+            * Nh
+            * (3 + 3 * L + factor_max + factor_exp * (1 + 2 * L) + 2 * dqk * dv + dqk + L * (4 * dqk * dv + 7 * dqk))
     )
 
 
 def count_flops_fw_H(L, Nc, dqk, dv, Nh, factor_exp, factor_max, factor_mask) -> int:
     """Flops for a single sequence."""
     return (
-        Nc
-        * Nh
-        * (
-            (L * (L + 1)) // 2
-            + L * L * (7 + factor_mask + factor_max + factor_exp + 2 * dqk + 2 * dv)
-            + (1 + L) * factor_max
-        )
+            Nc
+            * Nh
+            * (
+                    (L * (L + 1)) // 2
+                    + L * L * (7 + factor_mask + factor_max + factor_exp + 2 * dqk + 2 * dv)
+                    + (1 + L) * factor_max
+            )
     )
 
 
@@ -63,17 +63,17 @@ def _count_ln_flops(d):
 
 
 def count_flops_mlstm_v1_layer_fw(
-    S,
-    d,
-    dqk,
-    dv,
-    Nh,
-    chunk_size,
-    factor_sig=1,
-    factor_exp=1,
-    factor_max=1,
-    factor_mask=1,
-    count_ln_flops: Callable[[int], int] = _count_ln_flops,
+        S,
+        d,
+        dqk,
+        dv,
+        Nh,
+        chunk_size,
+        factor_sig=1,
+        factor_exp=1,
+        factor_max=1,
+        factor_mask=1,
+        count_ln_flops: Callable[[int], int] = _count_ln_flops,
 ) -> int:
     """
 
@@ -128,21 +128,21 @@ def count_flops_ffn_layer_fw(S, d, pf, factor_gelu=1, count_ln_flops: Callable[[
 
 
 def count_flops_mlstm_v1_block_fw(
-    S,
-    d,
-    dqk,
-    dv,
-    Nh,
-    chunk_size=64,
-    pf_ffn=4,
-    factor_sig=1,
-    factor_exp=1,
-    factor_gelu=1,
-    factor_max=1,
-    factor_mask=1,
-    count_ln_flops: Callable[[int], int] = _count_ln_flops,
-    return_detailed_flops=False,
-    **kwargs,
+        S,
+        d,
+        dqk,
+        dv,
+        Nh,
+        chunk_size=64,
+        pf_ffn=4,
+        factor_sig=1,
+        factor_exp=1,
+        factor_gelu=1,
+        factor_max=1,
+        factor_mask=1,
+        count_ln_flops: Callable[[int], int] = _count_ln_flops,
+        return_detailed_flops=False,
+        **kwargs,
 ):
     """
 
@@ -188,25 +188,25 @@ def count_flops_mlstm_v1_block_fw(
 
 
 def count_flops_mlstm_v2_block_fw(
-    S,
-    d,
-    dqk,
-    dv,
-    Nh,
-    qk_block_size=4,
-    qk_pf=1,
-    v_block_size=4,
-    v_pf=1,
-    conv1d_kernel_size=4,
-    pf=2,
-    chunk_size=64,
-    factor_exp=1,
-    factor_swish=1,
-    factor_max=1,
-    factor_mask=1,
-    count_ln_flops: Callable[[int], int] = _count_ln_flops,
-    return_detailed_flops=False,
-    **kwargs,
+        S,
+        d,
+        dqk,
+        dv,
+        Nh,
+        qk_block_size=4,
+        qk_pf=1,
+        v_block_size=4,
+        v_pf=1,
+        conv1d_kernel_size=4,
+        pf=2,
+        chunk_size=64,
+        factor_exp=1,
+        factor_swish=1,
+        factor_max=1,
+        factor_mask=1,
+        count_ln_flops: Callable[[int], int] = _count_ln_flops,
+        return_detailed_flops=False,
+        **kwargs,
 ):
     """
 
@@ -234,7 +234,7 @@ def count_flops_mlstm_v2_block_fw(
     linear_layer_flops = 6 * S * d * d * pf + S * d * pf * factor_swish
     qkv_proj_flops = 2 * pf * d * (2 * S * qk_block_size * qk_pf + S * v_block_size * v_pf)
     conv1d_flops = (
-        2 * conv1d_kernel_size * (S + conv1d_kernel_size - 1) * pf * d + S * pf * d + S * pf * d * factor_swish
+            2 * conv1d_kernel_size * (S + conv1d_kernel_size - 1) * pf * d + S * pf * d + S * pf * d * factor_swish
     )
     skip_ln_mlstm_flops = 3 * S * d * pf * v_pf + count_ln_flops(d * pf * v_pf)
     skip_ln_linear_layer_flops = S * d + count_ln_flops(d)
@@ -250,12 +250,12 @@ def count_flops_mlstm_v2_block_fw(
         factor_mask=factor_mask,
     )
     total_flops = (
-        linear_layer_flops
-        + qkv_proj_flops
-        + conv1d_flops
-        + skip_ln_mlstm_flops
-        + skip_ln_linear_layer_flops
-        + mlstm_cell_flops[0]
+            linear_layer_flops
+            + qkv_proj_flops
+            + conv1d_flops
+            + skip_ln_mlstm_flops
+            + skip_ln_linear_layer_flops
+            + mlstm_cell_flops[0]
     )
     total_linear_layer_flops = linear_layer_flops + skip_ln_linear_layer_flops
     mlstm_cell_conv_flops = mlstm_cell_flops[0] + conv1d_flops + skip_ln_mlstm_flops
@@ -289,8 +289,8 @@ class FLOPsComputation:
 
 
 def count_fw_flops(
-    flop_computations: FLOPsComputation | list[FLOPsComputation],
-    multiply_by_2: bool = False,
+        flop_computations: FLOPsComputation | list[FLOPsComputation],
+        multiply_by_2: bool = False,
 ) -> FLOPsComputation | list[FLOPsComputation]:
     """
 
@@ -354,7 +354,7 @@ embedding_dims = {
 
 
 def get_mlstm_v1_fw_flops(
-    sequence_length: int, chunk_size: int, batch_size: int = 1, **kwargs
+        sequence_length: int, chunk_size: int, batch_size: int = 1, **kwargs
 ) -> dict[str, FLOPsComputation]:
     """
 
@@ -397,7 +397,7 @@ def get_mlstm_v1_fw_flops(
 
 
 def get_mlstm_v2_fw_flops(
-    sequence_length: int, chunk_size: int, batch_size: int = 1, multiply_by_2: bool = True
+        sequence_length: int, chunk_size: int, batch_size: int = 1, multiply_by_2: bool = True
 ) -> dict[str, FLOPsComputation]:
     """
 
@@ -450,7 +450,7 @@ def get_mlstm_v2_fw_flops(
 
 
 def _get_mlstm_fw_flop_dict(
-    mlstm_func: Callable, sequence_length: int, chunk_size: int, multiply_by_2: bool = False
+        mlstm_func: Callable, sequence_length: int, chunk_size: int, multiply_by_2: bool = False
 ) -> dict[str, tuple[int, int, int]]:
     flop_res_dict = mlstm_func(sequence_length=sequence_length, chunk_size=chunk_size, multiply_by_2=multiply_by_2)
 

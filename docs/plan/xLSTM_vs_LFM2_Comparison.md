@@ -2,20 +2,25 @@
 
 ## Executive Summary
 
-Both xLSTM and LFM2 represent innovative approaches to move beyond pure transformer architectures, but they take fundamentally different paths. xLSTM modernizes LSTM with exponential gating and matrix memory, while LFM2 uses a hybrid approach combining convolution and attention mechanisms inspired by dynamical systems theory.
+Both xLSTM and LFM2 represent innovative approaches to move beyond pure transformer architectures, but they take
+fundamentally different paths. xLSTM modernizes LSTM with exponential gating and matrix memory, while LFM2 uses a hybrid
+approach combining convolution and attention mechanisms inspired by dynamical systems theory.
 
 ---
 
 ## 1. Architectural Philosophy
 
 ### xLSTM (Extended LSTM)
+
 - **Core Principle**: Modernize LSTM with exponential gating and matrix memory
 - **Motivation**: Overcome LSTM limitations (gradient vanishing, limited memory) while maintaining RNN benefits
 - **Innovation**: Matrix-valued hidden states with covariance update rules
 
 ### LFM2 (Liquid Foundation Model v2)
+
 - **Core Principle**: Hybrid architecture mixing convolution and attention
-- **Motivation**: Combine benefits of convolution (local processing, efficiency) with attention (long-range dependencies)
+- **Motivation**: Combine benefits of convolution (local processing, efficiency) with attention (long-range
+  dependencies)
 - **Innovation**: Dynamical systems-inspired "liquid" layers with adaptive gating
 
 ---
@@ -23,6 +28,7 @@ Both xLSTM and LFM2 represent innovative approaches to move beyond pure transfor
 ## 2. Layer Architecture Comparison
 
 ### xLSTM Block Structure
+
 ```python
 class mLSTMBlock(nn.Module):
     def forward(x, state):
@@ -44,6 +50,7 @@ class mLSTMBlock(nn.Module):
 ```
 
 ### LFM2 Hybrid Block Structure
+
 ```python
 class Lfm2Layer(nn.Module):
     def forward(x, past_key_values, cache_position):
@@ -67,6 +74,7 @@ class Lfm2Layer(nn.Module):
 ## 3. Core Mechanisms
 
 ### xLSTM: Matrix Memory Update
+
 ```python
 # Exponential gating with stabilization
 m_t = max(f_preact + m_{t-1}, i_preact)
@@ -80,6 +88,7 @@ h_t = (C_t · q_t) / max(n_t^T · q_t, 1)
 ```
 
 ### LFM2: Hybrid Convolution + Attention
+
 ```python
 # Alternating layers: 10 convolution + 6 attention blocks
 layer_types = ["conv"] * 10 + ["full_attention"] * 6
@@ -100,25 +109,28 @@ def attention_forward(x, cache, position):
 ## 4. Memory and Complexity
 
 ### Memory Complexity
-| Aspect | xLSTM | LFM2 |
-|--------|--------|------|
-| **Per Layer Memory** | O(H²) matrix states | O(S) conv cache + O(S) attention cache |
-| **Total Memory Growth** | Fixed (per layer) | Linear with sequence length |
-| **Cache Size** | Constant | Bounded (conv) + Growing (attention) |
-| **Long Sequences** | Constant memory | Limited by conv cache size |
+
+| Aspect                  | xLSTM               | LFM2                                   |
+|-------------------------|---------------------|----------------------------------------|
+| **Per Layer Memory**    | O(H²) matrix states | O(S) conv cache + O(S) attention cache |
+| **Total Memory Growth** | Fixed (per layer)   | Linear with sequence length            |
+| **Cache Size**          | Constant            | Bounded (conv) + Growing (attention)   |
+| **Long Sequences**      | Constant memory     | Limited by conv cache size             |
 
 ### Computational Complexity
-| Operation | xLSTM | LFM2 |
-|-----------|--------|------|
-| **Sequence Processing** | O(S) per layer | O(S) conv + O(S²) attention |
-| **Matrix Operations** | O(d³) for matrix memory | O(d²) standard |
-| **Parallelization** | Chunk-wise parallel | Conv parallel + Attention parallel |
+
+| Operation               | xLSTM                   | LFM2                               |
+|-------------------------|-------------------------|------------------------------------|
+| **Sequence Processing** | O(S) per layer          | O(S) conv + O(S²) attention        |
+| **Matrix Operations**   | O(d³) for matrix memory | O(d²) standard                     |
+| **Parallelization**     | Chunk-wise parallel     | Conv parallel + Attention parallel |
 
 ---
 
 ## 5. State Management
 
 ### xLSTM State Structure
+
 ```python
 # Per layer, per head
 mLSTMState = {
@@ -129,6 +141,7 @@ mLSTMState = {
 ```
 
 ### LFM2 State Structure
+
 ```python
 # Hybrid cache system
 class Lfm2Cache:
@@ -150,12 +163,14 @@ class Lfm2Cache:
 ### Integration with Transformers Library
 
 #### xLSTM Integration Status
+
 - **Current Status**: Not officially integrated into Hugging Face transformers
 - **Available**: Custom implementations and research code
 - **Integration**: Requires `xlstm` package and `mlstm_kernels` for optimization
 - **API**: Custom model classes, not compatible with `AutoModel` classes
 
 #### LFM2 Integration Status
+
 - **Current Status**: **Fully integrated** into Hugging Face transformers (as of 2025)
 - **Available**: Official models on Hugging Face Hub
 - **Integration**: Native support with `AutoModelForCausalLM`
@@ -164,6 +179,7 @@ class Lfm2Cache:
 ### Code Usage Comparison
 
 #### xLSTM Usage
+
 ```python
 # Custom implementation required
 from xlstm.xlstm_large import xLSTMLarge, xLSTMLargeConfig
@@ -182,6 +198,7 @@ logits, new_state = model.forward(tokens, state)
 ```
 
 #### LFM2 Usage
+
 ```python
 # Standard transformers interface
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -202,26 +219,29 @@ outputs = model.generate(
 ## 7. Performance Characteristics
 
 ### Training Efficiency
-| Metric | xLSTM | LFM2 |
-|--------|--------|------|
-| **Memory Usage** | Lower (fixed states) | Higher (growing cache) |
-| **Training Speed** | Linear complexity | Mixed (O(S) + O(S²)) |
-| **Gradient Flow** | Exponential gates help | Standard backprop |
-| **Long Sequences** | Excellent | Limited by attention |
+
+| Metric             | xLSTM                  | LFM2                   |
+|--------------------|------------------------|------------------------|
+| **Memory Usage**   | Lower (fixed states)   | Higher (growing cache) |
+| **Training Speed** | Linear complexity      | Mixed (O(S) + O(S²))   |
+| **Gradient Flow**  | Exponential gates help | Standard backprop      |
+| **Long Sequences** | Excellent              | Limited by attention   |
 
 ### Inference Characteristics
-| Metric | xLSTM | LFM2 |
-|--------|--------|------|
-| **Latency** | Constant per token | Variable (conv vs attn) |
-| **Memory Growth** | None | Linear with sequence |
-| **Throughput** | High (linear complexity) | Mixed performance |
-| **Streaming** | Native support | Requires cache management |
+
+| Metric            | xLSTM                    | LFM2                      |
+|-------------------|--------------------------|---------------------------|
+| **Latency**       | Constant per token       | Variable (conv vs attn)   |
+| **Memory Growth** | None                     | Linear with sequence      |
+| **Throughput**    | High (linear complexity) | Mixed performance         |
+| **Streaming**     | Native support           | Requires cache management |
 
 ---
 
 ## 8. Use Case Suitability
 
 ### xLSTM Ideal For:
+
 - **Long-context applications** (>100k tokens)
 - **Streaming/real-time processing**
 - **Memory-constrained environments**
@@ -229,6 +249,7 @@ outputs = model.generate(
 - **Edge deployment** with memory limits
 
 ### LFM2 Ideal For:
+
 - **General language modeling** (standard context lengths)
 - **Drop-in transformer replacement**
 - **Applications requiring standard tooling**
@@ -240,12 +261,14 @@ outputs = model.generate(
 ## 9. Research and Development Status
 
 ### xLSTM
+
 - **Research Phase**: Active research, paper published 2024
 - **Optimization**: Specialized kernels (Triton, CUDA) available
 - **Community**: Growing research interest
 - **Production**: Early adoption, not mainstream yet
 
-### LFM2  
+### LFM2
+
 - **Production Ready**: Officially released and supported
 - **Integration**: Full transformers ecosystem support
 - **Community**: Liquid AI backed, commercial support
@@ -256,12 +279,14 @@ outputs = model.generate(
 ## 10. Key Architectural Innovations
 
 ### xLSTM Innovations
+
 1. **Exponential Gating**: Overcomes gradient vanishing
 2. **Matrix Memory**: O(d²) memory capacity vs O(d) for vectors
 3. **Stabilized Computation**: Log-space operations prevent overflow
 4. **Linear Complexity**: O(S) processing for any sequence length
 
 ### LFM2 Innovations
+
 1. **Hybrid Architecture**: Combines conv + attention benefits
 2. **Dynamical Systems**: Inspired by adaptive control theory
 3. **Efficient Caching**: Optimized for both conv and attention states
@@ -272,6 +297,7 @@ outputs = model.generate(
 ## 11. Code Architecture Overlap
 
 ### Similarities
+
 - Both use **RMSNorm** for normalization
 - Both implement **custom caching mechanisms**
 - Both support **mixed precision training**
@@ -279,6 +305,7 @@ outputs = model.generate(
 - Both implement **gradient checkpointing** for memory efficiency
 
 ### Key Differences
+
 - **State vs Cache**: xLSTM maintains persistent states, LFM2 uses temporal caches
 - **Recurrence**: xLSTM is fundamentally recurrent, LFM2 is hybrid
 - **Memory Pattern**: xLSTM has fixed memory, LFM2 has growing cache
@@ -290,10 +317,14 @@ outputs = model.generate(
 
 **xLSTM** and **LFM2** represent two different evolutionary paths from transformers:
 
-- **xLSTM** goes back to RNN roots but modernizes them with matrix memory and exponential gating, achieving true linear complexity and constant memory usage.
+- **xLSTM** goes back to RNN roots but modernizes them with matrix memory and exponential gating, achieving true linear
+  complexity and constant memory usage.
 
-- **LFM2** takes a hybrid approach, keeping some transformer components (attention) while adding efficient convolution layers, resulting in a practical balance between performance and compatibility.
+- **LFM2** takes a hybrid approach, keeping some transformer components (attention) while adding efficient convolution
+  layers, resulting in a practical balance between performance and compatibility.
 
-For **research and long-context applications**, xLSTM offers theoretical advantages. For **production deployment and ecosystem compatibility**, LFM2 provides a more practical path forward with official transformer library support.
+For **research and long-context applications**, xLSTM offers theoretical advantages. For **production deployment and
+ecosystem compatibility**, LFM2 provides a more practical path forward with official transformer library support.
 
-The choice depends on your priorities: **maximum efficiency and innovation** (xLSTM) vs **practical deployment and ecosystem compatibility** (LFM2).
+The choice depends on your priorities: **maximum efficiency and innovation** (xLSTM) vs **practical deployment and
+ecosystem compatibility** (LFM2).

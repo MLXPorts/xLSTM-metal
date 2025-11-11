@@ -31,54 +31,54 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__parallel_bw_dQKV_kernel(
-    matQ,  # (B, NH, S, DHQK)
-    matK,  # (B, NH, S, DHQK)
-    matV,  # (B, NH, S, DHHV)
-    vecB,  # (B, NH, NC, L)
-    vecI,  # (B, NH, NC, L)
-    vecM_combine,  # (B, NH, S)
-    scaM_inter,  # (B, NH, NC+1)
-    matC_states,  # (B, NH, (NC+1) * DHQK, DHHV) # take only the first NC states
-    matDeltaH,  # (B, NH, S, DHHV)
-    vecN_out,  # (B, NH, S)
-    matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV) # take only the last NC states
-    matDeltaQ,  # (B, NH, S, DHQK)
-    matDeltaK,  # (B, NH, S, DHQK)
-    matDeltaV,  # (num_b_DHQK, B, NH, S, DHHV)
-    qk_scale,
-    str_matQK_B_NH,  # shared with matQ, matDeltaQ, matK, matDeltaK
-    str_matQK_S,
-    str_matQK_DHQK,
-    str_matDV_num_b_DHQK,
-    str_matHV_B_NH,  # shared with matDeltaV, matDeltaH
-    str_matHV_S,
-    str_matHV_DHHV,
-    str_vecBI_B_NH,
-    str_vecBI_NC,
-    str_vecBI_L,
-    str_vecM_combine_B_NH,
-    str_vecM_combine_S,
-    str_scaM_inter_B_NH,
-    str_scaM_inter_NC,
-    str_matC_states_B_NH,
-    str_matC_states_NCDHQK,
-    str_matC_states_DHHV,
-    str_vecN_out_B_NH,
-    str_vecN_out_S,
-    str_matDeltaC_states_B_NH,
-    str_matDeltaC_states_NCDHQK,
-    str_matDeltaC_states_DHHV,
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    DTYPE: tl.constexpr = tl.float32,
-    EPS: tl.constexpr = 1e-6,
+        matQ,  # (B, NH, S, DHQK)
+        matK,  # (B, NH, S, DHQK)
+        matV,  # (B, NH, S, DHHV)
+        vecB,  # (B, NH, NC, L)
+        vecI,  # (B, NH, NC, L)
+        vecM_combine,  # (B, NH, S)
+        scaM_inter,  # (B, NH, NC+1)
+        matC_states,  # (B, NH, (NC+1) * DHQK, DHHV) # take only the first NC states
+        matDeltaH,  # (B, NH, S, DHHV)
+        vecN_out,  # (B, NH, S)
+        matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV) # take only the last NC states
+        matDeltaQ,  # (B, NH, S, DHQK)
+        matDeltaK,  # (B, NH, S, DHQK)
+        matDeltaV,  # (num_b_DHQK, B, NH, S, DHHV)
+        qk_scale,
+        str_matQK_B_NH,  # shared with matQ, matDeltaQ, matK, matDeltaK
+        str_matQK_S,
+        str_matQK_DHQK,
+        str_matDV_num_b_DHQK,
+        str_matHV_B_NH,  # shared with matDeltaV, matDeltaH
+        str_matHV_S,
+        str_matHV_DHHV,
+        str_vecBI_B_NH,
+        str_vecBI_NC,
+        str_vecBI_L,
+        str_vecM_combine_B_NH,
+        str_vecM_combine_S,
+        str_scaM_inter_B_NH,
+        str_scaM_inter_NC,
+        str_matC_states_B_NH,
+        str_matC_states_NCDHQK,
+        str_matC_states_DHHV,
+        str_vecN_out_B_NH,
+        str_vecN_out_S,
+        str_matDeltaC_states_B_NH,
+        str_matDeltaC_states_NCDHQK,
+        str_matDeltaC_states_DHHV,
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        DTYPE: tl.constexpr = tl.float32,
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 

@@ -9,36 +9,36 @@ from .fw_recurrent import mlstm_chunkwise__recurrent_fw_C
 
 
 def mlstm_chunkwise_fw(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHV)
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_initial: jax.Array | None = None,  # (B, NH)
-    qk_scale: float | None = None,
-    return_last_states: bool = False,
-    return_all_states: bool = False,
-    chunk_size_inter: int | None = None,
-    chunk_size_intra: int | None = None,
-    siz_b_L_parallel: int | None = None,
-    siz_b_L_loop: int | None = None,
-    siz_b_DH_parallel: int | None = None,
-    siz_b_DH_loop: int | None = None,
-    num_warps_intra: int | None = None,
-    num_warps_inter: int | None = None,
-    num_stages_intra: int | None = None,
-    num_stages_inter: int | None = None,
-    output_dtype: jnp.dtype = jnp.float32,
-    eps: float = 0.0,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHV)
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_initial: jax.Array | None = None,  # (B, NH)
+        qk_scale: float | None = None,
+        return_last_states: bool = False,
+        return_all_states: bool = False,
+        chunk_size_inter: int | None = None,
+        chunk_size_intra: int | None = None,
+        siz_b_L_parallel: int | None = None,
+        siz_b_L_loop: int | None = None,
+        siz_b_DH_parallel: int | None = None,
+        siz_b_DH_loop: int | None = None,
+        num_warps_intra: int | None = None,
+        num_warps_inter: int | None = None,
+        num_stages_intra: int | None = None,
+        num_stages_inter: int | None = None,
+        output_dtype: jnp.dtype = jnp.float32,
+        eps: float = 0.0,
 ) -> tuple[
     jax.Array,  # matH_out (B, NH, S, DHV)
     jax.Array,  # vecN_out (B, NH, S)
     jax.Array,  # vecM_out (B, NH, S)
     None
     | (
-        tuple[jax.Array, jax.Array, jax.Array]
+            tuple[jax.Array, jax.Array, jax.Array]
     ),  # last_states (matC_states (B, NH, DHQK, DHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH))
     None | (tuple[jax.Array, jax.Array, jax.Array]),  # all_states (matC_states (B, NH, (NC+1) * DHQK, DHV),
     # vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
@@ -95,13 +95,13 @@ def mlstm_chunkwise_fw(
     assert S % chunk_size_intra == 0, f"Sequence length {S} is not divisible by intra chunk size {chunk_size_intra}."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     assert (
-        chunk_size_inter <= chunk_size_intra
+            chunk_size_inter <= chunk_size_intra
     ), f"chunk_size_inter {chunk_size_inter} must be >= chunk_size_intra {chunk_size_intra}"
     assert (
-        chunk_size_intra % chunk_size_inter == 0
+            chunk_size_intra % chunk_size_inter == 0
     ), f"chunk_size_intra {chunk_size_intra} must be divisible by chunk_size_inter {chunk_size_inter}"
 
     save_states_every_nth_chunk = chunk_size_intra // chunk_size_inter

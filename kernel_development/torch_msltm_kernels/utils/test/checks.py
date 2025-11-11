@@ -18,16 +18,16 @@ LOGGER = logging.getLogger(__name__)
 
 
 def check_correctness(
-    test_specifier: str,
-    baseline: np.ndarray,
-    target: np.ndarray,
-    atol: float = 1e-4,
-    rtol: float = 1e-2,
-    vmax: float = None,
-    max_num_batchhead_plots: int = -1,
+        test_specifier: str,
+        baseline: np.ndarray,
+        target: np.ndarray,
+        atol: float = 1e-4,
+        rtol: float = 1e-2,
+        vmax: float = None,
+        max_num_batchhead_plots: int = -1,
         percentiles=None,
-    savepath: str = None,
-    dtype_str: str = "NAtype",
+        savepath: str = None,
+        dtype_str: str = "NAtype",
 ) -> bool:
     """
 
@@ -105,12 +105,12 @@ def check_correctness(
 
 
 def verify_output(
-    name: str,
-    baseline: np.ndarray,
-    target: np.ndarray,
-    atol: float = 1e-4,
-    rtol: float = 1e-2,
-    vmax: float = 1e-2,
+        name: str,
+        baseline: np.ndarray,
+        target: np.ndarray,
+        atol: float = 1e-4,
+        rtol: float = 1e-2,
+        vmax: float = 1e-2,
 ):
     """
 

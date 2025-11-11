@@ -36,21 +36,21 @@ def _exp_gate(x: torch.Tensor, n: torch.Tensor, clamp_logits: Optional[float]) -
 
 
 def cfc_head_step(
-    h_old: torch.Tensor,  # (B, H, D)
-    c_old: torch.Tensor,  # (B, H, D)
-    n_old: torch.Tensor,  # (B, H, D)
-    # Affine terms per gate; caller provides already-computed preacts of shape (B, H, D)
-    gate_i_preact: torch.Tensor,
-    gate_f_preact: torch.Tensor,
-    gate_o_preact: torch.Tensor,
-    gate_g_preact: torch.Tensor,
-    
-    lambda_vec: torch.Tensor,  # (B, H, D) or broadcastable
-    gate_mask: Optional[torch.Tensor] = None,  # (B, H, D) 0/1, optional
-    lambda_mask: Optional[torch.Tensor] = None,  # (B, H, D) 0/1, optional
-    neural_clock: float = 1.0,
-    cfg: CfcConfig = CfcConfig(),
-    telemetry_ring: Optional[torch.Tensor] = None,  # (R,) int32 on device
+        h_old: torch.Tensor,  # (B, H, D)
+        c_old: torch.Tensor,  # (B, H, D)
+        n_old: torch.Tensor,  # (B, H, D)
+        # Affine terms per gate; caller provides already-computed preacts of shape (B, H, D)
+        gate_i_preact: torch.Tensor,
+        gate_f_preact: torch.Tensor,
+        gate_o_preact: torch.Tensor,
+        gate_g_preact: torch.Tensor,
+
+        lambda_vec: torch.Tensor,  # (B, H, D) or broadcastable
+        gate_mask: Optional[torch.Tensor] = None,  # (B, H, D) 0/1, optional
+        lambda_mask: Optional[torch.Tensor] = None,  # (B, H, D) 0/1, optional
+        neural_clock: float = 1.0,
+        cfg: CfcConfig = CfcConfig(),
+        telemetry_ring: Optional[torch.Tensor] = None,  # (R,) int32 on device
 ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     One CfC-style head update step. Returns (h_new, c_new, n_new, fwd_ff) where fwd_ff is o*sigmoid(c_new).
@@ -122,4 +122,3 @@ def compiled_cfc_head():
     except Exception:
         pass
     return fn
-

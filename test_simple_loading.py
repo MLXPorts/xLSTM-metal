@@ -90,17 +90,17 @@ def test_auto_wiring():
 
     try:
         from xlstm_metal.mlx_jit.wiring import create_auto_wiring
-        
+
         config = load_config("xlstm_7b_model")
         wiring = create_auto_wiring("xlstm_7b_model", config)
-        
+
         print(f"✓ Auto wiring created successfully")
         print(f"  - Detected {wiring.structure['num_blocks']} blocks")
         print(f"  - Block types: {set(wiring.block_types.values())}")
         print(f"  - Total units (neurons): {wiring.units}")
         print(f"  - Has embedding: {wiring.structure['has_embedding']}")
         print(f"  - Has LM head: {wiring.structure['has_lm_head']}")
-        
+
         return True
     except Exception as e:
         print(f"❌ Auto wiring creation failed: {e}")
@@ -117,7 +117,7 @@ def test_model_cell_creation():
 
     try:
         from xlstm_metal.mlx_jit.wiring import create_auto_wiring
-        
+
         config = load_config("xlstm_7b_model")
         wiring = create_auto_wiring("xlstm_7b_model", config)
 
@@ -155,7 +155,7 @@ def test_forward_pass():
 
     try:
         from xlstm_metal.mlx_jit.wiring import create_auto_wiring
-        
+
         config = load_config("xlstm_7b_model")
         wiring = create_auto_wiring("xlstm_7b_model", config)
         cell = wiring.create_block_cell(0)

@@ -18,6 +18,7 @@ from pathlib import Path
 
 # Add to path
 import sys
+
 sys.path.insert(0, str(Path(__file__).parent))
 
 from xlstm_metal.mlx_jit.wiring import create_xlstm_wiring, WiredMADModel
@@ -26,9 +27,9 @@ from xlstm_metal.mlx_jit.utils import load_config
 
 def test_config_loading(model_path):
     """Test 1: Verify config loads from config.json without hardcoding"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST 1: Config Loading")
-    print("="*80)
+    print("=" * 80)
 
     config = load_config(model_path)
 
@@ -47,9 +48,9 @@ def test_config_loading(model_path):
 
 def test_wiring_creation(config):
     """Test 2: Verify wiring uses config parameters"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST 2: Wiring Creation from Config")
-    print("="*80)
+    print("=" * 80)
 
     wiring = create_xlstm_wiring(config)
 
@@ -75,9 +76,9 @@ def test_wiring_creation(config):
 
 def test_model_instantiation(wiring):
     """Test 3: Verify WiredMADModel creates blocks from BlockSpec params"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST 3: Model Instantiation (Block Creation)")
-    print("="*80)
+    print("=" * 80)
 
     model = WiredMADModel(
         wiring=wiring,
@@ -111,9 +112,9 @@ def test_model_instantiation(wiring):
 
 def test_parameter_shapes(model, config):
     """Test 4: Verify parameter shapes match config (no hardcoding)"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST 4: Parameter Shapes")
-    print("="*80)
+    print("=" * 80)
 
     xlstm_block = model.blocks['xlstm_0']
 
@@ -155,9 +156,9 @@ def test_parameter_shapes(model, config):
 
 def test_forward_pass(model, config):
     """Test 5: Verify forward pass with config-based dimensions"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST 5: Forward Pass (Config-Based Dimensions)")
-    print("="*80)
+    print("=" * 80)
 
     batch_size = 2
     seq_len = 8
@@ -202,9 +203,9 @@ def test_forward_pass(model, config):
 
 def test_dtype_consistency(model, config):
     """Test 6: Verify dtype handling (float32 states, mixed computation)"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("TEST 6: Dtype Consistency (Float32 States)")
-    print("="*80)
+    print("=" * 80)
 
     batch_size = 1
     seq_len = 4
@@ -232,9 +233,9 @@ def test_dtype_consistency(model, config):
 
 def main():
     """Run all tests"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("XLSTM-METAL: CONFIG-DRIVEN INFERENCE TEST SUITE")
-    print("="*80)
+    print("=" * 80)
     print("\nVerifying that the architecture uses config.json without hardcoded parameters")
 
     # Use xlstm_7b_model directory
@@ -254,9 +255,9 @@ def main():
         test_forward_pass(model, config)
         test_dtype_consistency(model, config)
 
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("✓ ALL TESTS PASSED!")
-        print("="*80)
+        print("=" * 80)
         print("\nThe architecture is properly config-driven:")
         print("  1. Config loads from config.json without hardcoding")
         print("  2. Wiring creates blocks with config parameters")
@@ -267,9 +268,9 @@ def main():
         print("\n✓ Ready for inference with any xLSTM model size!")
 
     except Exception as e:
-        print("\n" + "="*80)
+        print("\n" + "=" * 80)
         print("✗ TEST FAILED!")
-        print("="*80)
+        print("=" * 80)
         print(f"\nError: {e}")
         import traceback
         traceback.print_exc()

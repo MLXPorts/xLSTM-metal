@@ -25,37 +25,37 @@ from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk.ker
 
 @contiguous_noctx
 def mlstm_chunkwise_bw(
-    ## Forward arguments
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_initial: torch.Tensor = None,  # (B, NH)
-    ## Backward arguments
-    matCstate_all: torch.Tensor = None,  # (B, NH, (NCsaved+1) * DHQK, DHHV)
-    vecNstate_all: torch.Tensor = None,  # (B, NH, (NCsaved+1) * DHQK)
-    scaMstate_all: torch.Tensor = None,  # (B, NH, (NCsaved+1))
-    vecN_out: torch.Tensor = None,  # (B, NH, S)
-    vecM_out: torch.Tensor = None,  # (B, NH, S)
-    matDeltaH_out: torch.Tensor = None,  # (B, NH, S, DHHV)
-    matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    ## Other arguments
-    qk_scale: float = None,
-    chunk_size: int = 128,
-    chunk_size_inter: int | None = None,
-    chunk_size_intra: int | None = None,
-    siz_b_L_parallel: int | None = None,
-    siz_b_L_loop: int | None = None,
-    siz_b_DH_parallel: int | None = None,
-    siz_b_DH_loop: int | None = None,
-    num_warps_intra: int | None = None,
-    num_warps_inter: int | None = None,
-    num_stages_intra: int | None = None,
-    num_stages_inter: int | None = None,
-    eps: float = 0.0,
+        ## Forward arguments
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_initial: torch.Tensor = None,  # (B, NH)
+        ## Backward arguments
+        matCstate_all: torch.Tensor = None,  # (B, NH, (NCsaved+1) * DHQK, DHHV)
+        vecNstate_all: torch.Tensor = None,  # (B, NH, (NCsaved+1) * DHQK)
+        scaMstate_all: torch.Tensor = None,  # (B, NH, (NCsaved+1))
+        vecN_out: torch.Tensor = None,  # (B, NH, S)
+        vecM_out: torch.Tensor = None,  # (B, NH, S)
+        matDeltaH_out: torch.Tensor = None,  # (B, NH, S, DHHV)
+        matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        ## Other arguments
+        qk_scale: float = None,
+        chunk_size: int = 128,
+        chunk_size_inter: int | None = None,
+        chunk_size_intra: int | None = None,
+        siz_b_L_parallel: int | None = None,
+        siz_b_L_loop: int | None = None,
+        siz_b_DH_parallel: int | None = None,
+        siz_b_DH_loop: int | None = None,
+        num_warps_intra: int | None = None,
+        num_warps_inter: int | None = None,
+        num_stages_intra: int | None = None,
+        num_stages_inter: int | None = None,
+        eps: float = 0.0,
 ):
     """
 
@@ -93,7 +93,7 @@ def mlstm_chunkwise_bw(
     DHHV = matV.shape[-1]
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     kernel_chunk_params = get_xl_chunk_kernel_params(
         sequence_length=S,
@@ -104,15 +104,15 @@ def mlstm_chunkwise_bw(
         chunk_size_intra=chunk_size_intra,
     )
     save_states_every_nth_chunk = (
-        kernel_chunk_params.chunk_size_intra // kernel_chunk_params.chunk_size_inter
+            kernel_chunk_params.chunk_size_intra // kernel_chunk_params.chunk_size_inter
     )
 
     #! recompute the "all" states if needed
     if matCstate_all is None:
         assert (
-            (matCstate_all is None)
-            and (vecNstate_all is None)
-            and (scaMstate_all is None)
+                (matCstate_all is None)
+                and (vecNstate_all is None)
+                and (scaMstate_all is None)
         ), "Either all or none of the states must be provided."
 
         matCstate_all, vecNstate_all, scaMstate_all = mlstm_chunkwise__recurrent_fw_C(

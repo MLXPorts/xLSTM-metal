@@ -1,160 +1,165 @@
-"""sLSTM neuron for NCPS - scalar LSTM unit.
+"""sLSTM Neuron - wires together projection, kernel, and output cells.
 
-This is a scalar LSTM neuron that can be wired together using NCPS patterns.
-Uses exponential gating and scalar cell states (vs matrix states in mLSTM).
+The neuron is the complete sLSTM layer that wires together:
+    Input → Projection Cell → Kernel Cell (stepwise) → Output Cell → Output
+
+The neuron owns the wiring logic and composes the before/during/after cells.
 """
 
 from __future__ import annotations
-from typing import Tuple, Optional
+from typing import Optional, Tuple
 
 import mlx.core as mx
 import mlx.nn as nn
 
-from .kernel import slstm_sequential
+from .slstm_projection_cell import sLSTMProjectionCell
+from .slstm_stepwise.slstm_stepwise_kernel import sLSTMStepwiseKernelCell
+from .slstm_output_cell import sLSTMOutputCell
 
 
-class sLSTMCell(nn.Module):
+class sLSTMNeuron(nn.Module):
     """
-    Scalar LSTM (sLSTM) cell with multi-head architecture.
+    sLSTM Neuron - complete sLSTM layer with cell wiring.
 
-    Key differences from mLSTM:
-    - Scalar cell state c (vector per head, not matrix)
-    - Exponential gating: i = exp(ĩ), f = exp(f̃)
-    - Stabilizer m for numerical stability
-    - Simpler than mLSTM but still powerful
+    Wires together the sLSTM pipeline:
+    1. Projection Cell: x → z, i, f, o (with optional conv)
+    2. Kernel Cell: z, i, f, o, state → h, new_state (stepwise recurrence)
+    3. Output Cell: h → output (group norm + projection)
+
+    The neuron handles sequential processing across timesteps
+    and composes the modular cells.
 
     Args:
-        input_size: Input dimension
+        input_size: Input dimension (embedding_dim)
         num_heads: Number of sLSTM heads
         head_dim: Hidden dimension per head
+        conv1d_kernel_size: Conv kernel size (0 = disabled, default 4)
         use_bias: Whether to use bias in projections
         eps: Numerical stability epsilon
-        gate_soft_cap: Soft cap value for gates
+        gate_soft_cap: Soft cap value for gates (default 15.0)
     """
 
     def __init__(
-        self,
-        input_size: int,
-        num_heads: int,
-        head_dim: int,
-        use_bias: bool = False,
-        eps: float = 1e-6,
-        gate_soft_cap: float = 15.0,
+            self,
+            input_size: int,
+            num_heads: int,
+            head_dim: int,
+            conv1d_kernel_size: int = 4,
+            use_bias: bool = False,
+            eps: float = 1e-6,
+            gate_soft_cap: float = 15.0,
     ):
         super().__init__()
+
         self.input_size = input_size
         self.num_heads = num_heads
         self.head_dim = head_dim
+        self.conv1d_kernel_size = conv1d_kernel_size
         self.eps = eps
         self.gate_soft_cap = gate_soft_cap
 
-        hidden_size = num_heads * head_dim
+        # === Before Cell: Projections ===
+        self.projection_cell = sLSTMProjectionCell(
+            input_size=input_size,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            conv1d_kernel_size=conv1d_kernel_size,
+            use_bias=use_bias,
+            gate_soft_cap=gate_soft_cap,
+        )
 
-        # Projections for z (cell input), i, f, o gates
-        self.z_proj = nn.Linear(input_size, hidden_size, bias=use_bias)
-        self.igate_proj = nn.Linear(input_size, num_heads, bias=True)
-        self.fgate_proj = nn.Linear(input_size, num_heads, bias=True)
-        self.ogate_proj = nn.Linear(input_size, hidden_size, bias=use_bias)
-
-        # Optional: recurrent connections (block-diagonal R matrices)
-        # For now keeping it simple without recurrence
-
-        # Group norm (per-head layer norm)
-        # This normalizes across the head dimension
-        from xlstm_metal.mlx_jit.blocks.mlstm.multihead_norm.multihead_norm import MultiHeadLayerNorm
-        self.group_norm = MultiHeadLayerNorm(
+        # === During Cell: Stepwise kernel ===
+        self.kernel_cell = sLSTMStepwiseKernelCell(
             num_heads=num_heads,
             head_dim=head_dim,
             eps=eps,
-            use_weight=True,
-            use_bias=False,
-            force_float32_reductions=True
         )
 
-        # Output projection
-        self.out_proj = nn.Linear(hidden_size, input_size, bias=use_bias)
+        # === After Cell: Output processing ===
+        self.output_cell = sLSTMOutputCell(
+            input_size=input_size,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            use_bias=use_bias,
+            eps=eps,
+        )
 
-    def soft_cap_gates(self, x: mx.array) -> mx.array:
-        """Apply soft capping to gate pre-activations."""
-        if self.gate_soft_cap is None:
-            return x
-        cap = mx.array(self.gate_soft_cap, dtype=x.dtype)
-        return mx.multiply(cap, mx.tanh(mx.divide(x, cap)))
+    @property
+    def state_size(self) -> Tuple[int, int, int]:
+        """Return state dimensions (c, n, m)."""
+        return (
+            self.num_heads * self.head_dim,  # c: [B, NH, H]
+            self.num_heads * self.head_dim,  # n: [B, NH, H]
+            self.num_heads  # m: [B, NH]
+        )
 
-    def __call__(self, x: mx.array, state=None) -> Tuple[mx.array, Tuple]:
+    @property
+    def output_size(self) -> int:
+        """Return output dimension."""
+        return self.input_size
+
+    def __call__(
+            self,
+            x: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+    ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:
         """
-        Process sequence through sLSTM.
+        Forward pass through complete sLSTM neuron.
+
+        Processes sequence step-by-step using kernel cell.
 
         Args:
-            x: Input [B, S, D]
-            state: Optional tuple (c, n, m) where:
-                - c: cell state [B, NH, H]
-                - n: normalizer state [B, NH, H]
-                - m: stabilizer [B, NH]
+            x: Input [B, S, input_size]
+            state: Optional previous state (c, n, m)
+                   c: [B, NH, H] - cell state
+                   n: [B, NH, H] - normalizer
+                   m: [B, NH] - stabilizer
 
         Returns:
-            output: Output [B, S, D]
-            new_state: Tuple (c_final, n_final, m_final)
+            output: Output [B, S, input_size]
+            new_state: Updated state (c, n, m)
         """
         B, S, _ = x.shape
 
-        # Project inputs
-        z = self.z_proj(x)  # [B, S, NH*H]
-        i_preact = self.igate_proj(x)  # [B, S, NH]
-        f_preact = self.fgate_proj(x)  # [B, S, NH]
-        o_preact = self.ogate_proj(x)  # [B, S, NH*H]
+        # === Before: Project to gates and z ===
+        z, i_preact, f_preact, o_preact, x_conv = self.projection_cell(x)
+        # z: [B, S, NH, H]
+        # i_preact, f_preact, o_preact: [B, S, NH]
 
-        # Apply soft capping to gates
-        i_preact = self.soft_cap_gates(i_preact)
-        f_preact = self.soft_cap_gates(f_preact)
-        o_preact = self.soft_cap_gates(o_preact)
+        # === During: Apply kernel step-by-step ===
+        # Process each timestep sequentially
+        outputs = []
+        for t in range(S):
+            # Extract timestep
+            z_t = z[:, t, :, :]  # [B, NH, H]
+            i_t = i_preact[:, t, :]  # [B, NH]
+            f_t = f_preact[:, t, :]  # [B, NH]
+            o_t = o_preact[:, t, :]  # [B, NH]
 
-        # Reshape for multi-head processing
-        # z: [B, S, NH*H] -> [B, NH, S, H]
-        z = z.reshape(B, S, self.num_heads, self.head_dim).transpose(0, 2, 1, 3)
+            # Apply kernel
+            h_t, state = self.kernel_cell(z_t, i_t, f_t, o_t, state)
+            # h_t: [B, NH, H]
 
-        # i, f: [B, S, NH] -> [B, NH, S]
-        i_preact = i_preact.transpose(0, 2, 1)
-        f_preact = f_preact.transpose(0, 2, 1)
+            outputs.append(h_t)
 
-        # o: [B, S, NH*H] -> [B, NH, S]  (just num_heads dimension, not per-head values)
-        # Actually for sLSTM, o gate should be scalar per head
-        o_gate_per_head = self.ogate_proj(x).reshape(B, S, self.num_heads, self.head_dim)
-        # Average across head_dim to get scalar per head
-        o_preact_scalar = mx.mean(o_gate_per_head, axis=-1)  # [B, S, NH]
-        o_preact_scalar = o_preact_scalar.transpose(0, 2, 1)  # [B, NH, S]
+        # Stack outputs: [B, S, NH, H]
+        h = mx.stack(outputs, axis=1)
 
-        # Extract initial states
-        c_initial = state[0] if state else None
-        n_initial = state[1] if state else None
-        m_initial = state[2] if state else None
+        # === After: Process output ===
+        output = self.output_cell(h)
 
-        # Process through sLSTM kernel
-        # Returns h: [B, NH, S, H], states: (c, n, m)
-        h, (c_final, n_final, m_final) = slstm_sequential(
-            z=z,
-            i_preact=i_preact,
-            f_preact=f_preact,
-            o_preact=o_preact_scalar,
-            c_initial=c_initial,
-            n_initial=n_initial,
-            m_initial=m_initial,
-            eps=self.eps,
-            return_last_states=True
-        )
+        return output, state
 
-        # Transpose back: [B, NH, S, H] -> [B, S, NH, H]
-        h = h.transpose(0, 2, 1, 3)
-
-        # Apply group norm (returns flattened [B, S, NH*H])
-        h_norm = self.group_norm(h)
-
-        # Output projection
-        output = self.out_proj(h_norm)
-
-        # Return output and final states
-        new_state = (c_final, n_final, m_final)
-        return output, new_state
+    def get_config(self) -> dict:
+        """Return configuration for serialization."""
+        return {
+            "input_size": self.input_size,
+            "num_heads": self.num_heads,
+            "head_dim": self.head_dim,
+            "conv1d_kernel_size": self.conv1d_kernel_size,
+            "eps": self.eps,
+            "gate_soft_cap": self.gate_soft_cap,
+        }
 
 
-__all__ = ['sLSTMCell']
+__all__ = ['sLSTMNeuron']

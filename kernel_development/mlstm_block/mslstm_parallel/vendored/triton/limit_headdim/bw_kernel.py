@@ -24,45 +24,45 @@ from .fw_kernel import configs, keep
 @triton.autotune(list(filter(keep, configs)), key=["N_CTX", "HEAD_DIM"])
 @triton.jit
 def mlstm_parallel_bw_dQ_kernel(
-    matDeltaHtilde,
-    matQ,
-    matK,
-    matV,
-    vecI,
-    vecF_cs,
-    vecM,
-    vecN,
-    qk_scale,
-    matDeltaQ,
-    matDeltaK,
-    matDeltaV,
-    vecDeltaI,
-    stride_dhtz,
-    stride_dhth,
-    stride_dhts,
-    stride_dhtd,
-    stride_qz,
-    stride_qh,
-    stride_qs,
-    stride_qd,  #
-    stride_kz,
-    stride_kh,
-    stride_ks,
-    stride_kd,  #
-    stride_vz,
-    stride_vh,
-    stride_vs,
-    stride_vd,  #
-    stride_ifmn_z,
-    stride_ifmn_h,
-    stride_ifmn_s,
-    Z,
-    H,
-    N_CTX,  #
-    HEAD_DIM: tl.constexpr,  #
-    BLOCK_Q: tl.constexpr,  #
-    BLOCK_KV: tl.constexpr,  #
-    EPS: tl.constexpr = 1e-6,
+        matDeltaHtilde,
+        matQ,
+        matK,
+        matV,
+        vecI,
+        vecF_cs,
+        vecM,
+        vecN,
+        qk_scale,
+        matDeltaQ,
+        matDeltaK,
+        matDeltaV,
+        vecDeltaI,
+        stride_dhtz,
+        stride_dhth,
+        stride_dhts,
+        stride_dhtd,
+        stride_qz,
+        stride_qh,
+        stride_qs,
+        stride_qd,  #
+        stride_kz,
+        stride_kh,
+        stride_ks,
+        stride_kd,  #
+        stride_vz,
+        stride_vh,
+        stride_vs,
+        stride_vd,  #
+        stride_ifmn_z,
+        stride_ifmn_h,
+        stride_ifmn_s,
+        Z,
+        H,
+        N_CTX,  #
+        HEAD_DIM: tl.constexpr,  #
+        BLOCK_Q: tl.constexpr,  #
+        BLOCK_KV: tl.constexpr,  #
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 
@@ -271,45 +271,45 @@ def mlstm_parallel_bw_dQ_kernel(
 @triton.autotune(list(filter(keep, configs)), key=["N_CTX", "HEAD_DIM"])
 @triton.jit
 def mlstm_parallel_bw_dKdV_kernel(
-    matDeltaHtilde,
-    matQ,
-    matK,
-    matV,
-    vecI,
-    vecF_cs,
-    vecM,
-    vecN,
-    qk_scale,
-    matDeltaQ,
-    matDeltaK,
-    matDeltaV,
-    vecDeltaI,
-    stride_dhtz,
-    stride_dhth,
-    stride_dhts,
-    stride_dhtd,
-    stride_qz,
-    stride_qh,
-    stride_qs,
-    stride_qd,  #
-    stride_kz,
-    stride_kh,
-    stride_ks,
-    stride_kd,  #
-    stride_vz,
-    stride_vh,
-    stride_vs,
-    stride_vd,  #
-    stride_ifmn_z,
-    stride_ifmn_h,
-    stride_ifmn_s,
-    Z,
-    H,
-    N_CTX,  #
-    HEAD_DIM: tl.constexpr,  #
-    BLOCK_Q: tl.constexpr,  #
-    BLOCK_KV: tl.constexpr,  #
-    EPS: tl.constexpr = 1e-6,
+        matDeltaHtilde,
+        matQ,
+        matK,
+        matV,
+        vecI,
+        vecF_cs,
+        vecM,
+        vecN,
+        qk_scale,
+        matDeltaQ,
+        matDeltaK,
+        matDeltaV,
+        vecDeltaI,
+        stride_dhtz,
+        stride_dhth,
+        stride_dhts,
+        stride_dhtd,
+        stride_qz,
+        stride_qh,
+        stride_qs,
+        stride_qd,  #
+        stride_kz,
+        stride_kh,
+        stride_ks,
+        stride_kd,  #
+        stride_vz,
+        stride_vh,
+        stride_vs,
+        stride_vd,  #
+        stride_ifmn_z,
+        stride_ifmn_h,
+        stride_ifmn_s,
+        Z,
+        H,
+        N_CTX,  #
+        HEAD_DIM: tl.constexpr,  #
+        BLOCK_Q: tl.constexpr,  #
+        BLOCK_KV: tl.constexpr,  #
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 

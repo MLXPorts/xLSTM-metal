@@ -37,24 +37,24 @@ def _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.float32) -> Call
         @custom_fwd(device_type="cuda", cast_inputs=autocast_kernel_dtype)
         @contiguous
         def forward(
-            ctx,
-            matQ: torch.Tensor,  # (B, NH, S, DHQK)
-            matK: torch.Tensor,  # (B, NH, S, DHQK)
-            matV: torch.Tensor,  # (B, NH, S, DHV)
-            vecI: torch.Tensor,  # (B, NH, S)
-            vecF: torch.Tensor,  # (B, NH, S)
-            matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-            vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-            scaM_initial: torch.Tensor = None,  # (B, NH)
-            qk_scale: float = None,
-            return_last_states: bool = False,
-            recompute_states_in_bw: bool = True,
-            chunk_size: int = 64,
-            eps: float = 1e-6,
+                ctx,
+                matQ: torch.Tensor,  # (B, NH, S, DHQK)
+                matK: torch.Tensor,  # (B, NH, S, DHQK)
+                matV: torch.Tensor,  # (B, NH, S, DHV)
+                vecI: torch.Tensor,  # (B, NH, S)
+                vecF: torch.Tensor,  # (B, NH, S)
+                matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+                vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+                scaM_initial: torch.Tensor = None,  # (B, NH)
+                qk_scale: float = None,
+                return_last_states: bool = False,
+                recompute_states_in_bw: bool = True,
+                chunk_size: int = 64,
+                eps: float = 1e-6,
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             B, NH, S, DHQK = matQ.shape
             if qk_scale is None:
-                qk_scale = DHQK**-0.5
+                qk_scale = DHQK ** -0.5
 
             matH_out, vecN_out, vecM_out, last_states, all_states = mlstm_chunkwise_fw(
                 matQ=matQ,
@@ -190,18 +190,18 @@ def _get_chunkwise_fwbw_kernel(autocast_kernel_dtype: torch.dtype) -> Callable:
 
 
 def mlstm_chunkwise__native_autograd(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    chunk_size: int = 64,
-    **kwargs,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        chunk_size: int = 64,
+        **kwargs,
 ) -> torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
 
@@ -230,18 +230,18 @@ def mlstm_chunkwise__native_autograd(
 
 
 def mlstm_chunkwise__native_custbw(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    chunk_size: int = 64,
-    autocast_kernel_dtype: torch.dtype = torch.float32,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        chunk_size: int = 64,
+        autocast_kernel_dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
 

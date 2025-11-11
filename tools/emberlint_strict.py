@@ -17,10 +17,10 @@ import ast
 import pathlib
 from typing import List, Tuple
 
-
 MATH_FUNCS = {
-    'add','subtract','multiply','divide','power','pow','tanh','sigmoid','gelu','erf','exp','log','maximum','minimum',
-    'sin','cos','sqrt','rsqrt','relu','silu','softmax','matmul','einsum'
+    'add', 'subtract', 'multiply', 'divide', 'power', 'pow', 'tanh', 'sigmoid', 'gelu', 'erf', 'exp', 'log', 'maximum',
+    'minimum',
+    'sin', 'cos', 'sqrt', 'rsqrt', 'relu', 'silu', 'softmax', 'matmul', 'einsum'
 }
 
 
@@ -32,7 +32,7 @@ def is_tensor_suspect(node: ast.AST) -> bool:
     # Heuristic: name like x, y, v, t and attributes starting with mx., torch.
     if isinstance(node, ast.Attribute):
         base = node.value
-        if isinstance(base, ast.Name) and base.id in {'mx','torch','torchvision'}:
+        if isinstance(base, ast.Name) and base.id in {'mx', 'torch', 'torchvision'}:
             return True
         return is_tensor_suspect(base)
     if isinstance(node, ast.Subscript):
@@ -43,7 +43,7 @@ def is_tensor_suspect(node: ast.AST) -> bool:
         return is_tensor_suspect(node.left) or is_tensor_suspect(node.right)
     if isinstance(node, ast.Name):
         # We can't know type; treat variable names commonly used in compute as suspects
-        return node.id in {'x','y','v','u','k','h','z','t','bias','weight','w','b'}
+        return node.id in {'x', 'y', 'v', 'u', 'k', 'h', 'z', 't', 'bias', 'weight', 'w', 'b'}
     return False
 
 
@@ -53,9 +53,9 @@ def visit_file(path: pathlib.Path) -> List[Tuple[int, str]]:
         tree = ast.parse(src)
     except SyntaxError:
         return []
-    findings: List[Tuple[int,str]] = []
+    findings: List[Tuple[int, str]] = []
 
-    SHAPE_FUNCS = {'pad','reshape','transpose','permute','slice','take','stack','concatenate'}
+    SHAPE_FUNCS = {'pad', 'reshape', 'transpose', 'permute', 'slice', 'take', 'stack', 'concatenate'}
 
     class V(ast.NodeVisitor):
         def __init__(self):
@@ -65,6 +65,7 @@ def visit_file(path: pathlib.Path) -> List[Tuple[int, str]]:
             self.stack.append(node)
             super().visit(node)
             self.stack.pop()
+
         def visit_BinOp(self, node: ast.BinOp):
             if is_numeric_constant(node.left) and is_tensor_suspect(node.right):
                 if not self._inside_shape_call():
@@ -77,7 +78,7 @@ def visit_file(path: pathlib.Path) -> List[Tuple[int, str]]:
         def visit_Call(self, node: ast.Call):
             # flag mx.* or torch.* math funcs receiving numeric constants
             fn = node.func
-            if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name) and fn.value.id in {'mx','torch'}:
+            if isinstance(fn, ast.Attribute) and isinstance(fn.value, ast.Name) and fn.value.id in {'mx', 'torch'}:
                 if fn.attr in MATH_FUNCS:
                     for arg in node.args:
                         if is_numeric_constant(arg):
@@ -119,6 +120,7 @@ def main():
     if total:
         print(f'Found {total} potential numeric literal issues.')
         raise SystemExit(1)
+
 
 if __name__ == '__main__':
     main()

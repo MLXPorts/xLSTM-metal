@@ -1,6 +1,7 @@
 # xLSTM-Metal: High-Performance xLSTM for Apple Silicon
 
-A production-ready xLSTM (Extended LSTM) implementation optimized for Apple Silicon using MLX and Metal Accelerated Dispatch (MAD). Features a transformers-compatible API for seamless integration.
+A production-ready xLSTM (Extended LSTM) implementation optimized for Apple Silicon using MLX and Metal Accelerated
+Dispatch (MAD). Features a transformers-compatible API for seamless integration.
 
 ## Quick Start
 
@@ -33,6 +34,7 @@ generated_ids = runner.generate(
 ```
 
 **Comparison with PyTorch Transformers:**
+
 ```python
 # PyTorch Transformers
 model = AutoModelForCausalLM.from_pretrained("NX-AI/xLSTM-7b")
@@ -44,7 +46,7 @@ runner = xLSTMRunner.from_pretrained("NX-AI/xLSTM-7b")
 ## Features
 
 - **MLX-First Architecture**: Optimized for Apple Silicon with Metal acceleration
-- **Metal Accelerated Dispatch (MAD)**: Advanced block scheduling for maximum performance  
+- **Metal Accelerated Dispatch (MAD)**: Advanced block scheduling for maximum performance
 - **Transformers-Compatible**: Drop-in replacement for HuggingFace models
 - **Automatic Model Loading**: Downloads models from HuggingFace Hub automatically
 - **Production Ready**: Memory management, error handling, and monitoring
@@ -64,13 +66,14 @@ xLSTM-Metal uses a unique Metal Accelerated Dispatch (MAD) architecture:
 ### Official Models
 
 - **xLSTM-7B** (`NX-AI/xLSTM-7b`): 7 billion parameter model
-  - 32 xLSTM blocks with mLSTM and sLSTM layers
-  - 4096 embedding dimensions, 32 attention heads
-  - Trained on diverse text corpus
+    - 32 xLSTM blocks with mLSTM and sLSTM layers
+    - 4096 embedding dimensions, 32 attention heads
+    - Trained on diverse text corpus
 
 ### Custom Models
 
 Any xLSTM model with a `config.json` file is supported. The implementation automatically:
+
 - Detects model architecture from configuration
 - Creates appropriate wiring for MAD execution
 - Loads weights from safetensors or NPZ format
@@ -161,7 +164,8 @@ xLSTM-Metal leverages Apple Silicon's unified memory architecture and Metal acce
 - **MAD Scheduling**: Efficient block execution with minimal overhead
 - **Memory Efficient**: Stateful generation reduces recomputation
 
-Performance characteristics depend on model size, sequence length, and hardware generation (M1/M2/M3/M4). See [docs/](docs/) for detailed architecture documentation.
+Performance characteristics depend on model size, sequence length, and hardware generation (M1/M2/M3/M4).
+See [docs/](docs/) for detailed architecture documentation.
 
 ## Technical Details
 
@@ -177,6 +181,7 @@ The Extended Long Short-Term Memory (xLSTM) architecture combines:
 ### Mathematical Foundation
 
 xLSTM extends traditional LSTM with:
+
 - Matrix-valued hidden states for increased expressiveness
 - Exponential gating for improved gradient flow
 - Soft attention mechanisms within memory cells
@@ -220,7 +225,8 @@ python -m pytest tests/test_xlstm.py -v
 
 xLSTM was introduced by Beck et al. (2024):
 
-Beck, M., Pöppel, K., Spanring, M., Auer, A., Prudnikova, O., Kopp, M., Klambauer, G., Brandstetter, J., & Hochreiter, S. (2024). xLSTM: Extended Long Short-Term Memory. *arXiv preprint arXiv:2405.04517*.
+Beck, M., Pöppel, K., Spanring, M., Auer, A., Prudnikova, O., Kopp, M., Klambauer, G., Brandstetter, J., & Hochreiter,
+S. (2024). xLSTM: Extended Long Short-Term Memory. *arXiv preprint arXiv:2405.04517*.
 
 ### Model Weights
 
@@ -267,4 +273,5 @@ Complete technical documentation available in [docs/](docs/):
 
 ---
 
-*This is an unofficial implementation optimized for Apple Silicon. For the original research and reference implementation, see the xLSTM paper.*
+*This is an unofficial implementation optimized for Apple Silicon. For the original research and reference
+implementation, see the xLSTM paper.*

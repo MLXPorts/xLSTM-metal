@@ -145,7 +145,7 @@ def test_forward_pass_pretrained(model):
 
         print(f"\n  Top-{top_k} predicted token IDs for last position:")
         for i, (idx, logit) in enumerate(zip(top_k_indices.tolist(), top_k_logits.tolist())):
-            print(f"    {i+1}. Token {idx}: logit = {logit:.4f}")
+            print(f"    {i + 1}. Token {idx}: logit = {logit:.4f}")
 
         return True
     except Exception as e:
@@ -197,7 +197,7 @@ def test_greedy_generation(model):
 
             generated_tokens.append(next_token)
 
-            print(f"    Step {step+1}: Generated token {next_token} (logit: {float(last_logits[next_token]):.4f})")
+            print(f"    Step {step + 1}: Generated token {next_token} (logit: {float(last_logits[next_token]):.4f})")
 
         print(f"\n✓ Generation completed")
         print(f"  Full sequence: {generated_tokens}")

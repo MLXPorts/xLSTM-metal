@@ -9,11 +9,13 @@ Based on: xLSTM paper (Beck et al., 2024), xlstm-large checkpoint
 ## Overview
 
 xLSTM architectures use a **signature** pattern `(m, s)` where:
+
 - `m` = number of mLSTM blocks
 - `s` = number of sLSTM blocks
 - Blocks repeat in this pattern throughout the architecture
 
 Each block consists of:
+
 1. **Sequence mixer** (mLSTM or sLSTM)
 2. **Channel mixer** (GatedFFN / SwiGLU)
 
@@ -24,12 +26,14 @@ Each block consists of:
 **Signature:** `(7, 1)` — 7 mLSTM blocks + 1 sLSTM block
 
 **Block sequence:**
+
 ```
 [mLSTM + FFN] × 7
 [sLSTM + FFN] × 1
 ```
 
 **Full layer sequence** (16 layers per 8-block cycle):
+
 ```python
 layer_types = [
     # Block 1 (mLSTM)
@@ -69,6 +73,7 @@ layer_types = [
 ```
 
 **xlstm-large specs:**
+
 - Total blocks: 48 (= 6 cycles × 8 blocks/cycle)
 - Total layers: 96 (= 48 blocks × 2 layers/block)
 - mLSTM blocks: 42 (= 7/8 × 48)
@@ -83,12 +88,14 @@ layer_types = [
 **Signature:** `(1, 1)` — Alternating mLSTM and sLSTM
 
 **Block sequence:**
+
 ```
 [mLSTM + FFN] × 1
 [sLSTM + FFN] × 1
 ```
 
 **Full layer sequence** (4 layers per 2-block cycle):
+
 ```python
 layer_types = [
     # Block 1 (mLSTM)
@@ -110,11 +117,13 @@ layer_types = [
 **Signature:** `(1, 0)` — Only mLSTM blocks
 
 **Block sequence:**
+
 ```
 [mLSTM + FFN] × repeat
 ```
 
 **Full layer sequence:**
+
 ```python
 layer_types = [
     # Block 1
@@ -136,11 +145,13 @@ layer_types = [
 **Signature:** `(0, 1)` — Only sLSTM blocks
 
 **Block sequence:**
+
 ```
 [sLSTM + FFN] × repeat
 ```
 
 **Full layer sequence:**
+
 ```python
 layer_types = [
     # Block 1
@@ -429,8 +440,10 @@ for pattern_name, layer_types in patterns.items():
 **xLSTM signature counts BLOCKS, not layers.**
 
 Example: signature `(7, 1)` means:
+
 - 7 blocks = 14 layers (7 mLSTM + 7 FFN)
 - 1 block = 2 layers (1 sLSTM + 1 FFN)
 - **Total: 8 blocks = 16 layers**
 
-When configuring MAD's `layer_types`, we specify at the **layer level** (not block level), so we need to expand blocks into their constituent layers.
+When configuring MAD's `layer_types`, we specify at the **layer level** (not block level), so we need to expand blocks
+into their constituent layers.

@@ -20,13 +20,13 @@ LOGGER = logging.getLogger(__name__)
 
 
 def run_benchmarks(
-    benchmark_config: BenchmarkConfig,
-    benchmark_creator: BenchmarkCreator,
-    param_prefix: str = "P--",
-    additional_param_name_short: bool = True,
-    runtime_prefix: str = "R--",
-    memory_prefix: str = "M--",
-    output_folder: Path = None,
+        benchmark_config: BenchmarkConfig,
+        benchmark_creator: BenchmarkCreator,
+        param_prefix: str = "P--",
+        additional_param_name_short: bool = True,
+        runtime_prefix: str = "R--",
+        memory_prefix: str = "M--",
+        output_folder: Path = None,
 ) -> pd.DataFrame:
     """Runs the different kernel configurations and summarizes the results in a DataFrame.
 
@@ -38,7 +38,7 @@ def run_benchmarks(
     kernel_specs = benchmark_config.kernel_specs
     results = []
     for i, param_dict in enumerate(param_dicts):
-        LOGGER.info(f"Parameter combination ({i+1}/{len(param_dicts)}): {param_dict}")
+        LOGGER.info(f"Parameter combination ({i + 1}/{len(param_dicts)}): {param_dict}")
         # add a prefix to easily identify the parameters in the DataFrame
         result_dict = {f"{param_prefix}{k}": v for k, v in param_dict.items()}
         for k, kernel_spec in enumerate(kernel_specs):
@@ -54,8 +54,8 @@ def run_benchmarks(
             ] = runtime_results.peak_memory_allocated
             LOGGER.info(
                 (
-                    f"Kernel ({k+1}/{len(kernel_specs)}): {kernel_spec.to_string()} finished.",
-                    f" Runtime: {runtime_results.runtime} ms. Peak memory: {float(runtime_results.peak_memory_allocated / 10**9)} GB.",
+                    f"Kernel ({k + 1}/{len(kernel_specs)}): {kernel_spec.to_string()} finished.",
+                    f" Runtime: {runtime_results.runtime} ms. Peak memory: {float(runtime_results.peak_memory_allocated / 10 ** 9)} GB.",
                 )
             )
             del benchmark
@@ -70,15 +70,15 @@ def run_benchmarks(
 
 
 def run_model_benchmarks(
-    benchmark_config: BenchmarkConfig,
-    benchmark_creator: ModelBenchmarkCreator,
-    param_prefix: str = "P--",
-    additional_param_name_short: bool = True,
-    runtime_prefix: str = "R--",
-    memory_prefix: str = "M--",
-    setup_model_on_every_param_combination: bool = False,
-    profiler=None,
-    output_folder: Path = None,
+        benchmark_config: BenchmarkConfig,
+        benchmark_creator: ModelBenchmarkCreator,
+        param_prefix: str = "P--",
+        additional_param_name_short: bool = True,
+        runtime_prefix: str = "R--",
+        memory_prefix: str = "M--",
+        setup_model_on_every_param_combination: bool = False,
+        profiler=None,
+        output_folder: Path = None,
 ) -> pd.DataFrame:
     """Runs the different model configurations and summarizes the results in a DataFrame.
     This differs from the kernel benchmark in that way that the two loops are switched.
@@ -93,7 +93,7 @@ def run_model_benchmarks(
         for param_dict in param_dicts
     ]
     for k, kernel_spec in enumerate(kernel_specs):
-        LOGGER.info(f"Model ({k+1}/{len(kernel_specs)}): {kernel_spec.to_string()}")
+        LOGGER.info(f"Model ({k + 1}/{len(kernel_specs)}): {kernel_spec.to_string()}")
         if not setup_model_on_every_param_combination:
             benchmark = benchmark_creator(kernel_spec, kernel_spec.additional_params)
             LOGGER.info(f"Created benchmark: \n{pprint.pformat(benchmark)}")
@@ -107,7 +107,7 @@ def run_model_benchmarks(
                 benchmark.setup_model()
 
             LOGGER.info(
-                f"Parameter combination ({i+1}/{len(param_dicts)}): {param_dict}"
+                f"Parameter combination ({i + 1}/{len(param_dicts)}): {param_dict}"
             )
             # add a prefix to easily identify the parameters in the DataFrame
             # result_dict = {f"{param_prefix}{k}": v for k, v in param_dict.items()}
@@ -123,9 +123,9 @@ def run_model_benchmarks(
             ] = runtime_results.peak_memory_allocated
             LOGGER.info(
                 (
-                    f"Parameter combination ({i+1}/{len(param_dicts)}) finished.",
+                    f"Parameter combination ({i + 1}/{len(param_dicts)}) finished.",
                     f" Runtime: {runtime_results.runtime} ms.",
-                    f" Peak memory: {float(runtime_results.peak_memory_allocated / 10**9)} GB.",
+                    f" Peak memory: {float(runtime_results.peak_memory_allocated / 10 ** 9)} GB.",
                 )
             )
             if setup_model_on_every_param_combination:
@@ -145,11 +145,11 @@ def run_model_benchmarks(
 
 
 def run_and_record_benchmarks(
-    benchmark_config: BenchmarkConfig,
-    benchmark_creator: BenchmarkCreator,
-    output_folder: Path,
-    benchmark_type: Literal["model", "kernel"] = "kernel",
-    **kwargs,
+        benchmark_config: BenchmarkConfig,
+        benchmark_creator: BenchmarkCreator,
+        output_folder: Path,
+        benchmark_type: Literal["model", "kernel"] = "kernel",
+        **kwargs,
 ):
     """
 
@@ -196,7 +196,7 @@ def run_and_record_benchmarks(
     result_df.to_csv(benchmark_folder / "results.csv")
 
     def plot_result_table(
-        additional_exclude_col_regex: str, plot_name_suffix: str, y_label: str
+            additional_exclude_col_regex: str, plot_name_suffix: str, y_label: str
     ):
         """
 

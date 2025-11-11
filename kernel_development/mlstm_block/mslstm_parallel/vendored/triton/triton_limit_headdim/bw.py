@@ -4,23 +4,24 @@
 import torch
 import triton
 
-from kernel_development.mlstm_block.mslstm_parallel.vendored.triton.limit_headdim import mlstm_parallel_bw_dKdV_kernel, mlstm_parallel_bw_dQ_kernel
+from kernel_development.mlstm_block.mslstm_parallel.vendored.triton.limit_headdim import mlstm_parallel_bw_dKdV_kernel, \
+    mlstm_parallel_bw_dQ_kernel
 
 
 def mlstm_parallel_bw(
-    matDeltaHtilde: torch.Tensor,
-    matQ: torch.Tensor,
-    matK: torch.Tensor,
-    matV: torch.Tensor,
-    vecI: torch.Tensor,
-    vecF: torch.Tensor,
-    vecM: torch.Tensor,
-    vecN: torch.Tensor,
-    eps: float = 1e-6,
-    # BLOCK_Q_dKdV: int = BLOCK_Q,
-    # BLOCK_KV_dKdV: int = BLOCK_KV,
-    # BLOCK_Q_dQ: int = BLOCK_Q,
-    # BLOCK_KV_dQ: int = BLOCK_KV,
+        matDeltaHtilde: torch.Tensor,
+        matQ: torch.Tensor,
+        matK: torch.Tensor,
+        matV: torch.Tensor,
+        vecI: torch.Tensor,
+        vecF: torch.Tensor,
+        vecM: torch.Tensor,
+        vecN: torch.Tensor,
+        eps: float = 1e-6,
+        # BLOCK_Q_dKdV: int = BLOCK_Q,
+        # BLOCK_KV_dKdV: int = BLOCK_KV,
+        # BLOCK_Q_dQ: int = BLOCK_Q,
+        # BLOCK_KV_dQ: int = BLOCK_KV,
 ) -> torch.Tensor:
     """
 
@@ -92,7 +93,7 @@ def mlstm_parallel_bw(
         vecF_cs=vecF_cs.contiguous(),
         vecM=vecM.contiguous(),
         vecN=vecN.contiguous(),
-        qk_scale=HEAD_DIM_Q**0.5,
+        qk_scale=HEAD_DIM_Q ** 0.5,
         matDeltaQ=matDeltaQ,
         matDeltaK=matDeltaK,
         matDeltaV=matDeltaV,
@@ -147,7 +148,7 @@ def mlstm_parallel_bw(
         vecF_cs=vecF_cs.contiguous(),
         vecM=vecM.contiguous(),
         vecN=vecN.contiguous(),
-        qk_scale=HEAD_DIM_Q**0.5,
+        qk_scale=HEAD_DIM_Q ** 0.5,
         matDeltaQ=matDeltaQ,
         matDeltaK=matDeltaK,
         matDeltaV=matDeltaV,

@@ -1,4 +1,3 @@
-
 """
 Simplified xLSTM with PyTorch JIT + Metal Integration
 
@@ -9,7 +8,6 @@ import torch
 import torch.nn as nn
 from typing import Tuple, Optional, List, Dict, Any
 import time
-
 
 # Ensure MPS is available
 if not torch.backends.mps.is_available():
@@ -30,11 +28,11 @@ class MetalSoftCap(nn.Module):
         cap_value (float, optional): The value at which to cap the input.
             Defaults to 15.0.
     """
-    
+
     def __init__(self, cap_value: float = 15.0):
         super().__init__()
         self.cap_value = cap_value
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
 
@@ -58,12 +56,12 @@ class MetalRMSNorm(nn.Module):
         eps (float, optional): A small value to add to the denominator for
             numerical stability. Defaults to 1e-6.
     """
-    
+
     def __init__(self, hidden_size: int, eps: float = 1e-6):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(hidden_size))
         self.eps = eps
-    
+
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         """
 
@@ -113,7 +111,8 @@ class MetalmLSTMBlock(nn.Module):
         self.soft_cap = MetalSoftCap()
         self.layer_norm = MetalRMSNorm(d_model)
 
-    def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[
+        torch.Tensor, torch.Tensor]:
         """
 
         :param x:
@@ -199,7 +198,8 @@ class MetalsLSTMBlock(nn.Module):
         self.soft_cap = MetalSoftCap()
         self.layer_norm = MetalRMSNorm(d_model)
 
-    def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x: torch.Tensor, hidden_state: Optional[torch.Tensor] = None) -> Tuple[
+        torch.Tensor, torch.Tensor]:
         """
 
         :param x:
@@ -289,8 +289,9 @@ class MetalxLSTMModel(nn.Module):
         # Output head
         self.head = nn.Linear(d_model, vocab_size, bias=False)
         self.output_soft_cap = MetalSoftCap(30.0)
-    
-    def forward(self, tokens: torch.Tensor, hidden_states: Optional[List[torch.Tensor]] = None) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+
+    def forward(self, tokens: torch.Tensor, hidden_states: Optional[List[torch.Tensor]] = None) -> Tuple[
+        torch.Tensor, List[torch.Tensor]]:
         """
 
         :param tokens:
@@ -298,7 +299,7 @@ class MetalxLSTMModel(nn.Module):
         :return:
         """
         x = self.embedding(tokens)
-        
+
         # Initialize hidden states if needed
         if hidden_states is None:
             hidden_states = []
@@ -312,33 +313,33 @@ class MetalxLSTMModel(nn.Module):
                         batch_size, 8, 32, 32,  # num_heads, head_dim, head_dim  
                         device=tokens.device, dtype=x.dtype
                     ))
-        
+
         # Process through blocks
         new_hidden_states = []
         for i, block in enumerate(self.blocks):
             x, new_hidden = block(x, hidden_states[i])
             new_hidden_states.append(new_hidden)
-        
+
         # Output projection and soft capping
         logits = self.head(x)
         logits = self.output_soft_cap(logits)
-        
+
         return logits, new_hidden_states
-    
+
     def compile_for_production(self):
         """Compile model for optimized inference with JIT + Metal"""
         self.eval()
-        
+
         # Example input for tracing
         example_tokens = torch.randint(0, self.vocab_size, (1, 32), device=device)
-        
+
         print("Tracing model for JIT compilation...")
         with torch.no_grad():
             traced_model = torch.jit.trace(self, (example_tokens,), strict=False)
-        
+
         print("Optimizing traced model...")
         optimized_model = torch.jit.optimize_for_inference(traced_model)
-        
+
         return optimized_model
 
 
@@ -359,17 +360,17 @@ def benchmark_jit_vs_eager(model: nn.Module, tokens: torch.Tensor, num_runs: int
             average execution times, speedup, and tokens per second.
     """
     model.eval()
-    
+
     # Compile model
     compiled_model = model.compile_for_production()
-    
+
     # Warmup
     with torch.no_grad():
         for _ in range(3):
             _ = model(tokens)
             _ = compiled_model(tokens)
         torch.mps.synchronize()
-    
+
     # Benchmark eager
     eager_times = []
     with torch.no_grad():
@@ -378,7 +379,7 @@ def benchmark_jit_vs_eager(model: nn.Module, tokens: torch.Tensor, num_runs: int
             _ = model(tokens)
             torch.mps.synchronize()
             eager_times.append(time.perf_counter() - start)
-    
+
     # Benchmark JIT
     jit_times = []
     with torch.no_grad():
@@ -387,10 +388,10 @@ def benchmark_jit_vs_eager(model: nn.Module, tokens: torch.Tensor, num_runs: int
             _ = compiled_model(tokens)
             torch.mps.synchronize()
             jit_times.append(time.perf_counter() - start)
-    
+
     eager_avg = sum(eager_times) / len(eager_times)
     jit_avg = sum(jit_times) / len(jit_times)
-    
+
     return {
         'eager_avg_time': eager_avg,
         'jit_avg_time': jit_avg,
@@ -414,7 +415,7 @@ def create_optimized_generation(compiled_model, max_length: int = 50):
     Returns:
         A function that can be used to generate sequences of tokens.
     """
-    
+
     def generate(prompt_tokens: torch.Tensor, temperature: float = 1.0, top_k: int = 50) -> torch.Tensor:
         """
 
@@ -425,38 +426,38 @@ def create_optimized_generation(compiled_model, max_length: int = 50):
         """
         generated = prompt_tokens.clone()
         hidden_states = None
-        
+
         with torch.no_grad():
             for _ in range(max_length):
                 # Use only the new token for next prediction (KV cache would go here in production)
                 current_input = generated[:, -32:]  # Use last 32 tokens as sliding window
-                
+
                 logits, hidden_states = compiled_model(current_input, hidden_states)
                 logits = logits[:, -1, :] / temperature
-                
+
                 # Top-k sampling
                 if top_k > 0:
                     indices_to_remove = logits < torch.topk(logits, top_k)[0][..., -1, None]
                     logits.masked_fill_(indices_to_remove, float('-inf'))
-                
+
                 # Sample
                 probs = torch.softmax(logits, dim=-1)
                 next_token = torch.multinomial(probs, 1)
                 generated = torch.cat([generated, next_token], dim=-1)
-                
+
                 # Simple stopping condition
                 if next_token.item() == 0:  # Assuming 0 is EOS
                     break
-        
+
         return generated
-    
+
     return generate
 
 
 if __name__ == "__main__":
     print("PyTorch JIT + Metal xLSTM Implementation")
     print("=" * 50)
-    
+
     # Model configuration
     config = {
         'vocab_size': 1000,
@@ -466,65 +467,65 @@ if __name__ == "__main__":
         'head_dim': 32,
         'head_num': 8
     }
-    
+
     print("Creating model...")
     model = MetalxLSTMModel(**config).to(device)
-    
+
     # Test data
     batch_size = 1
     seq_len = 64
     tokens = torch.randint(0, 1000, (batch_size, seq_len), device=device)
-    
+
     print(f"Input tokens shape: {tokens.shape}")
-    
+
     # Test forward pass
     print("Testing forward pass...")
     with torch.no_grad():
         logits, hidden_states = model(tokens)
-    
+
     print(f"Output logits shape: {logits.shape}")
     print(f"Number of hidden states: {len(hidden_states)}")
-    
+
     # Benchmark JIT vs Eager
     print("\nBenchmarking JIT vs Eager execution...")
     try:
         results = benchmark_jit_vs_eager(model, tokens)
-        
+
         print(f"Eager execution: {results['eager_avg_time']:.4f}s avg")
         print(f"JIT execution: {results['jit_avg_time']:.4f}s avg")
         print(f"JIT Speedup: {results['speedup']:.2f}x")
         print(f"Eager: {results['eager_tokens_per_sec']:.1f} tokens/sec")
         print(f"JIT: {results['jit_tokens_per_sec']:.1f} tokens/sec")
-        
+
         # Test optimized generation
         print("\nTesting optimized generation...")
         compiled_model = model.compile_for_production()
         generate_fn = create_optimized_generation(compiled_model, max_length=10)
-        
+
         prompt = tokens[:, :16]  # First 16 tokens as prompt
         generated = generate_fn(prompt, temperature=0.8, top_k=40)
-        
+
         print(f"Generated sequence length: {generated.shape[1]}")
         print(f"Original prompt length: {prompt.shape[1]}")
         print(f"New tokens generated: {generated.shape[1] - prompt.shape[1]}")
-        
+
         # Save production model
         torch.jit.save(compiled_model, "xlstm_jit_metal_production.pt")
         print("✓ Saved production model: xlstm_jit_metal_production.pt")
-        
+
     except Exception as e:
         print(f"JIT compilation failed: {e}")
         print("Model works in eager mode, JIT compilation may need adjustments")
-    
+
     # Test soft capping
     print("\nTesting Metal-optimized soft capping...")
     soft_cap = MetalSoftCap(5.0)
     test_tensor = torch.randn(100, device=device) * 10
     capped = soft_cap(test_tensor)
-    
+
     print(f"Soft capping: max uncapped = {test_tensor.max():.2f}, max capped = {capped.max():.2f}")
-    
-    print("\n" + "=" * 50) 
+
+    print("\n" + "=" * 50)
     print("PyTorch JIT + Metal xLSTM Complete!")
     print("✓ Metal MPS Backend: Enabled")
     print("✓ Operator Fusion: JIT optimization ready")

@@ -19,12 +19,14 @@ Model (WiredMADModel)
 ### The Critical Distinction
 
 **From NCPS:**
+
 - `WiredCfCCell` takes a `Wiring` object
 - Creates multiple `CfCCell` instances (one per layer in wiring)
 - Applies connectivity pattern via sparsity masks
 - Each cell has its own parameters
 
 **For xLSTM:**
+
 - Each **Block** (mLSTM, sLSTM) is actually a **Cell**
 - Blocks can have internal wiring (connectomes within the block)
 - Blocks may share weights via wiring patterns
@@ -33,6 +35,7 @@ Model (WiredMADModel)
 ### xLSTM-7B vs xLSTM-1B Differences
 
 **xLSTM-7B:**
+
 - Simple sequential blocks
 - All mLSTM blocks
 - No Conv1d
@@ -40,6 +43,7 @@ Model (WiredMADModel)
 - Sequential architecture
 
 **xLSTM-1B:**
+
 - Mixed block types (mLSTM + sLSTM + Conv1d)
 - More complex connectivity
 - Recurrence patterns
@@ -244,21 +248,25 @@ class WeightSharedWiring(Wiring):
 ## Implementation Strategy
 
 ### Phase 1: Refactor Current Code
+
 1. Make `xLSTMBlock` wrap a `mLSTMCell`
 2. Extract cell logic from block logic
 3. Add support for cell-level wiring
 
 ### Phase 2: Add Cell Types
+
 1. Implement `sLSTMCell`
 2. Implement `Conv1dCell`
 3. Add cell factory to `xLSTMBlock`
 
 ### Phase 3: Advanced Wiring
+
 1. Implement weight sharing via wiring
 2. Add sparse connectivity patterns
 3. Support heterogeneous block types
 
 ### Phase 4: Model Variants
+
 1. xLSTM-7B: Simple sequential (current)
 2. xLSTM-1B: Mixed cells with complex wiring
 3. Custom: User-defined wiring patterns

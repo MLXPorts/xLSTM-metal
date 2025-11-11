@@ -11,30 +11,30 @@ from .triton_step import mlstm_recurrent_step__triton_fw
 
 
 def _mlstm_recurrent_sequence_loop_fw(
-    mlstm_step_fn: Callable,
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHV)
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_initial: jax.Array | None = None,  # (B, NH)
-    return_last_states: bool = False,
-    return_all_states: bool = False,
-    eps: float = 1e-6,
-    **kwargs,
+        mlstm_step_fn: Callable,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHV)
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_initial: jax.Array | None = None,  # (B, NH)
+        return_last_states: bool = False,
+        return_all_states: bool = False,
+        eps: float = 1e-6,
+        **kwargs,
 ) -> tuple[
     jax.Array,  # (B, NH, S, DHV)
     jax.Array,  # (B, NH, S, DHQK)
     jax.Array,  # (B, NH, S)
     None
     | (
-        tuple[jax.Array, jax.Array, jax.Array]
+            tuple[jax.Array, jax.Array, jax.Array]
     ),  # (matC_state_last (B, NH, DHQK, DHV), vecN_state_last (B, NH, DHQK), vecM_state_last (B, NH, 1))
     None
     | (
-        tuple[jax.Array, jax.Array, jax.Array]
+            tuple[jax.Array, jax.Array, jax.Array]
     ),  # (matC_states (B, NH, S, DHQK, DHV), vecN_states (B, NH, S, DHQK), vecM_states (B, NH, S))
 ]:
     """
@@ -141,17 +141,17 @@ def _mlstm_recurrent_sequence_loop_fw(
 
 
 def mlstm_recurrent_sequence__native_fw(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array = None,
-    n_initial: jax.Array = None,
-    m_initial: jax.Array = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    **kwargs,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array = None,
+        n_initial: jax.Array = None,
+        m_initial: jax.Array = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        **kwargs,
 ) -> jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]:
     """
     Forward pass of the mLSTM cell in recurrent form on a full sequence using native JAX implementation.
@@ -186,17 +186,17 @@ def mlstm_recurrent_sequence__native_fw(
 
 
 def mlstm_recurrent_sequence__triton_step_fused_fw(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array = None,
-    n_initial: jax.Array = None,
-    m_initial: jax.Array = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    **kwargs,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array = None,
+        n_initial: jax.Array = None,
+        m_initial: jax.Array = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        **kwargs,
 ) -> jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]:
     """
     Forward pass of the mLSTM cell in recurrent form on a full sequence using the fused Triton step
@@ -220,7 +220,7 @@ def mlstm_recurrent_sequence__triton_step_fused_fw(
     Returns:
         Hidden states tensor of shape (B, NH, S, DHV) if `return_last_states` is False.
         Tuple of hidden states tensor and tuple of last states tensors if `return_last_states` is True.
-    """    
+    """
 
     ret_tuple = _mlstm_recurrent_sequence_loop_fw(mlstm_step_fn=mlstm_recurrent_step__triton_fw, matQ=q, matK=k, matV=v,
                                                   vecI=i, vecF=f, matC_initial=c_initial, vecN_initial=n_initial,

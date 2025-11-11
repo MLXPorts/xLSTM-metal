@@ -17,14 +17,14 @@ class CfCLogitCalibrator(nn.Module):
     """
 
     def __init__(
-        self,
-        vocab_size: int,
-        hidden: int = 32,
-        backbone_units: int = 64,
-        backbone_layers: int = 1,
-        mode: str = "default",
-        activation: str = "lecun_tanh",
-        topk_bias: int = 0,
+            self,
+            vocab_size: int,
+            hidden: int = 32,
+            backbone_units: int = 64,
+            backbone_layers: int = 1,
+            mode: str = "default",
+            activation: str = "lecun_tanh",
+            topk_bias: int = 0,
     ):
         super().__init__()
         self.vocab_size = vocab_size

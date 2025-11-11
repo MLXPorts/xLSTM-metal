@@ -55,12 +55,12 @@ class xLSTMFeedForwardBlock(nn.Module):
     """
 
     def __init__(
-        self,
-        hidden_size: int = 4096,
-        ffn_proj_factor: float = 2.6484375,
-        ffn_round_up_to_multiple_of: int = 32,
-        use_bias: bool = False,
-        weight_mode: str = "single"
+            self,
+            hidden_size: int = 4096,
+            ffn_proj_factor: float = 2.6484375,
+            ffn_round_up_to_multiple_of: int = 32,
+            use_bias: bool = False,
+            weight_mode: str = "single"
     ):
         super().__init__()
 
@@ -116,7 +116,7 @@ class xLSTMFeedForwardBlock(nn.Module):
         if self.weight_mode == "single":
             # Separate gates: SiLU(gate) * value
             gate = self.proj_up_gate(x)  # [B, S, up_proj_dim]
-            z = self.proj_up(x)          # [B, S, up_proj_dim]
+            z = self.proj_up(x)  # [B, S, up_proj_dim]
 
             # ZERO TOLERANCE: Use MLX operators
             gate_act = mx.multiply(gate, mx.sigmoid(gate))  # SiLU = x * sigmoid(x)
@@ -128,7 +128,7 @@ class xLSTMFeedForwardBlock(nn.Module):
 
             # Split: first up_proj_dim for gate, second for value
             gate = x[:, :, :self.up_proj_dim]  # [B, S, up_proj_dim]
-            z = x[:, :, self.up_proj_dim:]     # [B, S, up_proj_dim]
+            z = x[:, :, self.up_proj_dim:]  # [B, S, up_proj_dim]
 
             # ZERO TOLERANCE: Use MLX operators
             gate_act = mx.multiply(gate, mx.sigmoid(gate))  # SiLU

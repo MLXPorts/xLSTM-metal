@@ -1,4 +1,3 @@
-
 """
 xLSTM Metal Kernel Implementation
 
@@ -6,11 +5,11 @@ Proper Metal kernel implementations for xLSTM operations using MLX fast.metal_ke
 Based on the comprehensive Metal guide from ember-ml backend.
 """
 
+from dataclasses import dataclass
+from typing import Tuple, Optional, List
+
 import mlx.core as mx
 import mlx.nn as nn
-from typing import Tuple, Optional, List
-import math
-from dataclasses import dataclass
 
 
 @dataclass
@@ -48,7 +47,7 @@ def metal_soft_cap(x: mx.array, cap_value: float) -> mx.array:
     float cap = cap_val[0];
     out0[elem] = cap * tanh(val / cap);
     """
-    
+
     kernel = mx.fast.metal_kernel(
         name="soft_cap_kernel",
         input_names=["inp0", "cap_val"],
@@ -60,9 +59,9 @@ def metal_soft_cap(x: mx.array, cap_value: float) -> mx.array:
         using namespace metal;
         """
     )
-    
+
     cap_array = mx.array([cap_value], dtype=x.dtype)
-    
+
     return kernel(
         inputs=[x, cap_array],
         output_shapes=[x.shape],
@@ -74,16 +73,16 @@ def metal_soft_cap(x: mx.array, cap_value: float) -> mx.array:
 
 @mx.custom_function
 def metal_mlstm_step(
-    q: mx.array,
-    k: mx.array, 
-    v: mx.array,
-    i_gate: mx.array,
-    f_gate: mx.array,
-    o_gate: mx.array,
-    hidden_state: mx.array
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_gate: mx.array,
+        f_gate: mx.array,
+        o_gate: mx.array,
+        hidden_state: mx.array
 ) -> Tuple[mx.array, mx.array]:
     """Single mLSTM step with Metal kernel"""
-    
+
     source = """
     uint tid = thread_position_in_grid.x;
     uint head = thread_position_in_grid.y;
@@ -127,7 +126,7 @@ def metal_mlstm_step(
     uint out_idx = batch * num_heads * head_dim + head * head_dim + tid;
     output[out_idx] = o_val * h_sum;
     """
-    
+
     kernel = mx.fast.metal_kernel(
         name="mlstm_step_kernel",
         input_names=["q", "k", "v", "i_gate", "f_gate", "o_gate", "hidden_state"],
@@ -139,11 +138,11 @@ def metal_mlstm_step(
         using namespace metal;
         """
     )
-    
+
     batch_size, num_heads, head_dim = q.shape
     output_shape = (batch_size, num_heads, head_dim)
     hidden_shape = hidden_state.shape
-    
+
     results = kernel(
         inputs=[q, k, v, i_gate, f_gate, o_gate, hidden_state],
         output_shapes=[output_shape, hidden_shape],
@@ -151,20 +150,20 @@ def metal_mlstm_step(
         grid=(head_dim, num_heads, batch_size),
         threadgroup=(min(head_dim, 16), min(num_heads, 16), min(batch_size, 4))
     )
-    
+
     return results[0], results[1]
 
 
-@mx.custom_function  
+@mx.custom_function
 def metal_slstm_step(
-    x: mx.array,
-    i_gate: mx.array,
-    f_gate: mx.array,
-    o_gate: mx.array,
-    hidden_state: mx.array
+        x: mx.array,
+        i_gate: mx.array,
+        f_gate: mx.array,
+        o_gate: mx.array,
+        hidden_state: mx.array
 ) -> Tuple[mx.array, mx.array]:
     """Single sLSTM step with Metal kernel"""
-    
+
     source = """
     uint tid = thread_position_in_grid.x;
     uint batch = thread_position_in_grid.y;
@@ -188,9 +187,9 @@ def metal_slstm_step(
     // Output: y = o * tanh(h)
     output[idx] = o_val * tanh(new_h);
     """
-    
+
     kernel = mx.fast.metal_kernel(
-        name="slstm_step_kernel", 
+        name="slstm_step_kernel",
         input_names=["x", "i_gate", "f_gate", "o_gate", "hidden_state"],
         output_names=["output", "updated_hidden"],
         source=source,
@@ -200,9 +199,9 @@ def metal_slstm_step(
         using namespace metal;
         """
     )
-    
+
     batch_size, proj_dim = x.shape
-    
+
     results = kernel(
         inputs=[x, i_gate, f_gate, o_gate, hidden_state],
         output_shapes=[x.shape, hidden_state.shape],
@@ -210,14 +209,14 @@ def metal_slstm_step(
         grid=(proj_dim, batch_size, 1),
         threadgroup=(min(proj_dim, 256), min(batch_size, 4), 1)
     )
-    
+
     return results[0], results[1]
 
 
 @mx.custom_function
 def metal_causal_conv1d(x: mx.array, weight: mx.array, bias: Optional[mx.array] = None) -> mx.array:
     """Causal 1D convolution with Metal kernel"""
-    
+
     source = """
     uint batch = thread_position_in_grid.x;
     uint channel = thread_position_in_grid.y; 
@@ -253,7 +252,7 @@ def metal_causal_conv1d(x: mx.array, weight: mx.array, bias: Optional[mx.array] 
     uint out_idx = batch * seq_len * out_channels + time * out_channels + channel;
     output[out_idx] = sum;
     """
-    
+
     kernel = mx.fast.metal_kernel(
         name="causal_conv1d_kernel",
         input_names=["x", "weight"] + (["bias"] if bias is not None else []),
@@ -265,17 +264,17 @@ def metal_causal_conv1d(x: mx.array, weight: mx.array, bias: Optional[mx.array] 
         using namespace metal;
         """
     )
-    
+
     batch_size, seq_len, in_channels = x.shape
     out_channels = weight.shape[0]
     output_shape = (batch_size, seq_len, out_channels)
-    
+
     inputs = [x, weight]
     if bias is not None:
         inputs.append(bias)
     else:
         inputs.append(mx.array([], dtype=x.dtype))  # Empty bias
-    
+
     return kernel(
         inputs=inputs,
         output_shapes=[output_shape],
@@ -320,7 +319,7 @@ def metal_rms_norm_impl(hidden_states, weight, eps):
             }
         }
     """
-    
+
     kernel = mx.fast.metal_kernel(
         name="rmsnorm_kernel",
         input_names=["hidden_states", "weight", "eps"],
@@ -332,7 +331,7 @@ def metal_rms_norm_impl(hidden_states, weight, eps):
         using namespace metal;
         """
     )
-    
+
     return kernel(
         inputs=[hidden_states, weight, eps],
         output_shapes=[hidden_states.shape],
@@ -344,12 +343,12 @@ def metal_rms_norm_impl(hidden_states, weight, eps):
 
 class MetalRMSNorm(nn.Module):
     """RMSNorm using Metal kernels"""
-    
+
     def __init__(self, hidden_size: int, eps: float = 1e-6):
         super().__init__()
         self.weight = mx.ones((hidden_size,))
         self.variance_epsilon = eps
-    
+
     def __call__(self, hidden_states):
         eps_array = mx.array([self.variance_epsilon], dtype=hidden_states.dtype)
         return metal_rms_norm_impl(hidden_states, self.weight, eps_array)
@@ -357,86 +356,88 @@ class MetalRMSNorm(nn.Module):
 
 class MetalxLSTMBlock(nn.Module):
     """xLSTM block using Metal kernels"""
-    
+
     def __init__(self, config: xLSTMConfig, layer_idx: int, is_mlstm: bool = True):
         super().__init__()
         self.config = config
         self.layer_idx = layer_idx
         self.is_mlstm = is_mlstm
-        
+
         if is_mlstm:
             # mLSTM configuration
             self.head_dim = config.head_dim
             self.num_heads = config.head_num
-            
+
             self.q_proj = nn.Linear(config.d_model, self.num_heads * self.head_dim, bias=False)
-            self.k_proj = nn.Linear(config.d_model, self.num_heads * self.head_dim, bias=False)  
+            self.k_proj = nn.Linear(config.d_model, self.num_heads * self.head_dim, bias=False)
             self.v_proj = nn.Linear(config.d_model, self.num_heads * self.head_dim, bias=False)
-            
+
             self.i_proj = nn.Linear(config.d_model, self.num_heads, bias=False)
             self.f_proj = nn.Linear(config.d_model, self.num_heads, bias=False)
             self.o_proj = nn.Linear(config.d_model, self.num_heads, bias=False)
-            
+
             self.out_proj = nn.Linear(self.num_heads * self.head_dim, config.d_model, bias=False)
         else:
             # sLSTM configuration
             proj_dim = int(config.d_model * config.slstm_proj_factor)
-            
+
             self.conv = self._create_causal_conv(config.d_model, config.causal_conv_kernel)
-            
+
             self.i_proj = nn.Linear(config.d_model, proj_dim, bias=False)
-            self.f_proj = nn.Linear(config.d_model, proj_dim, bias=False) 
+            self.f_proj = nn.Linear(config.d_model, proj_dim, bias=False)
             self.o_proj = nn.Linear(config.d_model, proj_dim, bias=False)
             self.c_proj = nn.Linear(config.d_model, proj_dim, bias=False)
-            
+
             self.out_proj = nn.Linear(proj_dim, config.d_model, bias=False)
-        
+
         self.layer_norm = MetalRMSNorm(config.d_model)
-    
+
     def _create_causal_conv(self, channels: int, kernel_size: int):
         """Create causal convolution layer with proper weights"""
+
         class CausalConv1dLayer(nn.Module):
             def __init__(self, channels, kernel_size):
                 super().__init__()
                 # Conv1d weights: (out_channels, in_channels, kernel_size)
                 self.weight = mx.random.normal((channels, channels, kernel_size)) / (channels * kernel_size) ** 0.5
                 self.bias = mx.zeros((channels,))
-                
+
             def __call__(self, x):
                 return metal_causal_conv1d(x, self.weight, self.bias)
-        
+
         return CausalConv1dLayer(channels, kernel_size)
-    
+
     def __call__(self, x: mx.array, hidden_state: Optional[mx.array] = None) -> Tuple[mx.array, mx.array]:
         batch_size, seq_len, d_model = x.shape
         residual = x
         x = self.layer_norm(x)
-        
+
         if self.is_mlstm:
             return self._mlstm_forward(x, hidden_state, residual)
         else:
             return self._slstm_forward(x, hidden_state, residual)
-    
-    def _mlstm_forward(self, x: mx.array, hidden_state: Optional[mx.array], residual: mx.array) -> Tuple[mx.array, mx.array]:
+
+    def _mlstm_forward(self, x: mx.array, hidden_state: Optional[mx.array], residual: mx.array) -> Tuple[
+        mx.array, mx.array]:
         batch_size, seq_len, d_model = x.shape
-        
+
         # Projections
         q = self.q_proj(x).reshape(batch_size, seq_len, self.num_heads, self.head_dim)
         k = self.k_proj(x).reshape(batch_size, seq_len, self.num_heads, self.head_dim)
         v = self.v_proj(x).reshape(batch_size, seq_len, self.num_heads, self.head_dim)
-        
+
         # Gates with soft capping
         i_gate = mx.sigmoid(metal_soft_cap(self.i_proj(x), self.config.gate_soft_cap))
         f_gate = mx.sigmoid(metal_soft_cap(self.f_proj(x), self.config.gate_soft_cap))
         o_gate = mx.sigmoid(metal_soft_cap(self.o_proj(x), self.config.gate_soft_cap))
-        
+
         # Initialize hidden state
         if hidden_state is None:
             hidden_state = mx.zeros(
                 (batch_size, self.num_heads, self.head_dim, self.head_dim),
                 dtype=x.dtype
             )
-        
+
         outputs = []
         for t in range(seq_len):
             q_t = q[:, t]  # [batch_size, num_heads, head_dim]
@@ -445,70 +446,71 @@ class MetalxLSTMBlock(nn.Module):
             i_t = i_gate[:, t]  # [batch_size, num_heads]
             f_t = f_gate[:, t]
             o_t = o_gate[:, t]
-            
+
             # Use Metal kernel for step computation
             h_t, hidden_state = metal_mlstm_step(q_t, k_t, v_t, i_t, f_t, o_t, hidden_state)
             outputs.append(h_t)
-        
+
         output = mx.stack(outputs, axis=1)  # [batch_size, seq_len, num_heads, head_dim]
         output = output.reshape(batch_size, seq_len, -1)
-        
+
         return residual + self.out_proj(output), hidden_state
-    
-    def _slstm_forward(self, x: mx.array, hidden_state: Optional[mx.array], residual: mx.array) -> Tuple[mx.array, mx.array]:
+
+    def _slstm_forward(self, x: mx.array, hidden_state: Optional[mx.array], residual: mx.array) -> Tuple[
+        mx.array, mx.array]:
         batch_size, seq_len, d_model = x.shape
-        
+
         # Causal convolution using Metal kernel
         x = self.conv(x)
-        
+
         # Gates and projections
         i_gate = mx.sigmoid(metal_soft_cap(self.i_proj(x), self.config.gate_soft_cap))
         f_gate = mx.sigmoid(metal_soft_cap(self.f_proj(x), self.config.gate_soft_cap))
         o_gate = mx.sigmoid(metal_soft_cap(self.o_proj(x), self.config.gate_soft_cap))
         c_input = self.c_proj(x)
-        
+
         proj_dim = i_gate.shape[-1]
-        
+
         # Initialize hidden state
         if hidden_state is None:
             hidden_state = mx.zeros((batch_size, proj_dim), dtype=x.dtype)
-        
+
         outputs = []
         for t in range(seq_len):
             c_t = c_input[:, t]
             i_t = i_gate[:, t]
             f_t = f_gate[:, t]
             o_t = o_gate[:, t]
-            
+
             # Use Metal kernel for step computation
             h_t, hidden_state = metal_slstm_step(c_t, i_t, f_t, o_t, hidden_state)
             outputs.append(h_t)
-        
+
         output = mx.stack(outputs, axis=1)
-        
+
         return residual + self.out_proj(output), hidden_state
 
 
 class MetalxLSTMModel(nn.Module):
     """Complete xLSTM model using Metal kernels"""
-    
+
     def __init__(self, config: xLSTMConfig):
         super().__init__()
         self.config = config
-        
+
         # Embeddings
         self.embedding = nn.Embedding(config.vocab_size, config.d_model)
-        
+
         # Layers
         self.blocks = []
         for i in range(config.num_layers):
             is_mlstm = i >= len(config.signature) or config.signature[i] == 0
             block = MetalxLSTMBlock(config, i, is_mlstm=is_mlstm)
             self.blocks.append(block)
-        
+
         # Output head
         self.head = nn.Linear(config.d_model, config.vocab_size, bias=False)
-        
+
     def init_hidden(self, batch_size: int) -> List[mx.array]:
         """Initialize hidden states for all blocks"""
         hidden_states = []
@@ -519,35 +521,35 @@ class MetalxLSTMModel(nn.Module):
                 proj_dim = int(self.config.d_model * self.config.slstm_proj_factor)
                 hidden_states.append(mx.zeros((batch_size, proj_dim)))
         return hidden_states
-    
+
     def __call__(self, tokens: mx.array, hidden_states: Optional[List] = None) -> Tuple[mx.array, List]:
         x = self.embedding(tokens)
-        
+
         if hidden_states is None:
             hidden_states = self.init_hidden(tokens.shape[0])
-        
+
         for i, block in enumerate(self.blocks):
             x, hidden_states[i] = block(x, hidden_states[i])
-        
+
         logits = self.head(x)
-        
+
         # Apply soft capping to output logits
         if self.config.output_logit_soft_cap > 0:
             logits = metal_soft_cap(logits, self.config.output_logit_soft_cap)
-        
+
         return logits, hidden_states
 
 
 def create_metal_xlstm_model(
-    vocab_size: int = 50257,
-    num_layers: int = 6,
-    d_model: int = 512,
-    signature: Tuple[int, ...] = (1, 1),
-    head_dim: int = 32,
-    head_num: int = 4
+        vocab_size: int = 50257,
+        num_layers: int = 6,
+        d_model: int = 512,
+        signature: Tuple[int, ...] = (1, 1),
+        head_dim: int = 32,
+        head_num: int = 4
 ) -> MetalxLSTMModel:
     """Create xLSTM model with Metal kernel optimizations"""
-    
+
     config = xLSTMConfig(
         vocab_size=vocab_size,
         num_layers=num_layers,
@@ -556,37 +558,37 @@ def create_metal_xlstm_model(
         head_dim=head_dim,
         head_num=head_num
     )
-    
+
     return MetalxLSTMModel(config)
 
 
 # Example usage and testing
 if __name__ == "__main__":
     import time
-    
+
     print("Creating xLSTM model with Metal kernels...")
-    
+
     # Create model
     model = create_metal_xlstm_model(vocab_size=1000, num_layers=4, d_model=256, signature=(1, 0, 1, 0), head_num=8)
-    
+
     # Test generation
     batch_size = 1
     seq_len = 32
     prompt = mx.random.randint(0, 1000, (batch_size, seq_len))
-    
+
     print(f"Prompt shape: {prompt.shape}")
-    
+
     # Forward pass
     start_time = time.time()
     logits, hidden_states = model(prompt)
     forward_time = time.time() - start_time
-    
+
     print(f"Forward pass completed in {forward_time:.3f}s")
     print(f"Output shape: {logits.shape}")
-    
+
     # Test soft capping
     test_tensor = mx.random.normal((100,)) * 10
     capped = metal_soft_cap(test_tensor, 5.0)
     print(f"Soft capping: max uncapped = {mx.max(test_tensor):.2f}, max capped = {mx.max(capped):.2f}")
-    
+
     print("Metal xLSTM implementation complete!")

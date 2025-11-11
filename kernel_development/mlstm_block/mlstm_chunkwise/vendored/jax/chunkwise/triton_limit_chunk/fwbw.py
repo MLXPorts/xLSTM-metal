@@ -12,11 +12,11 @@ from .fw import mlstm_chunkwise_fw
 
 
 def _mlstm_chunkwise_fwbw_generator(
-    autocast_kernel_dtype: jnp.dtype = jnp.bfloat16,
-    return_last_states: bool = False,
-    recompute_states_in_bw: bool = True,
-    chunk_size: int = 64,
-    eps: float = 1e-6,
+        autocast_kernel_dtype: jnp.dtype = jnp.bfloat16,
+        return_last_states: bool = False,
+        recompute_states_in_bw: bool = True,
+        chunk_size: int = 64,
+        eps: float = 1e-6,
 ) -> Callable[
     [jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array],
     tuple[jax.Array, jax.Array, jax.Array, jax.Array],
@@ -51,14 +51,14 @@ def _mlstm_chunkwise_fwbw_generator(
 
     @jax.custom_gradient
     def forward(
-        matQ: jax.Array,  # (B, NH, S, DHQK)
-        matK: jax.Array,  # (B, NH, S, DHQK)
-        matV: jax.Array,  # (B, NH, S, DHV)
-        vecI: jax.Array,  # (B, NH, S)
-        vecF: jax.Array,  # (B, NH, S)
-        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-        scaM_initial: jax.Array | None = None,  # (B, NH)
+            matQ: jax.Array,  # (B, NH, S, DHQK)
+            matK: jax.Array,  # (B, NH, S, DHQK)
+            matV: jax.Array,  # (B, NH, S, DHV)
+            vecI: jax.Array,  # (B, NH, S)
+            vecF: jax.Array,  # (B, NH, S)
+            matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+            vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+            scaM_initial: jax.Array | None = None,  # (B, NH)
     ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
         """
 
@@ -73,7 +73,7 @@ def _mlstm_chunkwise_fwbw_generator(
         :return:
         """
         B, NH, S, DHQK = matQ.shape
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
         # Verify shapes to prevent errors in the kernels.
         assert matK.shape == (B, NH, S, DHQK), f"matK shape {matK.shape} does not match matQ shape {matQ.shape}."
         assert matV.shape[:-1] == (B, NH, S), f"matV shape {matV.shape} does not match matQ shape {matQ.shape}."
@@ -141,7 +141,7 @@ def _mlstm_chunkwise_fwbw_generator(
             matC_all, vecN_all, scaM_all = (None, None, None)
 
         def backward(
-            grad_list: tuple[jax.Array, jax.Array, jax.Array, jax.Array],
+                grad_list: tuple[jax.Array, jax.Array, jax.Array, jax.Array],
         ) -> tuple[
             jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array | None, jax.Array | None, jax.Array | None
         ]:
@@ -227,18 +227,18 @@ def _get_chunkwise_fwbw_kernel(autocast_kernel_dtype: jnp.dtype, **kwargs) -> Ca
 
 
 def mlstm_chunkwise__limit_chunk(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array | None = None,
-    n_initial: jax.Array | None = None,
-    m_initial: jax.Array | None = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    chunk_size: int = 64,
-    autocast_kernel_dtype: jnp.dtype = jnp.float32,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array | None = None,
+        n_initial: jax.Array | None = None,
+        m_initial: jax.Array | None = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        chunk_size: int = 64,
+        autocast_kernel_dtype: jnp.dtype = jnp.float32,
 ) -> jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]:
     """
     Apply the mLSTM chunkwise formulation with Triton kernels.

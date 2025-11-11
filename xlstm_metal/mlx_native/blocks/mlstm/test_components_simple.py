@@ -36,7 +36,7 @@ def test_soft_cap():
     y_sorted = soft_cap(x_sorted, cap)
     y_list = y_sorted.tolist()
     for i in range(len(y_list) - 1):
-        assert y_list[i] < y_list[i+1], f"Not monotonic at {i}: {y_list[i]} >= {y_list[i+1]}"
+        assert y_list[i] < y_list[i + 1], f"Not monotonic at {i}: {y_list[i]} >= {y_list[i + 1]}"
 
     print("✓ Soft-cap(0) ≈ 0")
     print("✓ Bounded by cap value")
@@ -259,10 +259,12 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(f"\n✗ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
     except Exception as e:
         print(f"\n✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)

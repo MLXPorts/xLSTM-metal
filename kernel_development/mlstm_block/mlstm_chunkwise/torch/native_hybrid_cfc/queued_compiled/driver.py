@@ -9,22 +9,22 @@ from kernel_development.mlstm_block.mlstm_recurrent.recurrent.metal.compiled imp
 
 
 def _process_head_band(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    head_start: int,
-    head_end: int,
-    chunk_size: int,
-    eps: float,
-    h_out_ref: torch.Tensor,
-    c_state: torch.Tensor,
-    n_state: torch.Tensor,
-    m_state: torch.Tensor,
-    stream: "torch.mps.Stream | None" = None,
-    chunk_size_ref: list | None = None,
-    monitor: MemoryMonitor | None = None,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        head_start: int,
+        head_end: int,
+        chunk_size: int,
+        eps: float,
+        h_out_ref: torch.Tensor,
+        c_state: torch.Tensor,
+        n_state: torch.Tensor,
+        m_state: torch.Tensor,
+        stream: "torch.mps.Stream | None" = None,
+        chunk_size_ref: list | None = None,
+        monitor: MemoryMonitor | None = None,
 ):
     B, NH, S, DHQK = q.shape
     DHHV = v.shape[-1]
@@ -60,8 +60,10 @@ def _process_head_band(
             class _Null:
                 def __enter__(self_):
                     return None
+
                 def __exit__(self_, exc_type, exc, tb):
                     return False
+
             ctx = _Null()
         with ctx:
             # CfC-hybrid experimental override
@@ -81,8 +83,8 @@ def _process_head_band(
                 if cfc_on:
                     ff = torch.sigmoid(H) if cfc_act == "sigmoid" else (1.7159 * torch.tanh(0.666 * H))
                     try:
-                        i_t = i[:, hs:he, t : t + 1]
-                        f_t = f[:, hs:he, t : t + 1]
+                        i_t = i[:, hs:he, t: t + 1]
+                        f_t = f[:, hs:he, t: t + 1]
                         lam = torch.sigmoid(cfc_alpha * (i_t + f_t)).squeeze(-1)
                     except Exception:
                         lam = torch.zeros_like(h_cfc)
@@ -98,19 +100,19 @@ def _process_head_band(
 
 
 def mlstm_chunkwise__queued_compiled_steps(
-    q: torch.Tensor,  # (B, NH, S, DHQK)
-    k: torch.Tensor,  # (B, NH, S, DHQK)
-    v: torch.Tensor,  # (B, NH, S, DHHV)
-    i: torch.Tensor,  # (B, NH, S)
-    f: torch.Tensor,  # (B, NH, S)
-    c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    n_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    m_initial: torch.Tensor = None,  # (B, NH, 1)
-    chunk_size: int = 32,
-    return_last_states: bool = True,
-    autocast_kernel_dtype: torch.dtype = torch.bfloat16,
-    eps: float = 1e-6,
-    **kwargs,
+        q: torch.Tensor,  # (B, NH, S, DHQK)
+        k: torch.Tensor,  # (B, NH, S, DHQK)
+        v: torch.Tensor,  # (B, NH, S, DHHV)
+        i: torch.Tensor,  # (B, NH, S)
+        f: torch.Tensor,  # (B, NH, S)
+        c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        n_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        m_initial: torch.Tensor = None,  # (B, NH, 1)
+        chunk_size: int = 32,
+        return_last_states: bool = True,
+        autocast_kernel_dtype: torch.dtype = torch.bfloat16,
+        eps: float = 1e-6,
+        **kwargs,
 ):
     """
     GPU-only queued chunkwise prefill using compiled step kernels.
@@ -228,7 +230,7 @@ def mlstm_chunkwise__queued_compiled_steps(
         # Attach simple telemetry for callers (attrs on tensor)
         try:
             h_out._mps_steps = total_steps  # type: ignore[attr-defined]
-            h_out._mps_time = total_time    # type: ignore[attr-defined]
+            h_out._mps_time = total_time  # type: ignore[attr-defined]
         except Exception:
             pass
         if monitor is not None:

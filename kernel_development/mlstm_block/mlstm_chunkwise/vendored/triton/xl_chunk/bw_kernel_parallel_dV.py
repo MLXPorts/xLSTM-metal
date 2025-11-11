@@ -15,56 +15,56 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__parallel_bw_dV_kernel(
-    ## input tensor pointers
-    matQ,  # (B, NH, S, DHQK)
-    matK,  # (B, NH, S, DHQK)
-    matV,  # (B, NH, S, DHHV)
-    vecI,  # (B, NH, NC, L)
-    vecB,  # (B, NH, NC, L)
-    vecA,  # (B, NH, NC, L)
-    matCstate_all,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecNstate_all,  # (B, NH, (NC+1) * DHQK)
-    scaMstate_all,  # (B, NH, (NC+1))
-    vecN_out,  # (B, NH, S) # vecN_combine
-    vecM_out,  # (B, NH, S) # vecM_combine
-    matDeltaH_out,  # (B, NH, S, DHHV)
-    matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
-    ## output tensor pointers
-    matDeltaV,  # (B, NH, S, DHHV)
-    qk_scale: tl.constexpr,
-    ## strides
-    str_matQK_B_NH: tl.constexpr,
-    str_matQK_S: tl.constexpr,
-    str_matQK_DHQK: tl.constexpr,
-    str_matHV_B_NH: tl.constexpr,
-    str_matHV_S: tl.constexpr,
-    str_matHV_DHHV: tl.constexpr,
-    str_vecABI_B_NH: tl.constexpr,
-    str_vecABI_NC: tl.constexpr,
-    str_matCstate_B_NH: tl.constexpr,
-    str_matCstate_NCDHQK: tl.constexpr,
-    str_matCstate_DHHV: tl.constexpr,
-    str_vecNstate_B_NH: tl.constexpr,
-    str_scaMstate_B_NH: tl.constexpr,
-    str_vecMN_B_NH: tl.constexpr,
-    str_vecMN_S: tl.constexpr,
-    ## dimensions
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    ## block sizes
-    siz_b_LQ: tl.constexpr,
-    siz_b_LKV: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    ## other arguments
-    DTYPE: tl.constexpr = tl.float32,
-    OUTPUT_DTYPE: tl.constexpr = tl.float32,
-    EPS: tl.constexpr = 0.0,
+        ## input tensor pointers
+        matQ,  # (B, NH, S, DHQK)
+        matK,  # (B, NH, S, DHQK)
+        matV,  # (B, NH, S, DHHV)
+        vecI,  # (B, NH, NC, L)
+        vecB,  # (B, NH, NC, L)
+        vecA,  # (B, NH, NC, L)
+        matCstate_all,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecNstate_all,  # (B, NH, (NC+1) * DHQK)
+        scaMstate_all,  # (B, NH, (NC+1))
+        vecN_out,  # (B, NH, S) # vecN_combine
+        vecM_out,  # (B, NH, S) # vecM_combine
+        matDeltaH_out,  # (B, NH, S, DHHV)
+        matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
+        ## output tensor pointers
+        matDeltaV,  # (B, NH, S, DHHV)
+        qk_scale: tl.constexpr,
+        ## strides
+        str_matQK_B_NH: tl.constexpr,
+        str_matQK_S: tl.constexpr,
+        str_matQK_DHQK: tl.constexpr,
+        str_matHV_B_NH: tl.constexpr,
+        str_matHV_S: tl.constexpr,
+        str_matHV_DHHV: tl.constexpr,
+        str_vecABI_B_NH: tl.constexpr,
+        str_vecABI_NC: tl.constexpr,
+        str_matCstate_B_NH: tl.constexpr,
+        str_matCstate_NCDHQK: tl.constexpr,
+        str_matCstate_DHHV: tl.constexpr,
+        str_vecNstate_B_NH: tl.constexpr,
+        str_scaMstate_B_NH: tl.constexpr,
+        str_vecMN_B_NH: tl.constexpr,
+        str_vecMN_S: tl.constexpr,
+        ## dimensions
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        ## block sizes
+        siz_b_LQ: tl.constexpr,
+        siz_b_LKV: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        ## other arguments
+        DTYPE: tl.constexpr = tl.float32,
+        OUTPUT_DTYPE: tl.constexpr = tl.float32,
+        EPS: tl.constexpr = 0.0,
 ):
     """
 
@@ -138,7 +138,8 @@ def mlstm_chunkwise__parallel_bw_dV_kernel(
     scaMinter_k_val = tl.load(scaMstate_all + idx_b_BNH * (NC + 1) + (idx_b_NC + 1)).to(tl.float32)
     # load vecA (siz_b_LKV,)
     vecA_ptr = (
-        vecA + idx_b_BNH * str_vecABI_B_NH + idx_b_NC * str_vecABI_NC + idx_b_LKV * siz_b_LKV + tl.arange(0, siz_b_LKV)
+            vecA + idx_b_BNH * str_vecABI_B_NH + idx_b_NC * str_vecABI_NC + idx_b_LKV * siz_b_LKV + tl.arange(0,
+                                                                                                              siz_b_LKV)
     )
     vecA_val = tl.load(vecA_ptr).to(tl.float32)
     # compute vecAbar_val (siz_b_LKV,)
@@ -227,7 +228,7 @@ def mlstm_chunkwise__parallel_bw_dV_kernel(
 
         # load vecM_out (siz_b_LQ,)
         vecM_out_ptr = (
-            vecM_out + idx_b_BNH * str_vecMN_B_NH + idx_b_NC * L + idx_b_LQ * siz_b_LQ + tl.arange(0, siz_b_LQ)
+                vecM_out + idx_b_BNH * str_vecMN_B_NH + idx_b_NC * L + idx_b_LQ * siz_b_LQ + tl.arange(0, siz_b_LQ)
         )
         vecM_out_val = tl.load(vecM_out_ptr).to(tl.float32)
 
@@ -253,7 +254,7 @@ def mlstm_chunkwise__parallel_bw_dV_kernel(
 
         # load vecN_out (siz_b_LQ,)
         vecN_out_ptr = (
-            vecN_out + idx_b_BNH * str_vecMN_B_NH + idx_b_NC * L + idx_b_LQ * siz_b_LQ + tl.arange(0, siz_b_LQ)
+                vecN_out + idx_b_BNH * str_vecMN_B_NH + idx_b_NC * L + idx_b_LQ * siz_b_LQ + tl.arange(0, siz_b_LQ)
         )
         vecN_out_val = tl.load(vecN_out_ptr).to(tl.float32)
 

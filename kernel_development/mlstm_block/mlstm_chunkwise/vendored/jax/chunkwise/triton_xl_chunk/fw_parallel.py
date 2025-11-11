@@ -16,25 +16,25 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_fw_Hintra(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecI: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
-    vecF: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
-    # these are all the states at every chunk, (we only use NC states up to the last chunk, i.e. :-1)
-    matC_all: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecN_all: jax.Array,  # (B, NH, (NC+1) * DHQK)
-    scaM_all: jax.Array,  # (B, NH, (NC+1))
-    qk_scale: float | None = None,
-    chunk_size: int = 64,
-    siz_b_LQ: int = 32,
-    siz_b_LKV: int = 32,
-    siz_b_DHQK: int | None = None,
-    siz_b_DHHV: int | None = None,  # DHHV blocksize for each thread block
-    num_warps: int | None = None,
-    num_stages: int | None = None,
-    eps: float = 1e-6,
-    output_dtype: jnp.dtype = jnp.float32,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecI: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
+        vecF: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
+        # these are all the states at every chunk, (we only use NC states up to the last chunk, i.e. :-1)
+        matC_all: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecN_all: jax.Array,  # (B, NH, (NC+1) * DHQK)
+        scaM_all: jax.Array,  # (B, NH, (NC+1))
+        qk_scale: float | None = None,
+        chunk_size: int = 64,
+        siz_b_LQ: int = 32,
+        siz_b_LKV: int = 32,
+        siz_b_DHQK: int | None = None,
+        siz_b_DHHV: int | None = None,  # DHHV blocksize for each thread block
+        num_warps: int | None = None,
+        num_stages: int | None = None,
+        eps: float = 1e-6,
+        output_dtype: jnp.dtype = jnp.float32,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:  # matH_out (B, NH, S, DHHV), vecN_out (B, NH, S), vecM_out (B, NH, S)
     """
     Execute the parallel forward kernel for the H computation in the mLSTM chunkwise formulation.
@@ -74,7 +74,7 @@ def mlstm_chunkwise__parallel_fw_Hintra(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = min(64, triton.next_power_of_2(DHQK)) if siz_b_DHQK is None else siz_b_DHQK
 

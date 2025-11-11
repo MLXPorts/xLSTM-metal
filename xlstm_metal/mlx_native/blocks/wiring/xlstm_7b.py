@@ -138,27 +138,27 @@ def create_xlstm_wiring(config: Dict[str, Any]) -> MADWiring:
 
     # Connect blocks sequentially
     for i in range(num_blocks - 1):
-        wiring.add_connection(f'xlstm_{i}', f'xlstm_{i+1}')
+        wiring.add_connection(f'xlstm_{i}', f'xlstm_{i + 1}')
 
     # Connect last block to output norm, then to lm head
-    wiring.add_connection(f'xlstm_{num_blocks-1}', 'out_norm')
+    wiring.add_connection(f'xlstm_{num_blocks - 1}', 'out_norm')
     wiring.add_connection('out_norm', 'lm_head')
 
     return wiring
 
 
 def create_xlstm_7b_wiring(
-    embedding_dim: int = 4096,
-    num_heads: int = 8,
-    num_blocks: int = 32,
-    vocab_size: int = 50304,
-    qk_dim_factor: float = 0.5,
-    v_dim_factor: float = 1.0,
-    gate_soft_cap: float = 15.0,
-    ffn_proj_factor: float = 2.671875,
-    ffn_act_fn: str = "swish",
-    norm_eps: float = 1e-6,
-    output_logit_soft_cap: float = 30.0
+        embedding_dim: int = 4096,
+        num_heads: int = 8,
+        num_blocks: int = 32,
+        vocab_size: int = 50304,
+        qk_dim_factor: float = 0.5,
+        v_dim_factor: float = 1.0,
+        gate_soft_cap: float = 15.0,
+        ffn_proj_factor: float = 2.671875,
+        ffn_act_fn: str = "swish",
+        norm_eps: float = 1e-6,
+        output_logit_soft_cap: float = 30.0
 ) -> MADWiring:
     """
     Create MAD wiring for xLSTM-7B model using MLX backend.

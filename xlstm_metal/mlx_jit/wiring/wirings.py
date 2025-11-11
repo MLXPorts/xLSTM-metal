@@ -157,11 +157,11 @@ class Wiring:
         return graph
 
     def draw_graph(  # pragma: no cover
-        self,
-        layout: str = "shell",
-        neuron_colors: Optional[Dict[str, str]] = None,
-        synapse_colors: Optional[Dict[str, str]] = None,
-        draw_labels: bool = False,
+            self,
+            layout: str = "shell",
+            neuron_colors: Optional[Dict[str, str]] = None,
+            synapse_colors: Optional[Dict[str, str]] = None,
+            draw_labels: bool = False,
     ):
         import matplotlib.patches as mpatches
         import matplotlib.pyplot as plt
@@ -231,7 +231,8 @@ class Wiring:
 
 class FullyConnected(Wiring):
     def __init__(
-        self, units: int, output_dim: Optional[int] = None, erev_init_seed: int = 1111, self_connections: bool = True
+            self, units: int, output_dim: Optional[int] = None, erev_init_seed: int = 1111,
+            self_connections: bool = True
     ) -> None:
         super().__init__(units)
         if output_dim is None:
@@ -272,11 +273,11 @@ class FullyConnected(Wiring):
 
 class Random(Wiring):
     def __init__(
-        self,
-        units: int,
-        output_dim: Optional[int] = None,
-        sparsity_level: float = 0.0,
-        random_seed: int = 1111,
+            self,
+            units: int,
+            output_dim: Optional[int] = None,
+            sparsity_level: float = 0.0,
+            random_seed: int = 1111,
     ) -> None:
         super().__init__(units)
         if output_dim is None:
@@ -321,15 +322,15 @@ class Random(Wiring):
 
 class NCP(Wiring):
     def __init__(
-        self,
-        inter_neurons: int,
-        command_neurons: int,
-        motor_neurons: int,
-        sensory_fanout: int,
-        inter_fanout: int,
-        recurrent_command_synapses: int,
-        motor_fanin: int,
-        seed: int = 22222,
+            self,
+            inter_neurons: int,
+            command_neurons: int,
+            motor_neurons: int,
+            sensory_fanout: int,
+            inter_fanout: int,
+            recurrent_command_synapses: int,
+            motor_fanin: int,
+            seed: int = 22222,
     ) -> None:
         super().__init__(inter_neurons + command_neurons + motor_neurons)
         self._sensory_neurons = None
@@ -412,7 +413,8 @@ class NCP(Wiring):
                 self.add_synapse(src, dest, self._polarity())
 
         if unreachable:
-            fanin = max(1, min(self._num_inter_neurons, round(self._num_inter_neurons * self._inter_fanout / self._num_command_neurons)))
+            fanin = max(1, min(self._num_inter_neurons,
+                               round(self._num_inter_neurons * self._inter_fanout / self._num_command_neurons)))
             for dest in unreachable:
                 for src in self._rng.sample(self._inter_neurons, fanin):
                     self.add_synapse(src, dest, self._polarity())
@@ -433,7 +435,8 @@ class NCP(Wiring):
                 self.add_synapse(src, dest, self._polarity())
 
         if unreachable:
-            fanout = max(1, min(self._num_motor_neurons, round(self._num_motor_neurons * self._motor_fanin / self._num_command_neurons)))
+            fanout = max(1, min(self._num_motor_neurons,
+                                round(self._num_motor_neurons * self._motor_fanin / self._num_command_neurons)))
             for src in unreachable:
                 for dest in self._rng.sample(self._motor_neurons, fanout):
                     self.add_synapse(src, dest, self._polarity())
@@ -466,11 +469,11 @@ class NCP(Wiring):
 
 class AutoNCP(NCP):
     def __init__(
-        self,
-        units: int,
-        output_size: int,
-        sparsity_level: float = 0.5,
-        seed: int = 22222,
+            self,
+            units: int,
+            output_size: int,
+            sparsity_level: float = 0.5,
+            seed: int = 22222,
     ) -> None:
         if output_size >= units - 2:
             raise ValueError(

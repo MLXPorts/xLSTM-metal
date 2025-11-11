@@ -275,4 +275,4 @@ def mlstm_chunkwise_recurrent_fw_C(
         return h, None
 
 
-__all__ = [ 'mlstm_chunkwise_recurrent_fw_C']
+__all__ = ['mlstm_chunkwise_recurrent_fw_C']

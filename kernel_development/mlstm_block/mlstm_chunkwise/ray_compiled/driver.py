@@ -6,18 +6,23 @@ import torch
 
 try:
     import ray
+
     try:
         from ray import method as _ray_method  # concurrency group decorator (Ray >=1.12)
     except Exception:
         def _ray_method(*args, **kwargs):  # type: ignore
             def _inner(f):
                 return f
+
             return _inner
 except Exception as _e:
     ray = None  # type: ignore
+
+
     def _ray_method(*args, **kwargs):  # type: ignore
         def _inner(f):
             return f
+
         return _inner
 
 from kernel_development.mlstm_block.mlstm_recurrent.recurrent.metal.compiled import mlstm_recurrent_step__metal
@@ -67,16 +72,17 @@ class HeadBandWorker:
     """
 
     """
+
     def __init__(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        i: torch.Tensor,
-        f: torch.Tensor,
-        hs: int,
-        he: int,
-        eps: float,
+            self,
+            q: torch.Tensor,
+            k: torch.Tensor,
+            v: torch.Tensor,
+            i: torch.Tensor,
+            f: torch.Tensor,
+            hs: int,
+            he: int,
+            eps: float,
     ):
         # Store references (in local_mode these are shared, avoiding copies)
         self.q = q
@@ -89,12 +95,12 @@ class HeadBandWorker:
         self.eps = eps
 
     def run(
-        self,
-        c_state: torch.Tensor | None,
-        n_state: torch.Tensor | None,
-        m_state: torch.Tensor | None,
-        s_start: int,
-        s_end: int,
+            self,
+            c_state: torch.Tensor | None,
+            n_state: torch.Tensor | None,
+            m_state: torch.Tensor | None,
+            s_start: int,
+            s_end: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
 
@@ -144,8 +150,8 @@ class HeadBandWorker:
             if cfc_on:
                 ff = torch.sigmoid(H) if cfc_act == "sigmoid" else (1.7159 * torch.tanh(0.666 * H))
                 try:
-                    i_t = self.i[:, hs:he, t : t + 1]
-                    f_t = self.f[:, hs:he, t : t + 1]
+                    i_t = self.i[:, hs:he, t: t + 1]
+                    f_t = self.f[:, hs:he, t: t + 1]
                     lam = torch.sigmoid(cfc_alpha * (i_t + f_t)).squeeze(-1)
                 except Exception:
                     lam = torch.zeros_like(h_cfc)
@@ -180,7 +186,8 @@ class HeadBandWorker:
 # Optional asyncio-based actor with concurrency groups for fine-grained control.
 try:
     _CG = {"compute": 1, "ctrl": 8}
-    _actor_remote_kwargs = dict(num_cpus=1, max_restarts=0, max_task_retries=0, concurrency_groups=_CG)  # type: ignore[arg-type]
+    _actor_remote_kwargs = dict(num_cpus=1, max_restarts=0, max_task_retries=0,
+                                concurrency_groups=_CG)  # type: ignore[arg-type]
 except Exception:
     _actor_remote_kwargs = dict(num_cpus=1, max_restarts=0, max_task_retries=0)
 
@@ -190,16 +197,17 @@ class HeadBandWorkerAsync:
     """
 
     """
+
     def __init__(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        i: torch.Tensor,
-        f: torch.Tensor,
-        hs: int,
-        he: int,
-        eps: float,
+            self,
+            q: torch.Tensor,
+            k: torch.Tensor,
+            v: torch.Tensor,
+            i: torch.Tensor,
+            f: torch.Tensor,
+            hs: int,
+            he: int,
+            eps: float,
     ):
         self.q = q
         self.k = k
@@ -212,12 +220,12 @@ class HeadBandWorkerAsync:
 
     @_ray_method(concurrency_group="compute")  # type: ignore[misc]
     async def run(
-        self,
-        c_state: torch.Tensor | None,
-        n_state: torch.Tensor | None,
-        m_state: torch.Tensor | None,
-        s_start: int,
-        s_end: int,
+            self,
+            c_state: torch.Tensor | None,
+            n_state: torch.Tensor | None,
+            m_state: torch.Tensor | None,
+            s_start: int,
+            s_end: int,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
         """
 
@@ -279,19 +287,19 @@ class HeadBandWorkerAsync:
 
 
 def mlstm_chunkwise__ray_compiled_steps(
-    q: torch.Tensor,  # (B, NH, S, DHQK)
-    k: torch.Tensor,  # (B, NH, S, DHQK)
-    v: torch.Tensor,  # (B, NH, S, DHHV)
-    i: torch.Tensor,  # (B, NH, S)
-    f: torch.Tensor,  # (B, NH, S)
-    c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    n_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    m_initial: torch.Tensor = None,  # (B, NH, 1)
-    chunk_size: int = 32,
-    return_last_states: bool = True,
-    autocast_kernel_dtype: torch.dtype = torch.bfloat16,
-    eps: float = 1e-6,
-    **kwargs,
+        q: torch.Tensor,  # (B, NH, S, DHQK)
+        k: torch.Tensor,  # (B, NH, S, DHQK)
+        v: torch.Tensor,  # (B, NH, S, DHHV)
+        i: torch.Tensor,  # (B, NH, S)
+        f: torch.Tensor,  # (B, NH, S)
+        c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        n_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        m_initial: torch.Tensor = None,  # (B, NH, 1)
+        chunk_size: int = 32,
+        return_last_states: bool = True,
+        autocast_kernel_dtype: torch.dtype = torch.bfloat16,
+        eps: float = 1e-6,
+        **kwargs,
 ):
     """
 

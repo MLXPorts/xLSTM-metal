@@ -15,32 +15,32 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_bw_dK(
-    # Forward arguments
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecI: jax.Array,  # (B, NH, NC, L)
-    vecA: jax.Array,  # (B, NH, NC, L)
-    vecB: jax.Array,  # (B, NH, NC, L)
-    # Backward arguments
-    matC_all: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecN_all: jax.Array,  # (B, NH, (NC+1) * DHQK)
-    scaM_all: jax.Array,  # (B, NH, (NC+1))
-    vecN_out: jax.Array,  # (B, NH, S) # vecN_combine
-    vecM_out: jax.Array,  # (B, NH, S) # vecM_combine
-    matDeltaH: jax.Array,  # (B, NH, S, DHHV)
-    matDeltaC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
-    # Other arguments
-    qk_scale: float | None = None,
-    chunk_size: int = 64,
-    siz_b_LQ: int = 32,
-    siz_b_LKV: int = 32,
-    siz_b_DHQK: int | None = None,
-    siz_b_DHHV: int | None = None,
-    num_warps: int | None = None,
-    num_stages: int | None = None,
-    eps: float = 0.0,
-    output_dtype: jnp.dtype = jnp.float32,
+        # Forward arguments
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecI: jax.Array,  # (B, NH, NC, L)
+        vecA: jax.Array,  # (B, NH, NC, L)
+        vecB: jax.Array,  # (B, NH, NC, L)
+        # Backward arguments
+        matC_all: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecN_all: jax.Array,  # (B, NH, (NC+1) * DHQK)
+        scaM_all: jax.Array,  # (B, NH, (NC+1))
+        vecN_out: jax.Array,  # (B, NH, S) # vecN_combine
+        vecM_out: jax.Array,  # (B, NH, S) # vecM_combine
+        matDeltaH: jax.Array,  # (B, NH, S, DHHV)
+        matDeltaC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
+        # Other arguments
+        qk_scale: float | None = None,
+        chunk_size: int = 64,
+        siz_b_LQ: int = 32,
+        siz_b_LKV: int = 32,
+        siz_b_DHQK: int | None = None,
+        siz_b_DHHV: int | None = None,
+        num_warps: int | None = None,
+        num_stages: int | None = None,
+        eps: float = 0.0,
+        output_dtype: jnp.dtype = jnp.float32,
 ) -> jax.Array:  # matDeltaK (B, NH, S, DHQK)
     """
     Computes only the deltaK gradients for the backward pass.
@@ -92,7 +92,7 @@ def mlstm_chunkwise__parallel_bw_dK(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = min(128, triton.next_power_of_2(DHQK)) if siz_b_DHQK is None else siz_b_DHQK
     siz_b_DHHV = min(64, triton.next_power_of_2(DHHV)) if siz_b_DHHV is None else siz_b_DHHV

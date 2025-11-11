@@ -5,37 +5,38 @@ import torch
 import triton
 
 from kernel_development.mlstm_block.mslstm_parallel.torch.utils import torch2triton_dtype
-from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk import mlstm_chunkwise__parallel_bw_dQ_kernel
+from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk import \
+    mlstm_chunkwise__parallel_bw_dQ_kernel
 from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_bw_dQ(
-    ## Forward arguments
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecI: torch.Tensor,  # (B, NH, NC, L)
-    vecA: torch.Tensor,  # (B, NH, NC, L)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    ## Backward arguments
-    matCstate_all: torch.Tensor,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecNstate_all: torch.Tensor,  # (B, NH, (NC+1) * DHQK)
-    scaMstate_all: torch.Tensor,  # (B, NH, (NC+1))
-    vecN_out: torch.Tensor,  # (B, NH, S) # vecN_combine
-    vecM_out: torch.Tensor,  # (B, NH, S) # vecM_combine
-    matDeltaH_out: torch.Tensor,  # (B, NH, S, DHHV)
-    matDeltaC_states: torch.Tensor,  # (B, NH, (NC+1) * DHQK, DHHV)
-    ## Other arguments
-    qk_scale: float = None,
-    chunk_size: int = 64,
-    siz_b_LQ: int = 32,
-    siz_b_LKV: int = 32,
-    siz_b_DHQK: int | None = None,
-    siz_b_DHHV: int | None = None,
-    num_warps: int | None = None,
-    num_stages: int | None = None,
-    eps: float = 0.0,
-    output_dtype: torch.dtype = torch.float32,
+        ## Forward arguments
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecI: torch.Tensor,  # (B, NH, NC, L)
+        vecA: torch.Tensor,  # (B, NH, NC, L)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        ## Backward arguments
+        matCstate_all: torch.Tensor,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecNstate_all: torch.Tensor,  # (B, NH, (NC+1) * DHQK)
+        scaMstate_all: torch.Tensor,  # (B, NH, (NC+1))
+        vecN_out: torch.Tensor,  # (B, NH, S) # vecN_combine
+        vecM_out: torch.Tensor,  # (B, NH, S) # vecM_combine
+        matDeltaH_out: torch.Tensor,  # (B, NH, S, DHHV)
+        matDeltaC_states: torch.Tensor,  # (B, NH, (NC+1) * DHQK, DHHV)
+        ## Other arguments
+        qk_scale: float = None,
+        chunk_size: int = 64,
+        siz_b_LQ: int = 32,
+        siz_b_LKV: int = 32,
+        siz_b_DHQK: int | None = None,
+        siz_b_DHHV: int | None = None,
+        num_warps: int | None = None,
+        num_stages: int | None = None,
+        eps: float = 0.0,
+        output_dtype: torch.dtype = torch.float32,
 ) -> torch.Tensor:  # matDeltaQ (B, NH, S, DHQK)
     """This function defines the grid and block sizes for the kernel launch and calls the kernel.
     chunk parallel size:        siz_b_LQ
@@ -53,7 +54,7 @@ def mlstm_chunkwise__parallel_bw_dQ(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = min(128, triton.next_power_of_2(DHQK)) if siz_b_DHQK is None else siz_b_DHQK
     siz_b_DHHV = min(64, triton.next_power_of_2(DHHV)) if siz_b_DHHV is None else siz_b_DHHV

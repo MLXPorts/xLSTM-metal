@@ -12,51 +12,51 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__parallel_fw_Hintra_kernel(
-    matQ,  # (B, NH, S, DHQK)
-    matK,  # (B, NH, S, DHQK)
-    matV,  # (B, NH, S, DHHV)
-    # these are all the states at every chunk, (we only use NC states up to the last chunk, i.e. :-1)
-    matC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecN_states,  # (B, NH, (NC+1) * DHQK)
-    scaMinter_states,  # (B, NH, (NC+1))
-    vecI,  # (B, NH, NC, L)
-    vecB,  # (B, NH, NC, L)
-    matHout,  # (B, NH, S, DHHV)
-    vecNout,  # (B, NH, S)
-    vecMout,  # (B, NH, S)
-    qk_scale: tl.constexpr,
-    str_matQK_B_NH: tl.constexpr,
-    str_matQK_S: tl.constexpr,
-    str_matQK_DHQK: tl.constexpr,
-    str_matHV_B_NH: tl.constexpr,
-    str_matHV_S: tl.constexpr,
-    str_matHV_DHHV: tl.constexpr,
-    str_matCstates_B_NH: tl.constexpr,
-    str_matCstates_NCDHQK: tl.constexpr,
-    str_matCstates_DHHV: tl.constexpr,
-    str_vecNstates_B_NH: tl.constexpr,
-    str_vecNstates_NCDHQK: tl.constexpr,
-    str_scaMinterstates_B_NH: tl.constexpr,
-    str_vecBI_B_NH: tl.constexpr,
-    str_vecBI_NC: tl.constexpr,
-    str_vecBI_L: tl.constexpr,
-    str_vecMN_B_NH: tl.constexpr,
-    str_vecMN_S: tl.constexpr,
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    siz_b_LQ: tl.constexpr,
-    siz_b_LKV: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    DTYPE: tl.constexpr = tl.float32,
-    OUTPUT_DTYPE: tl.constexpr = tl.float32,
-    EPS: tl.constexpr = 0.0,
-    MINIMUM_MAX_VAL: tl.constexpr = -10.0,
+        matQ,  # (B, NH, S, DHQK)
+        matK,  # (B, NH, S, DHQK)
+        matV,  # (B, NH, S, DHHV)
+        # these are all the states at every chunk, (we only use NC states up to the last chunk, i.e. :-1)
+        matC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecN_states,  # (B, NH, (NC+1) * DHQK)
+        scaMinter_states,  # (B, NH, (NC+1))
+        vecI,  # (B, NH, NC, L)
+        vecB,  # (B, NH, NC, L)
+        matHout,  # (B, NH, S, DHHV)
+        vecNout,  # (B, NH, S)
+        vecMout,  # (B, NH, S)
+        qk_scale: tl.constexpr,
+        str_matQK_B_NH: tl.constexpr,
+        str_matQK_S: tl.constexpr,
+        str_matQK_DHQK: tl.constexpr,
+        str_matHV_B_NH: tl.constexpr,
+        str_matHV_S: tl.constexpr,
+        str_matHV_DHHV: tl.constexpr,
+        str_matCstates_B_NH: tl.constexpr,
+        str_matCstates_NCDHQK: tl.constexpr,
+        str_matCstates_DHHV: tl.constexpr,
+        str_vecNstates_B_NH: tl.constexpr,
+        str_vecNstates_NCDHQK: tl.constexpr,
+        str_scaMinterstates_B_NH: tl.constexpr,
+        str_vecBI_B_NH: tl.constexpr,
+        str_vecBI_NC: tl.constexpr,
+        str_vecBI_L: tl.constexpr,
+        str_vecMN_B_NH: tl.constexpr,
+        str_vecMN_S: tl.constexpr,
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        siz_b_LQ: tl.constexpr,
+        siz_b_LKV: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        DTYPE: tl.constexpr = tl.float32,
+        OUTPUT_DTYPE: tl.constexpr = tl.float32,
+        EPS: tl.constexpr = 0.0,
+        MINIMUM_MAX_VAL: tl.constexpr = -10.0,
 ):
     """
 
@@ -256,11 +256,11 @@ def mlstm_chunkwise__parallel_fw_Hintra_kernel(
             order=(1, 0),
         )
         vecN_km1_ptr = (
-            vecN_states
-            + idx_b_BNH * str_vecNstates_B_NH
-            + idx_b_NC * DHQK
-            + idx_b_DHQK * siz_b_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecN_states
+                + idx_b_BNH * str_vecNstates_B_NH
+                + idx_b_NC * DHQK
+                + idx_b_DHQK * siz_b_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
 
         # load matQ block (siz_b_LQ, siz_b_DHQK)

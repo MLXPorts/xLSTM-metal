@@ -9,30 +9,30 @@ from .fw_recurrent import mlstm_chunkwise__recurrent_fw_C
 
 
 def mlstm_chunkwise_fw(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHV)
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_initial: jax.Array | None = None,  # (B, NH)
-    qk_scale: float = None,
-    return_last_states: bool = False,
-    return_all_states: bool = False,
-    CHUNK_SIZE: int = 64,
-    EPS: float = 1e-6,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHV)
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_initial: jax.Array | None = None,  # (B, NH)
+        qk_scale: float = None,
+        return_last_states: bool = False,
+        return_all_states: bool = False,
+        CHUNK_SIZE: int = 64,
+        EPS: float = 1e-6,
 ) -> tuple[
     jax.Array,  # matH_out (B, NH, S, DHV)
     jax.Array,  # vecN_out (B, NH, S)
     jax.Array,  # vecM_out (B, NH, S)
     None
     | (
-        tuple[jax.Array, jax.Array, jax.Array]
+            tuple[jax.Array, jax.Array, jax.Array]
     ),  # last_states (matC_states (B, NH, DHQK, DHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH))
     None
     | (
-        tuple[jax.Array, jax.Array, jax.Array]
+            tuple[jax.Array, jax.Array, jax.Array]
     ),  # all_states (matC_states (B, NH, (NC+1) * DHQK, DHV), vecN_states (B, NH, (NC+1) * DHQK),
     # scaMinter_states (B, NH, (NC+1)))
 ]:
@@ -75,7 +75,7 @@ def mlstm_chunkwise_fw(
     vecB = vecF_logsig.cumsum(axis=-1)
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     # Materialize the C_k, n_k, m_k states for each chunk.
     matC_k_states, vecN_k_states, scaMinter_k_states = mlstm_chunkwise__recurrent_fw_C(

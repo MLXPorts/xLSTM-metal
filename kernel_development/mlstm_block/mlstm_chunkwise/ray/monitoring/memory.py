@@ -100,13 +100,13 @@ class MemoryMonitor:
     """
 
     def __init__(
-        self,
-        poll_ms: Optional[int] = None,
-        soft_mb: Optional[float] = None,
-        hard_mb: Optional[float] = None,
-        on_soft: Optional[Callable[[MemStats], None]] = None,
-        on_hard: Optional[Callable[[MemStats], None]] = None,
-        log_csv_path: Optional[str] = None,
+            self,
+            poll_ms: Optional[int] = None,
+            soft_mb: Optional[float] = None,
+            hard_mb: Optional[float] = None,
+            on_soft: Optional[Callable[[MemStats], None]] = None,
+            on_hard: Optional[Callable[[MemStats], None]] = None,
+            log_csv_path: Optional[str] = None,
     ):
         self.enabled = os.environ.get("XLSTM_MEM_WATCHDOG", "1") == "1"
         self.poll_ms = poll_ms or int(os.environ.get("XLSTM_MEM_POLL_MS", "200"))
@@ -114,7 +114,8 @@ class MemoryMonitor:
         self.hard_mb = hard_mb or float(os.environ.get("XLSTM_MEM_HARD_MB", "0") or 0)
         self.soft_pct = float(os.environ.get("XLSTM_MEM_SOFT_PCT", "0.85"))
         self.hard_pct = float(os.environ.get("XLSTM_MEM_HARD_PCT", "0.92"))
-        self.actions = [s.strip() for s in os.environ.get("XLSTM_MEM_ACTION", "warn,empty_cache").split(",") if s.strip()]
+        self.actions = [s.strip() for s in os.environ.get("XLSTM_MEM_ACTION", "warn,empty_cache").split(",") if
+                        s.strip()]
         self._stop = threading.Event()
         self._thread: Optional[threading.Thread] = None
         self.on_soft = on_soft

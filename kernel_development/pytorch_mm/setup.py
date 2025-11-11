@@ -1,4 +1,3 @@
-
 import pybind11
 from pybind11.setup_helpers import Pybind11Extension, build_ext
 from setuptools import setup
@@ -11,6 +10,7 @@ class MetalBuildExt(build_ext):
         for ext in self.extensions:
             ext.extra_link_args += ['-framework', 'Metal', '-framework', 'Foundation']
         super().build_extensions()
+
 
 ext_modules = [
     Pybind11Extension(

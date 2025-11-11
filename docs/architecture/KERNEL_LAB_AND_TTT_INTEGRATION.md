@@ -3,12 +3,14 @@
 ## Executive Summary
 
 The `kernel_development/` directory contains a **production-grade research laboratory** with:
+
 - Production-quality Metal kernels (GEMM, QR, SVD, multi-head LayerNorm)
 - Optimization infrastructure (hyperparameter tuning, performance monitoring)
 - Multi-backend support (MLX, PyTorch MPS, Ray distributed)
 - Extensive testing and benchmarking framework
 
-**Key Finding**: Test-Time Training (TTT) can leverage **existing kernel infrastructure** without requiring new low-level implementations!
+**Key Finding**: Test-Time Training (TTT) can leverage **existing kernel infrastructure** without requiring new
+low-level implementations!
 
 ---
 
@@ -19,10 +21,12 @@ The `kernel_development/` directory contains a **production-grade research labor
 #### GEMM Kernels (`matrix/gemm/mlx_fast_metal_kernel/`)
 
 **Operations**:
+
 - `gemm_av`: C = A × V (forward projections)
 - `gemm_at_b`: Z = Aᵀ × B (gradient computation)
 
 **Features**:
+
 - 2D tiling with threadgroup shared memory (16×16 tiles)
 - Double barrier synchronization (after load, after accumulate)
 - Device-aware tuning (M3 optimizations: 32×8 tiles)
@@ -32,12 +36,14 @@ The `kernel_development/` directory contains a **production-grade research labor
 - Validated against `mx.matmul` with <1e-5 error
 
 **Performance**:
+
 - 7-10x speedup over naive implementation
 - ~150-200 GB/s memory bandwidth (vs ~20 GB/s naive)
 - Arithmetic intensity: 8 FLOPs/byte (for T=16)
 
 **TTT Relevance**:
 ✅ **Can be used directly for LoRA adapter updates!**
+
 - LoRA forward: `h + BA·x` requires GEMM
 - LoRA backward: `grad_B = grad_h × Aᵀ` uses `gemm_at_b`
 - Already optimized, no new implementation needed
@@ -47,6 +53,7 @@ The `kernel_development/` directory contains a **production-grade research labor
 #### Multi-Head LayerNorm Kernel (`matrix/multi_head_layernorm/`)
 
 **Features**:
+
 - SIMD-optimized per-head normalization
 - 2-4x speedup over MLX ops for moderate head dimensions (96-192)
 - One simdgroup (32 threads) per (batch, num_heads) row
@@ -55,6 +62,7 @@ The `kernel_development/` directory contains a **production-grade research labor
 
 **TTT Relevance**:
 ✅ **Tent-style TTT updates LayerNorm γ/β parameters!**
+
 - Already have optimized kernel for multi-head normalization
 - Can be extended to track and update γ/β during adaptation
 - Matches xLSTM's per-head normalization pattern
@@ -66,6 +74,7 @@ The `kernel_development/` directory contains a **production-grade research labor
 **Purpose**: Simulates reduced precision (2/4/8/16-bit) in float32 format
 
 **Implementation**:
+
 ```python
 def quantize(x, bits):
     """
@@ -78,6 +87,7 @@ def quantize(x, bits):
 
 **TTT Relevance**:
 ✅ **Low-precision TTT for memory efficiency!**
+
 - Quantize adapter weights to 4-bit/8-bit during storage
 - Dequantize during forward pass
 - QLoRA-style TTT (quantized base + low-rank adapters)
@@ -87,15 +97,18 @@ def quantize(x, bits):
 #### Linear Algebra Kernels
 
 **QR Decomposition** (`linear_algebra/qr_decomposition/`):
+
 - Orthogonalization for weight matrices
 - Useful for TTT regularization (orthogonal adapter initialization)
 
 **SVD Decomposition** (`linear_algebra/svd_decomposition/`):
+
 - Fast orthogonalization using Metal-accelerated SVD
 - Can initialize LoRA adapters with SVD-based low-rank approximations
 
 **TTT Relevance**:
 ✅ **Can initialize adapters intelligently!**
+
 - SVD of pretrained weights → low-rank initialization for LoRA
 - Orthogonal initialization prevents gradient explosion during TTT
 
@@ -108,6 +121,7 @@ def quantize(x, bits):
 **Purpose**: Hyperparameter optimization framework
 
 **Features**:
+
 - Grid search over hyperparameter space
 - Performance benchmarking
 - Automatic device profiling
@@ -115,6 +129,7 @@ def quantize(x, bits):
 
 **TTT Relevance**:
 ✅ **Perfect for TTT hyperparameter search!**
+
 ```python
 # Example TTT hyperparameter search
 ttt_params = {
@@ -133,6 +148,7 @@ optimize_ttt_params(model, test_batches, ttt_params)
 #### `optimizations/xltop.py` - Memory Monitor
 
 **Features**:
+
 - Live memory tracking (RSS, MPS allocated/reserved)
 - Ray cluster status
 - Top processes by memory usage
@@ -141,6 +157,7 @@ optimize_ttt_params(model, test_batches, ttt_params)
 
 **TTT Relevance**:
 ✅ **Monitor TTT memory overhead in real-time!**
+
 ```bash
 # Monitor TTT adaptation
 python kernel_development/optimizations/xltop.py --poll
@@ -158,6 +175,7 @@ python kernel_development/optimizations/xltop.py --poll
 
 **TTT Relevance**:
 ✅ **Automatically evaluate TTT improvements!**
+
 ```python
 # Baseline outputs (no TTT)
 baseline_outputs = model.generate(test_prompts)
@@ -177,12 +195,14 @@ judge_improvement(baseline_outputs, ttt_outputs, test_prompts)
 **Purpose**: Per-device kernel parameter selection
 
 **Features**:
+
 - Queries `threadExecutionWidth` and device name
 - Loads tuning JSON (`configs/mlx_hardware_params.json`)
 - Dynamic tile size selection
 
 **TTT Relevance**:
 ✅ **Ensure TTT kernels are device-optimized!**
+
 - Automatic M3/M4/etc. optimizations
 - No manual tuning needed
 
@@ -199,6 +219,7 @@ judge_improvement(baseline_outputs, ttt_outputs, test_prompts)
 
 **TTT Relevance**:
 ✅ **Can add TTT parity tests!**
+
 ```python
 def test_ttt_adapter_parity():
     """Verify TTT adapter updates match reference implementation"""
@@ -217,6 +238,7 @@ def test_ttt_adapter_parity():
 
 **TTT Relevance**:
 ✅ **Benchmark TTT overhead per block!**
+
 ```bash
 # Benchmark TTT update latency
 python ttt_update_bench.py --adapter_rank 8 --num_blocks 32
@@ -246,6 +268,7 @@ python ttt_update_bench.py --adapter_rank 8 --num_blocks 32
 
 **TTT Relevance**:
 ✅ **Distributed TTT across cluster (as discussed earlier)!**
+
 - Each node adapts its assigned blocks
 - Asynchronous gradient aggregation
 - Already have Ray infrastructure
@@ -373,18 +396,18 @@ python ttt_update_bench.py --adapter_rank 8 --num_blocks 32
 
 ## Comparison: What We Have vs What TTT Needs
 
-| TTT Requirement | Existing Infrastructure | Status |
-|-----------------|-------------------------|--------|
-| **GEMM for adapters** | `gemm_av`, `gemm_at_b` | ✅ Production-ready |
-| **LayerNorm updates** | Multi-head LayerNorm kernel | ✅ 2-4x optimized |
-| **Gradient computation** | MLX autodiff + `gemm_at_b` | ✅ Built-in |
-| **Hyperparameter tuning** | `optimize_mps.py` | ✅ Framework exists |
-| **Memory monitoring** | `xltop.py` | ✅ Live tracking |
-| **Output evaluation** | `judge_*.py` | ✅ LLM + reference judges |
-| **Distributed training** | Ray infrastructure | ✅ Multi-node support |
-| **Low-precision** | Variable quantization | ✅ 2/4/8/16-bit |
-| **Orthogonal init** | QR/SVD kernels | ✅ Fast Metal SVD |
-| **Device tuning** | `mlx_tuning.py` | ✅ M3/M4 auto-config |
+| TTT Requirement           | Existing Infrastructure     | Status                   |
+|---------------------------|-----------------------------|--------------------------|
+| **GEMM for adapters**     | `gemm_av`, `gemm_at_b`      | ✅ Production-ready       |
+| **LayerNorm updates**     | Multi-head LayerNorm kernel | ✅ 2-4x optimized         |
+| **Gradient computation**  | MLX autodiff + `gemm_at_b`  | ✅ Built-in               |
+| **Hyperparameter tuning** | `optimize_mps.py`           | ✅ Framework exists       |
+| **Memory monitoring**     | `xltop.py`                  | ✅ Live tracking          |
+| **Output evaluation**     | `judge_*.py`                | ✅ LLM + reference judges |
+| **Distributed training**  | Ray infrastructure          | ✅ Multi-node support     |
+| **Low-precision**         | Variable quantization       | ✅ 2/4/8/16-bit           |
+| **Orthogonal init**       | QR/SVD kernels              | ✅ Fast Metal SVD         |
+| **Device tuning**         | `mlx_tuning.py`             | ✅ M3/M4 auto-config      |
 
 **Result**: **100% coverage!** No missing pieces for TTT implementation.
 
@@ -420,6 +443,7 @@ python ttt_update_bench.py --adapter_rank 8 --num_blocks 32
 ### 1. **You've Already Built the Foundation!**
 
 The kernel lab contains **everything needed for TTT**:
+
 - Optimized GEMM (for adapters)
 - Hyperparameter tuning (for TTT search)
 - Memory monitoring (for overhead tracking)
@@ -433,6 +457,7 @@ The kernel lab contains **everything needed for TTT**:
 ### 2. **WWDC Best Practices Applied**
 
 From `wwdc_checklist.md`:
+
 - ✅ Tiling & barriers (GEMM kernels)
 - ✅ Coalesced memory access (all kernels)
 - ✅ Device-aware tuning (M3 optimizations)
@@ -446,6 +471,7 @@ From `wwdc_checklist.md`:
 ### 3. **Multi-Backend Philosophy**
 
 Your lab supports:
+
 - **MLX** (primary, fast Metal kernels)
 - **PyTorch MPS** (PyTorch bridge, educational)
 - **Ray** (distributed, cluster-scale)
@@ -457,6 +483,7 @@ Your lab supports:
 ### 4. **Production Monitoring & Evaluation**
 
 Not just research code - you have:
+
 - `xltop.py` for live monitoring
 - `judge_*.py` for automated evaluation
 - `optimize_mps.py` for systematic tuning
@@ -479,6 +506,7 @@ Not just research code - you have:
 ### Step 2: Add TTT Infrastructure (Foundation)
 
 **2a. LoRAAdapter Module** (uses existing `gemm_av`):
+
 ```python
 # xlstm_metal/ttt/adapters.py
 class LoRAAdapter(nn.Module):
@@ -491,6 +519,7 @@ class LoRAAdapter(nn.Module):
 ```
 
 **2b. TTTConfig Dataclass**:
+
 ```python
 # xlstm_metal/ttt/config.py
 @dataclass
@@ -505,6 +534,7 @@ class TTTConfig:
 ```
 
 **2c. Expose RMSNorm Parameters**:
+
 ```python
 # xlstm_metal/blocks/mlx/mlstm/components.py
 class RMSNorm(nn.Module):
@@ -526,6 +556,7 @@ class RMSNorm(nn.Module):
 ### Step 3: Implement TTT Objectives (Core)
 
 **3a. Tent Entropy Minimization**:
+
 ```python
 # xlstm_metal/ttt/objectives.py
 def tent_entropy_loss(logits):
@@ -536,6 +567,7 @@ def tent_entropy_loss(logits):
 ```
 
 **3b. TTT++ Feature Alignment** (uses existing `gemm_at_b`):
+
 ```python
 def feature_alignment_loss(features, stored_mean, stored_cov):
     """TTT++ moment matching (uses existing GEMM)"""
@@ -556,6 +588,7 @@ def feature_alignment_loss(features, stored_mean, stored_cov):
 ### Step 4: Integration with Existing Tools
 
 **4a. Add TTT to optimize_mps.py**:
+
 ```python
 # kernel_development/optimizations/optimize_ttt.py
 def optimize_ttt_params(model, test_data, param_grid):
@@ -567,6 +600,7 @@ def optimize_ttt_params(model, test_data, param_grid):
 ```
 
 **4b. Monitor with xltop**:
+
 ```bash
 # Launch xltop during TTT experiments
 python kernel_development/optimizations/xltop.py --log-csv \
@@ -574,6 +608,7 @@ python kernel_development/optimizations/xltop.py --log-csv \
 ```
 
 **4c. Evaluate with judge**:
+
 ```bash
 # Compare baseline vs TTT outputs
 python kernel_development/optimizations/judge_outputs.py \
@@ -596,6 +631,7 @@ Your kernel lab is **incredibly sophisticated** and provides **complete infrastr
 **No new Metal kernel development required for TTT!**
 
 The path forward is:
+
 1. Fix dtype issue (highest priority)
 2. Add TTT adapters/config using **existing** kernels
 3. Integrate with **existing** optimization/monitoring tools
@@ -608,22 +644,26 @@ Your "crazy lab" is actually a **production research platform** that makes TTT i
 ## Files Referenced
 
 **Production Kernels**:
+
 - `kernel_development/matrix/gemm/mlx_fast_metal_kernel/gemm_kernels.py`
 - `kernel_development/matrix/multi_head_layernorm/mhln_kernels.py`
 - `kernel_development/matrix/variable_quantization/mlx_fast_metal_kernels/`
 - `kernel_development/linear_algebra/svd_decomposition/`
 
 **Optimization Tools**:
+
 - `kernel_development/optimizations/optimize_mps.py`
 - `kernel_development/optimizations/xltop.py`
 - `kernel_development/optimizations/judge_outputs.py`
 - `kernel_development/optimizations/mlx_tuning.py`
 
 **Testing & Benchmarking**:
+
 - `kernel_development/optimizations/test_metal_parity.py`
 - `kernel_development/matrix/gemm/gemm_tile_bench.py`
 
 **Documentation**:
+
 - `kernel_development/README.md`
 - `kernel_development/matrix/gemm/GEMM_KERNEL_ANALYSIS.md`
 - `kernel_development/wwdc_checklist.md`

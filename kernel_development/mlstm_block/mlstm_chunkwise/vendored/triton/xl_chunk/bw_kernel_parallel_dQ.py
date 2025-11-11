@@ -15,56 +15,56 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__parallel_bw_dQ_kernel(
-    ## input tensor pointers
-    matQ,  # (B, NH, S, DHQK)
-    matK,  # (B, NH, S, DHQK)
-    matV,  # (B, NH, S, DHHV)
-    vecI,  # (B, NH, NC, L)
-    vecB,  # (B, NH, NC, L)
-    vecA,  # (B, NH, NC, L)
-    matCstate_all,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecNstate_all,  # (B, NH, (NC+1) * DHQK)
-    scaMstate_all,  # (B, NH, (NC+1))
-    vecN_out,  # (B, NH, S) # vecN_combine
-    vecM_out,  # (B, NH, S) # vecM_combine
-    matDeltaH_out,  # (B, NH, S, DHHV)
-    matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
-    ## output tensor pointers
-    matDeltaQ,  # (B, NH, S, DHQK)
-    qk_scale: tl.constexpr,
-    ## strides
-    str_matQK_B_NH: tl.constexpr,
-    str_matQK_S: tl.constexpr,
-    str_matQK_DHQK: tl.constexpr,
-    str_matHV_B_NH: tl.constexpr,
-    str_matHV_S: tl.constexpr,
-    str_matHV_DHHV: tl.constexpr,
-    str_vecABI_B_NH: tl.constexpr,
-    str_vecABI_NC: tl.constexpr,
-    str_matCstate_B_NH: tl.constexpr,
-    str_matCstate_NCDHQK: tl.constexpr,
-    str_matCstate_DHHV: tl.constexpr,
-    str_vecNstate_B_NH: tl.constexpr,
-    str_scaMstate_B_NH: tl.constexpr,
-    str_vecMN_B_NH: tl.constexpr,
-    str_vecMN_S: tl.constexpr,
-    ## dimensions
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    ## block sizes
-    siz_b_LQ: tl.constexpr,
-    siz_b_LKV: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    ## other arguments
-    DTYPE: tl.constexpr = tl.float32,
-    OUTPUT_DTYPE: tl.constexpr = tl.float32,
-    EPS: tl.constexpr = 0.0,
+        ## input tensor pointers
+        matQ,  # (B, NH, S, DHQK)
+        matK,  # (B, NH, S, DHQK)
+        matV,  # (B, NH, S, DHHV)
+        vecI,  # (B, NH, NC, L)
+        vecB,  # (B, NH, NC, L)
+        vecA,  # (B, NH, NC, L)
+        matCstate_all,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecNstate_all,  # (B, NH, (NC+1) * DHQK)
+        scaMstate_all,  # (B, NH, (NC+1))
+        vecN_out,  # (B, NH, S) # vecN_combine
+        vecM_out,  # (B, NH, S) # vecM_combine
+        matDeltaH_out,  # (B, NH, S, DHHV)
+        matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
+        ## output tensor pointers
+        matDeltaQ,  # (B, NH, S, DHQK)
+        qk_scale: tl.constexpr,
+        ## strides
+        str_matQK_B_NH: tl.constexpr,
+        str_matQK_S: tl.constexpr,
+        str_matQK_DHQK: tl.constexpr,
+        str_matHV_B_NH: tl.constexpr,
+        str_matHV_S: tl.constexpr,
+        str_matHV_DHHV: tl.constexpr,
+        str_vecABI_B_NH: tl.constexpr,
+        str_vecABI_NC: tl.constexpr,
+        str_matCstate_B_NH: tl.constexpr,
+        str_matCstate_NCDHQK: tl.constexpr,
+        str_matCstate_DHHV: tl.constexpr,
+        str_vecNstate_B_NH: tl.constexpr,
+        str_scaMstate_B_NH: tl.constexpr,
+        str_vecMN_B_NH: tl.constexpr,
+        str_vecMN_S: tl.constexpr,
+        ## dimensions
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        ## block sizes
+        siz_b_LQ: tl.constexpr,
+        siz_b_LKV: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        ## other arguments
+        DTYPE: tl.constexpr = tl.float32,
+        OUTPUT_DTYPE: tl.constexpr = tl.float32,
+        EPS: tl.constexpr = 0.0,
 ):
     """
 

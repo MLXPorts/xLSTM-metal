@@ -14,6 +14,7 @@ import torch
 
 _METAL_BACKEND = None
 
+
 def _load_metal_backend() -> None:
     """Try to JIT-load the Metal backend extension if available.
 
@@ -40,11 +41,13 @@ def _load_metal_backend() -> None:
                 mm_path = candidate2
                 break
             # Archived prototypes
-            candidate3 = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/pytorch_ext/mlstm_metal_backend.mm").resolve()
+            candidate3 = (
+                    root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/pytorch_ext/mlstm_metal_backend.mm").resolve()
             if candidate3.exists():
                 mm_path = candidate3
                 break
-            candidate4 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
+            candidate4 = (
+                    root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
             if candidate4.exists():
                 mm_path = candidate4
                 break
@@ -58,17 +61,17 @@ def _load_metal_backend() -> None:
 
 
 def mlstm_chunkwise__metal_fw(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    f: torch.Tensor,
-    i: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    chunk_size: int = 64,
-    return_last_states: bool = True,
-    **kwargs
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        f: torch.Tensor,
+        i: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        chunk_size: int = 64,
+        return_last_states: bool = True,
+        **kwargs
 ):
     """Metal implementation of mLSTM forward pass.
 
@@ -110,11 +113,13 @@ def mlstm_chunkwise__metal_fw(
         if legacy.exists():
             src = legacy.read_text()
             break
-        arc = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal").resolve()
+        arc = (
+                root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal").resolve()
         if arc.exists():
             src = arc.read_text()
             break
-        arc2 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_kernels.metal").resolve()
+        arc2 = (
+                root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_kernels.metal").resolve()
         if arc2.exists():
             src = arc2.read_text()
             break

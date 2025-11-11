@@ -11,8 +11,8 @@ This guide mirrors the MPS tuning guide for the MLX path.
 ## Tiles & Kernels
 
 - Override via env:
-  - `XLSTM_GEMM_TILE_AV="TMxT"` (e.g., `32x8`)
-  - `XLSTM_GEMM_TILE_ATB="TNxTK"` (e.g., `8x32`)
+    - `XLSTM_GEMM_TILE_AV="TMxT"` (e.g., `32x8`)
+    - `XLSTM_GEMM_TILE_ATB="TNxTK"` (e.g., `8x32`)
 - Override at runtime:
   ```python
   from mlx_fast_kernels import gemm_kernels as gk
@@ -22,12 +22,14 @@ This guide mirrors the MPS tuning guide for the MLX path.
 - Kernels: see `mlx_fast_kernels/gemm_kernels.py` for details (shared memory tiles, fma, 2D mapping).
 
 Programmatic configuration (preferred)
+
 - Use `tools/mlx_runtime.py` to configure behavior in code:
-  - `configure_gemm(pad=True|False, align_execw=True|False, double_buffer=True|False)`
-  - `configure_qr(dot_mode="auto|simd|simple")`
-  - `configure_ivf(tpb=int)`
+    - `configure_gemm(pad=True|False, align_execw=True|False, double_buffer=True|False)`
+    - `configure_qr(dot_mode="auto|simd|simple")`
+    - `configure_ivf(tpb=int)`
 
 Env toggles (fallback)
+
 - `XLSTM_GEMM_PAD=1`: +1 tile padding
 - `XLSTM_GEMM_ALIGN_EXECW=1`: align square tile to execution width
 - `XLSTM_GEMM_DB=1`: double‑buffered tiles

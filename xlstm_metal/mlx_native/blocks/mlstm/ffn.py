@@ -98,7 +98,7 @@ class GatedFFN(nn.Module):
         """
         # Separate gate and value projections
         gate = self.proj_up_gate(x)  # [B, S, proj_up_dim]
-        z = self.proj_up(x)          # [B, S, proj_up_dim]
+        z = self.proj_up(x)  # [B, S, proj_up_dim]
 
         # Apply gating: SiLU(gate) * z
         # ZERO TOLERANCE: Use MLX operators

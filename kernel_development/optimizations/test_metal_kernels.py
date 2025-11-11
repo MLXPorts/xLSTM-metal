@@ -1,4 +1,3 @@
-
 """
 Quick Metal kernel self-test (MPS only).
 Runs soft_cap and a single mLSTM step on tiny tensors to validate JIT/build.
@@ -11,6 +10,7 @@ import torch
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+
 
 def main() -> int:
     """Runs a self-test of the Metal kernels.
@@ -34,18 +34,19 @@ def main() -> int:
 
     print("Testing Metal mLSTM step...")
     from mlstm_kernels.torch.recurrent.metal.step import mlstm_recurrent_step__metal_fw
-    B,NH,DHQK,DHHV = 1,2,8,8
-    q = torch.randn(B,NH,DHQK, device=device)
-    k = torch.randn(B,NH,DHQK, device=device)
-    v = torch.randn(B,NH,DHHV, device=device)
-    i = torch.randn(B,NH, device=device)
-    f = torch.randn(B,NH, device=device)
-    C = torch.zeros(B,NH,DHQK,DHHV, device=device)
-    N = torch.zeros(B,NH,DHQK, device=device)
-    M = torch.zeros(B,NH, device=device)
-    h,(C2,N2,M2) = mlstm_recurrent_step__metal_fw(C,N,M,q,k,v,i.unsqueeze(-1), f.unsqueeze(-1))
+    B, NH, DHQK, DHHV = 1, 2, 8, 8
+    q = torch.randn(B, NH, DHQK, device=device)
+    k = torch.randn(B, NH, DHQK, device=device)
+    v = torch.randn(B, NH, DHHV, device=device)
+    i = torch.randn(B, NH, device=device)
+    f = torch.randn(B, NH, device=device)
+    C = torch.zeros(B, NH, DHQK, DHHV, device=device)
+    N = torch.zeros(B, NH, DHQK, device=device)
+    M = torch.zeros(B, NH, device=device)
+    h, (C2, N2, M2) = mlstm_recurrent_step__metal_fw(C, N, M, q, k, v, i.unsqueeze(-1), f.unsqueeze(-1))
     print("  step ok:", h.shape, C2.shape, N2.shape, M2.shape)
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

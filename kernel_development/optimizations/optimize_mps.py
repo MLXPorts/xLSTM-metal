@@ -1,4 +1,3 @@
-
 """
 Optimize xLSTM MPS performance via random search or a simple genetic algorithm.
 
@@ -73,7 +72,7 @@ def greedy_gen_timed(model: xLSTMLarge, prefill_tokens: torch.Tensor, max_len: i
         td1 = time.time()
         decode_time += (td1 - td0)
         next_tok = torch.argmax(logits[:, -1:, :], dim=-1)
-        gen[:, i:i+1] = next_tok
+        gen[:, i:i + 1] = next_tok
 
     return (t1 - t0), decode_time
 
@@ -125,12 +124,12 @@ def make_input(tok: AutoTokenizer, prompt: str) -> torch.Tensor:
 
 
 def eval_params(
-    model: xLSTMLarge,
-    prefill_tokens: torch.Tensor,
-    new_tokens: int,
-    backend: str,
-    params: Dict[str, int],
-    repeats: int,
+        model: xLSTMLarge,
+        prefill_tokens: torch.Tensor,
+        new_tokens: int,
+        backend: str,
+        params: Dict[str, int],
+        repeats: int,
 ) -> Dict[str, float]:
     """
 
@@ -187,7 +186,7 @@ def random_params(backend: str, b: Bounds) -> Dict[str, int]:
     """
     p = {
         "heads_per_band": random.randint(b.heads_min, b.heads_max),
-        "chunk_size": random.choice([b.chunks_min, (b.chunks_min + b.chunks_max)//2, b.chunks_max])
+        "chunk_size": random.choice([b.chunks_min, (b.chunks_min + b.chunks_max) // 2, b.chunks_max])
     }
     if backend == "queued":
         assert b.workers_min is not None and b.workers_max is not None
@@ -208,10 +207,11 @@ def mutate(backend: str, p: Dict[str, int], b: Bounds, mut_prob: float) -> Dict[
     if random.random() < mut_prob:
         q["heads_per_band"] = max(b.heads_min, min(b.heads_max, q["heads_per_band"] + random.choice([-2, -1, 1, 2])))
     if random.random() < mut_prob:
-        step = max(1, (b.chunks_max - b.chunks_min)//4)
+        step = max(1, (b.chunks_max - b.chunks_min) // 4)
         q["chunk_size"] = max(b.chunks_min, min(b.chunks_max, q["chunk_size"] + random.choice([-step, step])))
     if backend == "queued" and random.random() < mut_prob:
-        q["workers"] = max(b.workers_min, min(b.workers_max, q["workers"] + random.choice([-1, 1])))  # type: ignore[arg-type]
+        q["workers"] = max(b.workers_min,
+                           min(b.workers_max, q["workers"] + random.choice([-1, 1])))  # type: ignore[arg-type]
     return q
 
 
@@ -233,17 +233,17 @@ def crossover(backend: str, a: Dict[str, int], c: Dict[str, int]) -> Dict[str, i
 
 
 def optimize_ga(
-    backend: str,
-    model: xLSTMLarge,
-    tok: AutoTokenizer,
-    prompt: str,
-    new_tokens: int,
-    bounds: Bounds,
-    generations: int,
-    population: int,
-    repeats: int,
-    elite_frac: float = 0.3,
-    mut_prob: float = 0.4,
+        backend: str,
+        model: xLSTMLarge,
+        tok: AutoTokenizer,
+        prompt: str,
+        new_tokens: int,
+        bounds: Bounds,
+        generations: int,
+        population: int,
+        repeats: int,
+        elite_frac: float = 0.3,
+        mut_prob: float = 0.4,
 ) -> Tuple[Dict[str, int], Dict[str, float]]:
     """
 
@@ -281,19 +281,19 @@ def optimize_ga(
             child = mutate(backend, child, bounds, mut_prob)
             new_pop.append(child)
         pop = new_pop
-        print(f"[gen {g+1}/{generations}] best decode={best_m['decode_tok_s']:.2f} tok/s params={best_p}")
+        print(f"[gen {g + 1}/{generations}] best decode={best_m['decode_tok_s']:.2f} tok/s params={best_p}")
     return best_p, best_m  # type: ignore[return-value]
 
 
 def optimize_random(
-    backend: str,
-    model: xLSTMLarge,
-    tok: AutoTokenizer,
-    prompt: str,
-    new_tokens: int,
-    bounds: Bounds,
-    trials: int,
-    repeats: int,
+        backend: str,
+        model: xLSTMLarge,
+        tok: AutoTokenizer,
+        prompt: str,
+        new_tokens: int,
+        bounds: Bounds,
+        trials: int,
+        repeats: int,
 ) -> Tuple[Dict[str, int], Dict[str, float]]:
     """
 
@@ -313,7 +313,7 @@ def optimize_random(
         m = eval_params(model, tok, prompt, new_tokens, backend, p, repeats)
         if best_m is None or m["decode_tok_s"] > best_m["decode_tok_s"]:
             best_p, best_m = p, m
-        print(f"[trial {t+1}/{trials}] decode={m['decode_tok_s']:.2f} tok/s params={p}")
+        print(f"[trial {t + 1}/{trials}] decode={m['decode_tok_s']:.2f} tok/s params={p}")
     return best_p, best_m  # type: ignore[return-value]
 
 
@@ -476,7 +476,7 @@ def main():
                 child = mutate(args.backend, child, b, 0.4)
                 new_pop.append(child)
             pop = new_pop
-            print(f"[gen {g+1}/{args.generations}] best decode={best_m['decode_tok_s']:.2f} tok/s params={best_p}")
+            print(f"[gen {g + 1}/{args.generations}] best decode={best_m['decode_tok_s']:.2f} tok/s params={best_p}")
     else:
         for t in range(args.trials):
             p = random_params(args.backend, b)
@@ -485,7 +485,7 @@ def main():
             if best_m is None or m["decode_tok_s"] > best_m["decode_tok_s"]:
                 best_p, best_m = p, m
                 best_path.write_text(json.dumps({"params": best_p, "metrics": best_m}, indent=2))
-            print(f"[trial {t+1}/{args.trials}] decode={m['decode_tok_s']:.2f} tok/s params={p}")
+            print(f"[trial {t + 1}/{args.trials}] decode={m['decode_tok_s']:.2f} tok/s params={p}")
 
     print("\n=== Best Configuration ===")
     print(best_p)

@@ -66,41 +66,41 @@ def keep(conf):
 @triton.autotune(list(filter(keep, configs)), key=["DHQK", "DHV"])
 @triton.jit
 def recurrent_step_fw_kernel_C(
-    matC_old,  # (B, NH, DHQK, DHV)
-    vecN_old,  # (B, NH, DHQK)
-    scaM_old,  # (B, NH, 1)
-    vecK,  # (B, NH, DHQK)
-    vecV,  # (B, NH, DHV)
-    scaI,  # (B, NH, 1)
-    scaF,  # (B, NH, 1)
-    matC_new,  # (B, NH, DHQK, DHV)
-    vecN_new,  # (B, NH, DHQK)
-    scaM_new,  # (B, NH, 1)
-    qk_scale,
-    s_matC_b,
-    s_matC_nh,
-    s_matC_dhqk,
-    s_matC_dhv,
-    s_vecN_b,
-    s_vecN_nh,
-    s_vecN_dhqk,
-    s_scaM_b,
-    s_scaM_nh,
-    s_vecQK_b,
-    s_vecQK_nh,
-    s_vecQK_dhqk,
-    s_vecVH_b,
-    s_vecVH_nh,
-    s_vecVH_dhv,
-    s_scaIF_b,
-    s_scaIF_nh,
-    B,
-    NH,
-    DHQK: tl.constexpr,
-    DHV: tl.constexpr,
-    BLOCK_DQK: tl.constexpr,  # DHQK = BLOCK_DQK * NUM_BLOCKS_DQK
-    BLOCK_DV: tl.constexpr,  # DHV = BLOCK_DV * NUM_BLOCKS_DV
-    EPS: tl.constexpr = 1e-6,
+        matC_old,  # (B, NH, DHQK, DHV)
+        vecN_old,  # (B, NH, DHQK)
+        scaM_old,  # (B, NH, 1)
+        vecK,  # (B, NH, DHQK)
+        vecV,  # (B, NH, DHV)
+        scaI,  # (B, NH, 1)
+        scaF,  # (B, NH, 1)
+        matC_new,  # (B, NH, DHQK, DHV)
+        vecN_new,  # (B, NH, DHQK)
+        scaM_new,  # (B, NH, 1)
+        qk_scale,
+        s_matC_b,
+        s_matC_nh,
+        s_matC_dhqk,
+        s_matC_dhv,
+        s_vecN_b,
+        s_vecN_nh,
+        s_vecN_dhqk,
+        s_scaM_b,
+        s_scaM_nh,
+        s_vecQK_b,
+        s_vecQK_nh,
+        s_vecQK_dhqk,
+        s_vecVH_b,
+        s_vecVH_nh,
+        s_vecVH_dhv,
+        s_scaIF_b,
+        s_scaIF_nh,
+        B,
+        NH,
+        DHQK: tl.constexpr,
+        DHV: tl.constexpr,
+        BLOCK_DQK: tl.constexpr,  # DHQK = BLOCK_DQK * NUM_BLOCKS_DQK
+        BLOCK_DV: tl.constexpr,  # DHV = BLOCK_DV * NUM_BLOCKS_DV
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 
@@ -207,36 +207,36 @@ def recurrent_step_fw_kernel_C(
 @triton.autotune(list(filter(keep, configs)), key=["DHQK", "DHV"])
 @triton.jit
 def recurrent_step_fw_kernel_H(
-    vecQ,  # (B, NH, DHQK)
-    vecH,  # (B, NH, DHV)
-    matC_new,  # (B, NH, DHQK, DHV)
-    vecN_new,  # (B, NH, DHQK)
-    scaM_new,  # (B, NH, 1)
-    qk_scale,
-    s_matC_b,
-    s_matC_nh,
-    s_matC_dhqk,
-    s_matC_dhv,
-    s_vecN_b,
-    s_vecN_nh,
-    s_vecN_dhqk,
-    s_scaM_b,
-    s_scaM_nh,
-    s_vecQK_b,
-    s_vecQK_nh,
-    s_vecQK_dhqk,
-    s_vecVH_b,
-    s_vecVH_nh,
-    s_vecVH_dhv,
-    s_scaIF_b,
-    s_scaIF_nh,
-    B,
-    NH,
-    DHQK: tl.constexpr,
-    DHV: tl.constexpr,
-    BLOCK_DQK: tl.constexpr,  # DHQK = BLOCK_DQK * NUM_BLOCKS_DQK
-    BLOCK_DV: tl.constexpr,  # DHV = BLOCK_DV * NUM_BLOCKS_DV
-    EPS: tl.constexpr = 1e-6,
+        vecQ,  # (B, NH, DHQK)
+        vecH,  # (B, NH, DHV)
+        matC_new,  # (B, NH, DHQK, DHV)
+        vecN_new,  # (B, NH, DHQK)
+        scaM_new,  # (B, NH, 1)
+        qk_scale,
+        s_matC_b,
+        s_matC_nh,
+        s_matC_dhqk,
+        s_matC_dhv,
+        s_vecN_b,
+        s_vecN_nh,
+        s_vecN_dhqk,
+        s_scaM_b,
+        s_scaM_nh,
+        s_vecQK_b,
+        s_vecQK_nh,
+        s_vecQK_dhqk,
+        s_vecVH_b,
+        s_vecVH_nh,
+        s_vecVH_dhv,
+        s_scaIF_b,
+        s_scaIF_nh,
+        B,
+        NH,
+        DHQK: tl.constexpr,
+        DHV: tl.constexpr,
+        BLOCK_DQK: tl.constexpr,  # DHQK = BLOCK_DQK * NUM_BLOCKS_DQK
+        BLOCK_DV: tl.constexpr,  # DHV = BLOCK_DV * NUM_BLOCKS_DV
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 

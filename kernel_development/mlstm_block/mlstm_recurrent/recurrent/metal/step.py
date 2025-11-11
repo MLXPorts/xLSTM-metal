@@ -6,6 +6,7 @@ import torch
 
 _BACKEND = None
 
+
 def _find_backend_source(max_up: int = 6) -> Path | None:
     here = Path(__file__).resolve()
     root = here
@@ -16,14 +17,17 @@ def _find_backend_source(max_up: int = 6) -> Path | None:
         legacy = (root / "../../../.." / "mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
         if legacy.exists():
             return legacy
-        arc = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/pytorch_ext/mlstm_metal_backend.mm").resolve()
+        arc = (
+                root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/pytorch_ext/mlstm_metal_backend.mm").resolve()
         if arc.exists():
             return arc
-        arc2 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
+        arc2 = (
+                root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_metal_backend.mm").resolve()
         if arc2.exists():
             return arc2
         root = root.parent
     return None
+
 
 def _load_backend() -> None:
     global _BACKEND
@@ -38,17 +42,18 @@ def _load_backend() -> None:
     _BACKEND = load(name="mlstm_metal_backend", sources=[str(mm)],
                     extra_ldflags=["-framework", "Metal", "-framework", "Foundation"])
 
+
 def mlstm_recurrent_step__metal_fw(
-    matC_old: torch.Tensor,  # (B, NH, DHQK, DHV)
-    vecN_old: torch.Tensor,  # (B, NH, DHQK)
-    scaM_old: torch.Tensor,  # (B, NH)
-    vecQ: torch.Tensor,      # (B, NH, DHQK)
-    vecK: torch.Tensor,      # (B, NH, DHQK)
-    vecV: torch.Tensor,      # (B, NH, DHV)
-    scaI: torch.Tensor,      # (B, NH, 1) or (B, NH)
-    scaF: torch.Tensor,      # (B, NH, 1) or (B, NH)
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
+        matC_old: torch.Tensor,  # (B, NH, DHQK, DHV)
+        vecN_old: torch.Tensor,  # (B, NH, DHQK)
+        scaM_old: torch.Tensor,  # (B, NH)
+        vecQ: torch.Tensor,  # (B, NH, DHQK)
+        vecK: torch.Tensor,  # (B, NH, DHQK)
+        vecV: torch.Tensor,  # (B, NH, DHV)
+        scaI: torch.Tensor,  # (B, NH, 1) or (B, NH)
+        scaF: torch.Tensor,  # (B, NH, 1) or (B, NH)
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
 ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
 
@@ -101,11 +106,13 @@ def mlstm_recurrent_step__metal_fw(
         if legacy.exists():
             src = legacy.read_text()
             break
-        arc = (root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal").resolve()
+        arc = (
+                root / "../../../.." / "research_archive/metal_prototypes/kernels_metal/shaders/mlstm_kernels.metal").resolve()
         if arc.exists():
             src = arc.read_text()
             break
-        arc2 = (root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_kernels.metal").resolve()
+        arc2 = (
+                root / "../../../.." / "research_archive/metal_prototypes/mlstm_metal_kernels/mlstm_kernels.metal").resolve()
         if arc2.exists():
             src = arc2.read_text()
             break
@@ -122,16 +129,16 @@ def mlstm_recurrent_step__metal_fw(
 
 
 def mlstm_recurrent_step__metal(
-    q: torch.Tensor,  # (B, NH, DHQK)
-    k: torch.Tensor,  # (B, NH, DHQK)
-    v: torch.Tensor,  # (B, NH, DHV)
-    i: torch.Tensor,  # (B, NH, 1)
-    f: torch.Tensor,  # (B, NH, 1)
-    c: torch.Tensor,  # (B, NH, DHQK, DHV)
-    n: torch.Tensor,  # (B, NH, DHQK)
-    m: torch.Tensor,  # (B, NH, 1)
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
+        q: torch.Tensor,  # (B, NH, DHQK)
+        k: torch.Tensor,  # (B, NH, DHQK)
+        v: torch.Tensor,  # (B, NH, DHV)
+        i: torch.Tensor,  # (B, NH, 1)
+        f: torch.Tensor,  # (B, NH, 1)
+        c: torch.Tensor,  # (B, NH, DHQK, DHV)
+        n: torch.Tensor,  # (B, NH, DHQK)
+        m: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
 ) -> tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     """
 

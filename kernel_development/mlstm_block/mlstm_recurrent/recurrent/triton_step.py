@@ -13,24 +13,24 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 @contiguous_noctx
 def mlstm_recurrent_step__triton_fw(
-    matC_old: torch.Tensor,  # (B, NH, DHQK, DHHV)
-    vecN_old: torch.Tensor,  # (B, NH, DHQK)
-    scaM_old: torch.Tensor,  # (B, NH, 1)
-    vecQ: torch.Tensor,  # (B, NH, DHQK)
-    vecK: torch.Tensor,  # (B, NH, DHQK)
-    vecV: torch.Tensor,  # (B, NH, DHHV)
-    scaI: torch.Tensor,  # (B, NH, 1)
-    scaF: torch.Tensor,  # (B, NH, 1)
-    matC_new: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    vecN_new: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_new: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    eps: float = 1e-6,
-    siz_b_DHQK: int | None = None,
-    siz_b_DHHV: int | None = None,
-    num_warps: int | None = None,
-    num_stages: int | None = None,
-    dtype_state: torch.dtype = torch.float32,
+        matC_old: torch.Tensor,  # (B, NH, DHQK, DHHV)
+        vecN_old: torch.Tensor,  # (B, NH, DHQK)
+        scaM_old: torch.Tensor,  # (B, NH, 1)
+        vecQ: torch.Tensor,  # (B, NH, DHQK)
+        vecK: torch.Tensor,  # (B, NH, DHQK)
+        vecV: torch.Tensor,  # (B, NH, DHHV)
+        scaI: torch.Tensor,  # (B, NH, 1)
+        scaF: torch.Tensor,  # (B, NH, 1)
+        matC_new: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        vecN_new: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_new: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        eps: float = 1e-6,
+        siz_b_DHQK: int | None = None,
+        siz_b_DHHV: int | None = None,
+        num_warps: int | None = None,
+        num_stages: int | None = None,
+        dtype_state: torch.dtype = torch.float32,
 ):
     """
 
@@ -79,28 +79,28 @@ def mlstm_recurrent_step__triton_fw(
     DTYPE = vecQ.dtype
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     if matC_new is None:
         assert (
-            vecN_new is None and scaM_new is None
+                vecN_new is None and scaM_new is None
         ), "Initial states must be provided together."
         matC_new = torch.empty_like(matC_old, dtype=dtype_state)
         vecN_new = torch.empty_like(vecN_old, dtype=dtype_state)
         scaM_new = torch.empty_like(scaM_old, dtype=dtype_state)
     else:
         assert (
-            vecN_new is not None and scaM_new is not None
+                vecN_new is not None and scaM_new is not None
         ), "Initial states must be provided together."
 
     min_siz_b_DHQK = 64
     min_siz_b_DHHV = 64
 
     assert (
-        is_power_of_2(DHQK) or DHQK % min_siz_b_DHQK == 0
+            is_power_of_2(DHQK) or DHQK % min_siz_b_DHQK == 0
     ), f"DHQK must be a power of 2 or multiple of {min_siz_b_DHQK}. Got {DHQK}."
     assert (
-        is_power_of_2(DHHV) or DHHV % min_siz_b_DHHV == 0
+            is_power_of_2(DHHV) or DHHV % min_siz_b_DHHV == 0
     ), f"DHHV must be a power of 2 or multiple of {min_siz_b_DHHV}. Got {DHHV}."
 
     siz_b_DHQK = min(min_siz_b_DHQK, triton.next_power_of_2(DHQK))
@@ -160,17 +160,17 @@ def mlstm_recurrent_step__triton_fw(
 
 
 def mlstm_recurrent_step__triton(
-    q: torch.Tensor,  # (B, NH, DHQK)
-    k: torch.Tensor,  # (B, NH, DHQK)
-    v: torch.Tensor,  # (B, NH, DHV)
-    i: torch.Tensor,  # (B, NH, 1)
-    f: torch.Tensor,  # (B, NH, 1)
-    c: torch.Tensor,  # (B, NH, DHQK, DHV)
-    n: torch.Tensor,  # (B, NH, DHQK)
-    m: torch.Tensor,  # (B, NH, 1)
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
-    **kwargs,
+        q: torch.Tensor,  # (B, NH, DHQK)
+        k: torch.Tensor,  # (B, NH, DHQK)
+        v: torch.Tensor,  # (B, NH, DHV)
+        i: torch.Tensor,  # (B, NH, 1)
+        f: torch.Tensor,  # (B, NH, 1)
+        c: torch.Tensor,  # (B, NH, DHQK, DHV)
+        n: torch.Tensor,  # (B, NH, DHQK)
+        m: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
+        **kwargs,
 ) -> tuple[
     torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 ]:  # vecH, (matC_state_new (B, NH, DHQK, DHV), vecN_state_new (B, NH, DHQK), vecM_state_new (B, NH, 1))

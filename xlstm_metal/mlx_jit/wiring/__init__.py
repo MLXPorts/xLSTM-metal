@@ -25,12 +25,12 @@ __all__ = [
     'AutoWiring',
     'create_auto_wiring',
     'analyze_safetensors_structure',
-    
+
     # Manual wiring patterns
     'mLSTMWiring',
     'mLSTMBlockWiring',
     'xLSTMStackWiring',
-    
+
     # Base wiring classes
     'Wiring',
     'AutoNCP',
@@ -38,6 +38,7 @@ __all__ = [
     'FullyConnected',
     'NCP',
 ]
+
 from .auto_wiring import AutoWiring, create_auto_wiring
 
 __all__ = [

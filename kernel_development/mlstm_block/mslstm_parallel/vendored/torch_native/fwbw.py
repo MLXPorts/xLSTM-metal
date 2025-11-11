@@ -24,13 +24,13 @@ def _mlstm_parallel_fwbw_generator(autocast_kernel_dtype=torch.float32) -> Calla
         @custom_fwd(device_type="cuda", cast_inputs=autocast_kernel_dtype)
         @contiguous
         def forward(
-            ctx,
-            matQ: torch.Tensor,
-            matK: torch.Tensor,
-            matV: torch.Tensor,
-            vecI: torch.Tensor,
-            vecF: torch.Tensor,
-            eps: float = 1e-6,
+                ctx,
+                matQ: torch.Tensor,
+                matK: torch.Tensor,
+                matV: torch.Tensor,
+                vecI: torch.Tensor,
+                vecF: torch.Tensor,
+                eps: float = 1e-6,
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
             matH, vecN, vecM = mlstm_parallel_fw(
                 matQ=matQ,
@@ -47,10 +47,10 @@ def _mlstm_parallel_fwbw_generator(autocast_kernel_dtype=torch.float32) -> Calla
         @custom_bwd(device_type="cuda")
         @contiguous
         def backward(
-            ctx,
-            matDeltaHtilde: torch.Tensor,
-            vecDeltaN_unused: torch.Tensor,
-            vecDeltaM_unused: torch.Tensor,
+                ctx,
+                matDeltaHtilde: torch.Tensor,
+                vecDeltaN_unused: torch.Tensor,
+                vecDeltaM_unused: torch.Tensor,
         ) -> tuple[torch.Tensor, ...]:
             (matQ, matK, matV, vecI, vecF, vecN, vecM, eps) = ctx.saved_tensors
             matDeltaQ, matDeltaK, matDeltaV, vecDeltaI, vecDeltaF = mlstm_parallel_bw(
@@ -86,17 +86,17 @@ def _get_parallel_fwbw_kernel(autocast_kernel_dtype: torch.dtype) -> Callable:
 
 
 def mlstm_parallel__native_stablef_autograd(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    **kwargs,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        **kwargs,
 ) -> torch.Tensor:
     """
 
@@ -130,18 +130,18 @@ def mlstm_parallel__native_stablef_autograd(
 
 
 def mlstm_parallel__native_stablef_custbw(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    autocast_kernel_dtype: torch.dtype = torch.float32,
-    **kwargs,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        autocast_kernel_dtype: torch.dtype = torch.float32,
+        **kwargs,
 ) -> torch.Tensor:
     """
 

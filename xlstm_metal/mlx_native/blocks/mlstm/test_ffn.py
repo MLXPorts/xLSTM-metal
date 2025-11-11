@@ -228,7 +228,8 @@ def test_large_scale_config():
     print(f"Config (xLSTM-7B scale):")
     print(f"  embedding_dim: {config.embedding_dim}")
     print(f"  proj_up_dim: {config.proj_up_dim}")
-    print(f"  Total FFN params: ~{(config.embedding_dim * 2 * config.proj_up_dim + config.proj_up_dim * config.embedding_dim) / 1e6:.1f}M")
+    print(
+        f"  Total FFN params: ~{(config.embedding_dim * 2 * config.proj_up_dim + config.proj_up_dim * config.embedding_dim) / 1e6:.1f}M")
 
     print(f"\nInput: {x.shape}")
 
@@ -302,10 +303,12 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(f"\n✗ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
     except Exception as e:
         print(f"\n✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)

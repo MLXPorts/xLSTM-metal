@@ -13,29 +13,29 @@ from kernel_development.mlstm_block.mslstm_parallel.torch.utils import contiguou
 
 @contiguous_noctx
 def mlstm_chunkwise_bw(
-    ## Forward arguments
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHV)
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_initial: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    ## Backward arguments
-    matC_all: torch.Tensor = None,  # (B, NH, NC * DHQK, DHV)
-    vecN_all: torch.Tensor = None,  # (B, NH, NC * DHQK)
-    scaM_all: torch.Tensor = None,  # (B, NH, NC)
-    vecN_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
-    vecM_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
-    matDeltaH: torch.Tensor = None,  # (B, NH, S, DHV)
-    matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-    vecDeltaN_last: torch.Tensor = None,  # (B, NH, DHQK) # TODO not used, maybe leave out
-    scaDeltaM_last: torch.Tensor = None,  # (B, NH) # TODO not used, maybe leave out
-    ## Common arguments
-    CHUNK_SIZE: int = 64,
-    EPS: float = 1e-6,
+        ## Forward arguments
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHV)
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_initial: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        ## Backward arguments
+        matC_all: torch.Tensor = None,  # (B, NH, NC * DHQK, DHV)
+        vecN_all: torch.Tensor = None,  # (B, NH, NC * DHQK)
+        scaM_all: torch.Tensor = None,  # (B, NH, NC)
+        vecN_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
+        vecM_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
+        matDeltaH: torch.Tensor = None,  # (B, NH, S, DHV)
+        matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+        vecDeltaN_last: torch.Tensor = None,  # (B, NH, DHQK) # TODO not used, maybe leave out
+        scaDeltaM_last: torch.Tensor = None,  # (B, NH) # TODO not used, maybe leave out
+        ## Common arguments
+        CHUNK_SIZE: int = 64,
+        EPS: float = 1e-6,
 ):
     """
 
@@ -69,7 +69,7 @@ def mlstm_chunkwise_bw(
     NC = S // CHUNK_SIZE
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     # vecI = rearrange(vecI, "b nh (nc l) -> b nh nc l", l=CHUNK_SIZE)
     # vecF = rearrange(vecF, "b nh (nc l) -> b nh nc l", l=CHUNK_SIZE).to(torch.float32)
@@ -82,7 +82,7 @@ def mlstm_chunkwise_bw(
 
     if matC_all is None:
         assert (
-            (matC_all is None) and (vecN_all is None) and (scaM_all is None)
+                (matC_all is None) and (vecN_all is None) and (scaM_all is None)
         ), "Either all or none of the states must be provided."
         matC_all, vecN_all, scaM_all = mlstm_chunkwise__recurrent_fw_C(
             matK=matK,

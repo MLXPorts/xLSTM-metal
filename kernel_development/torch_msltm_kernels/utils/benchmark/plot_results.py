@@ -35,17 +35,17 @@ def rc_context_wrapper(func: Callable, **kwargs):
     :return:
     """
     with mpl.rc_context(
-        rc={
-            "text.usetex": False,
-            "font.size": FONTSIZE + fontsize_delta,
-            "axes.labelsize": FONTSIZE + fontsize_delta,
-            "legend.fontsize": FONTSIZE_SMALL + fontsize_delta,
-            "xtick.labelsize": FONTSIZE_TICKS + fontsize_delta,
-            "ytick.labelsize": FONTSIZE_TICKS + fontsize_delta,
-            "axes.titlesize": FONTSIZE + fontsize_delta,
-            "lines.markersize": MARKERSIZE,
-            "lines.linewidth": LINEWIDTH,
-        }
+            rc={
+                "text.usetex": False,
+                "font.size": FONTSIZE + fontsize_delta,
+                "axes.labelsize": FONTSIZE + fontsize_delta,
+                "legend.fontsize": FONTSIZE_SMALL + fontsize_delta,
+                "xtick.labelsize": FONTSIZE_TICKS + fontsize_delta,
+                "ytick.labelsize": FONTSIZE_TICKS + fontsize_delta,
+                "axes.titlesize": FONTSIZE + fontsize_delta,
+                "lines.markersize": MARKERSIZE,
+                "lines.linewidth": LINEWIDTH,
+            }
     ):
         return func(**kwargs)
 
@@ -70,23 +70,23 @@ def savefig(fig, filename: str):
 
 
 def plot_benchmark_result_table(
-    result_df: pd.DataFrame,
-    x_axis_param: str,
-    title: str = None,
+        result_df: pd.DataFrame,
+        x_axis_param: str,
+        title: str = None,
         legend_args=None,
-    legend_order: list[str] = None,
-    figsize=FIGSIZE,
-    grid_alpha: float = 0.2,
+        legend_order: list[str] = None,
+        figsize=FIGSIZE,
+        grid_alpha: float = 0.2,
         plot_kwargs=None,
-    style_dict: dict[str, Any] = None,
-    style_dict_colname_mapping_exact: bool = True,
-    linestyle_mapping: dict[str, Any] = None,
-    additional_exclude_col_regex: str = None,
-    filename: str = None,
-    y_label: str = "Time [ms]",
-    x_label: str = None,
-    add_legend: bool = True,
-    ax: Axes = None,
+        style_dict: dict[str, Any] = None,
+        style_dict_colname_mapping_exact: bool = True,
+        linestyle_mapping: dict[str, Any] = None,
+        additional_exclude_col_regex: str = None,
+        filename: str = None,
+        y_label: str = "Time [ms]",
+        x_label: str = None,
+        add_legend: bool = True,
+        ax: Axes = None,
 ) -> Figure:
     """Plot benchmark results from a DataFrame as line plot.
     This function is used in the benchmarks for plotting the result raw data.
@@ -221,7 +221,7 @@ def select_columns(df, selected_columns, keep_col_regex: str):
 
 
 def create_group_names_from_cols(
-    data_df: pd.DataFrame, colnames: str, add_colname: bool = False
+        data_df: pd.DataFrame, colnames: str, add_colname: bool = False
 ) -> list[str]:
     """Create group names from columns in a DataFrame."""
     group_names = []
@@ -240,7 +240,7 @@ def create_group_names_from_cols(
 
 
 def create_bar_length_df(
-    data_df: pd.DataFrame, colnames: list[str], offset: float = 0.0
+        data_df: pd.DataFrame, colnames: list[str], offset: float = 0.0
 ) -> pd.DataFrame:
     """Create a DataFrame with bar lengths for a bar plot."""
     # subtract the min from selected columns respectively and add an arbitrary offset
@@ -251,26 +251,26 @@ def create_bar_length_df(
 
 
 def create_runtime_bar_plot(
-    data_df: pd.DataFrame,
-    group_col_names: list[str],
-    title: str = None,
-    bar_label_font_size: int = 10,
-    bar_length_df: pd.DataFrame | None = None,
-    plot_column_order: list[str] = None,
-    style_dict: dict[str, Any] = None,
-    fillna_val: float = -0.2,
-    fillna_exclude_cols: list[str] = None,
-    fillna_str: str = "NA",
+        data_df: pd.DataFrame,
+        group_col_names: list[str],
+        title: str = None,
+        bar_label_font_size: int = 10,
+        bar_length_df: pd.DataFrame | None = None,
+        plot_column_order: list[str] = None,
+        style_dict: dict[str, Any] = None,
+        fillna_val: float = -0.2,
+        fillna_exclude_cols: list[str] = None,
+        fillna_str: str = "NA",
         legend_args=None,
-    legend_order: list[str] = None,
-    figsize=FIGSIZE,
-    grid_alpha: float = 0.2,
-    yticks: list[float] = None,
-    ylim: tuple[float, float] | None = None,
-    y_label: str | None = None,
-    x_label: str = "Sequence Length",
-    ax=None,
-    add_colname: bool = True,
+        legend_order: list[str] = None,
+        figsize=FIGSIZE,
+        grid_alpha: float = 0.2,
+        yticks: list[float] = None,
+        ylim: tuple[float, float] | None = None,
+        y_label: str | None = None,
+        x_label: str = "Sequence Length",
+        ax=None,
+        add_colname: bool = True,
 ) -> Figure:
     """Create a bar plot for runtime results.
 
@@ -403,20 +403,20 @@ def create_runtime_bar_plot(
 
 
 def create_runtime_line_plot(
-    data_df: pd.DataFrame,
-    group_col_names: list[str],
-    title: str = None,
-    plot_column_order: list[str] = None,
-    style_dict: dict[str, Any] = None,
+        data_df: pd.DataFrame,
+        group_col_names: list[str],
+        title: str = None,
+        plot_column_order: list[str] = None,
+        style_dict: dict[str, Any] = None,
         legend_args=None,
-    legend_order: list[str] = None,
-    figsize=FIGSIZE,
-    grid_alpha: float = 0.2,
-    yticks: list[float] = None,
-    ylim: tuple[float, float] | None = None,
-    x_label: str = "Sequence Length",
-    ax: Axes = None,
-    add_colname: bool = False,
+        legend_order: list[str] = None,
+        figsize=FIGSIZE,
+        grid_alpha: float = 0.2,
+        yticks: list[float] = None,
+        ylim: tuple[float, float] | None = None,
+        x_label: str = "Sequence Length",
+        ax: Axes = None,
+        add_colname: bool = False,
 ):
     """Create a line plot for runtime results.
     Simliar to `create_runtime_bar_plot`, but creates a line plot instead of a bar plot.
@@ -496,22 +496,22 @@ def create_runtime_line_plot(
 
 
 def plot_runtime_results(
-    data_df: pd.DataFrame,
-    plot_column_order: list[str],
-    group_cols: list[str],
-    yticks: list[float],
-    bar_label_fontsize: int = 9,
-    filename: str = None,
-    fillna_exclude_cols: list[str] = None,
-    style_dict: dict[str, Any] = None,
+        data_df: pd.DataFrame,
+        plot_column_order: list[str],
+        group_cols: list[str],
+        yticks: list[float],
+        bar_label_fontsize: int = 9,
+        filename: str = None,
+        fillna_exclude_cols: list[str] = None,
+        style_dict: dict[str, Any] = None,
         legend_args=None,
-    plot_type: Literal["line", "bar"] = "bar",
-    ylim: tuple[float, float] | None = None,
-    x_label: str = "Sequence Length",
-    legend_order: list[str] = None,
-    figsize: tuple[float, float] = None,
-    ax: Axes = None,
-    add_colname: bool = True,
+        plot_type: Literal["line", "bar"] = "bar",
+        ylim: tuple[float, float] | None = None,
+        x_label: str = "Sequence Length",
+        legend_order: list[str] = None,
+        figsize: tuple[float, float] = None,
+        ax: Axes = None,
+        add_colname: bool = True,
 ) -> Figure:
     """Plot runtime results from a DataFrame.
     Convenience function to create a bar or line plot for runtime results.
@@ -549,17 +549,17 @@ def plot_runtime_results(
             facecolor="white",
         )
     with mpl.rc_context(
-        rc={
-            "text.usetex": False,
-            "font.size": FONTSIZE,
-            "axes.labelsize": FONTSIZE,
-            "legend.fontsize": FONTSIZE_SMALL,
-            "xtick.labelsize": FONTSIZE_TICKS,
-            "ytick.labelsize": FONTSIZE_TICKS,
-            "axes.titlesize": FONTSIZE,
-            "lines.markersize": MARKERSIZE,
-            "lines.linewidth": LINEWIDTH,
-        }
+            rc={
+                "text.usetex": False,
+                "font.size": FONTSIZE,
+                "axes.labelsize": FONTSIZE,
+                "legend.fontsize": FONTSIZE_SMALL,
+                "xtick.labelsize": FONTSIZE_TICKS,
+                "ytick.labelsize": FONTSIZE_TICKS,
+                "axes.titlesize": FONTSIZE,
+                "lines.markersize": MARKERSIZE,
+                "lines.linewidth": LINEWIDTH,
+            }
     ):
         if plot_type == "bar":
             f = create_runtime_bar_plot(data_df=data_df, bar_label_font_size=bar_label_fontsize,
@@ -590,24 +590,24 @@ def plot_runtime_results(
 
 
 def plot_runtime_results_fwbw(
-    df_left: pd.DataFrame,
-    df_right: pd.DataFrame,
-    col_order_left: list[str] = None,
-    col_order_right: list[str] = None,
+        df_left: pd.DataFrame,
+        df_right: pd.DataFrame,
+        col_order_left: list[str] = None,
+        col_order_right: list[str] = None,
         yticks_left=None,
         yticks_right=None,
         group_cols=None,
-    filename_wo_ending: str = "",
-    style_dict: dict[str, Any] = None,
+        filename_wo_ending: str = "",
+        style_dict: dict[str, Any] = None,
         legend_args=None,
-    modify_df_func=None,
-    plot_type: Literal["line", "bar"] = "bar",
-    ylim_left: tuple[float, float] | None = None,
-    ylim_right: tuple[float, float] | None = None,
-    fillna_exclude_cols_left: list[str] = None,
-    fillna_exclude_cols_right: list[str] = None,
-    x_label: str = "Sequence Length",
-    add_colname: bool = True,
+        modify_df_func=None,
+        plot_type: Literal["line", "bar"] = "bar",
+        ylim_left: tuple[float, float] | None = None,
+        ylim_right: tuple[float, float] | None = None,
+        fillna_exclude_cols_left: list[str] = None,
+        fillna_exclude_cols_right: list[str] = None,
+        x_label: str = "Sequence Length",
+        add_colname: bool = True,
 ) -> Figure:
     """Similar to `plot_runtime_results`, but plots two figures side by side.
     

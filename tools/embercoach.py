@@ -278,10 +278,10 @@ class Coach(ast.NodeVisitor):
         f = node.func
         if isinstance(f, ast.Attribute):
             if (isinstance(f.value, ast.Attribute)
-                and isinstance(f.value.value, ast.Name)
-                and f.attr == which
-                and ((self.alias_torch and f.value.value.id == self.alias_torch and f.value.attr == 'fft')
-                     or (self.alias_mx and f.value.value.id == self.alias_mx and f.value.attr == 'fft'))):
+                    and isinstance(f.value.value, ast.Name)
+                    and f.attr == which
+                    and ((self.alias_torch and f.value.value.id == self.alias_torch and f.value.attr == 'fft')
+                         or (self.alias_mx and f.value.value.id == self.alias_mx and f.value.attr == 'fft'))):
                 return True
         return False
 
@@ -368,10 +368,11 @@ class Coach(ast.NodeVisitor):
 
             # Python numerics passed to backend ops
             if base in ((self.alias_torch or ''), (self.alias_mx or '')) and attr in (
-                'add','subtract','multiply','divide','power','pow','matmul','einsum'
+                    'add', 'subtract', 'multiply', 'divide', 'power', 'pow', 'matmul', 'einsum'
             ):
                 for arg in node.args:
-                    if isinstance(arg, ast.Constant) and isinstance(arg.value, (int, float)) and not self._inside_indexing():
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value,
+                                                                    (int, float)) and not self._inside_indexing():
                         self.python_scalar_count += 1
                         self._add(
                             node, 'error', 'PYTHON-SCALAR-001',
@@ -474,9 +475,9 @@ def scan_path(p: pathlib.Path) -> Tuple[List[Finding], Dict[str, int]]:
 
 def print_summary(stats: Dict[str, int], findings: List[Finding]):
     """Print educational summary based on what was found"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("EMBERCOACH SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"Scanned {stats['files']} files")
     print(f"Found {len(findings)} teaching moments")
 
@@ -501,7 +502,7 @@ def print_summary(stats: Dict[str, int], findings: List[Finding]):
     print("\n📖 For deep explanations:")
     print("   docs/NUMERICAL_PRECISION_GUIDE.md  (full tutorial)")
     print("   docs/NUMERIC_STABILITY_TORCH_vs_MLX.md  (findings summary)")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
 
 def main():

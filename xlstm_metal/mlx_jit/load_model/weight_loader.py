@@ -12,7 +12,6 @@ import mlx.core as mx
 
 from ..models.xlstm_7b_model import xLSTM7BCell
 
-
 if TYPE_CHECKING:
     from xlstm_metal.mlx_jit.wiring import WiredMADModel
 

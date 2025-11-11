@@ -28,17 +28,17 @@ ReturnModes = Literal["min", "max", "mean", "median"]
 
 
 def measure_runtime(
-    fn: Callable,
-    warmup: int = 25,
-    rep: int = 100,
-    warmup_and_rep_in_ms: bool = True,
-    grad_to_none: tuple = None,
-    quantiles: list[float] = None,
-    fast_flush: bool = True,
-    return_mode: ReturnModes = "mean",
-    device: str = None,
-    free_memory: bool = True,
-    profiler: Any = None,
+        fn: Callable,
+        warmup: int = 25,
+        rep: int = 100,
+        warmup_and_rep_in_ms: bool = True,
+        grad_to_none: tuple = None,
+        quantiles: list[float] = None,
+        fast_flush: bool = True,
+        return_mode: ReturnModes = "mean",
+        device: str = None,
+        free_memory: bool = True,
+        profiler: Any = None,
 ) -> RuntimeResult:
     """
     Benchmark the runtime of the provided function. By default, return the mean.

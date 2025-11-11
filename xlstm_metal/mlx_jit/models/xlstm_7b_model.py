@@ -13,7 +13,7 @@ from typing import Optional, Tuple, Dict, Any
 import mlx.core as mx
 import mlx.nn as nn
 
-from xlstm_metal.mlx_jit.blocks.mlstm.mlstm_neuron import mLSTMChunkwiseCell
+from xlstm_metal.mlx_jit.blocks.mlstm.neurons.mlstm_chunkwise.mlstm_neuron import mLSTMChunkwiseCell
 
 
 class xLSTM7BCell(nn.Module):
@@ -97,7 +97,7 @@ class xLSTM7BCell(nn.Module):
             qk_dim_per_head_unrounded,
             mlstm_round_up_to_multiple_of
         )
-        
+
         # V dimension per head  
         v_dim_per_head_unrounded = int(embedding_dim * v_dim_factor / num_heads)
         self.v_dim_per_head = self._round_up_to_multiple(
@@ -181,31 +181,31 @@ class xLSTM7BCell(nn.Module):
         # === mLSTM Branch ===
         # Residual connection
         residual = x
-        
+
         # Pre-norm
         x_normed = self.norm_mlstm(x)
-        
+
         # mLSTM cell (handles sequence processing internally)
         mlstm_out, new_state = self.mlstm_cell(x_normed, state)
-        
+
         # Residual
         x = residual + mlstm_out
 
         # === FFN Branch ===
         # Residual connection
         residual = x
-        
+
         # Pre-norm
         x_normed = self.norm_ffn(x)
-        
+
         # SwiGLU FFN: swish(proj_up_gate(x)) * proj_up(x)
         gate = nn.silu(self.ffn_proj_up_gate(x_normed))
         up = self.ffn_proj_up(x_normed)
         hidden = gate * up
-        
+
         # Down projection
         ffn_out = self.ffn_proj_down(hidden)
-        
+
         # Residual
         x = residual + ffn_out
 
@@ -227,32 +227,32 @@ class xLSTM7BCell(nn.Module):
         """
         i = self.block_index
         prefix = f"backbone.blocks.{i}"
-        
+
         return {
             # mLSTM normalization
             "norm_mlstm.weight": f"{prefix}.norm_mlstm.weight",
-            
+
             # mLSTM cell projections
             "mlstm_cell.q_proj.weight": f"{prefix}.mlstm_layer.q.weight",
             "mlstm_cell.k_proj.weight": f"{prefix}.mlstm_layer.k.weight",
             "mlstm_cell.v_proj.weight": f"{prefix}.mlstm_layer.v.weight",
-            
+
             # mLSTM gates
             "mlstm_cell.igate_proj.weight": f"{prefix}.mlstm_layer.igate_preact.weight",
             "mlstm_cell.igate_proj.bias": f"{prefix}.mlstm_layer.igate_preact.bias",
             "mlstm_cell.fgate_proj.weight": f"{prefix}.mlstm_layer.fgate_preact.weight",
             "mlstm_cell.fgate_proj.bias": f"{prefix}.mlstm_layer.fgate_preact.bias",
             "mlstm_cell.ogate_proj.weight": f"{prefix}.mlstm_layer.ogate_preact.weight",
-            
+
             # mLSTM multihead norm
             "mlstm_cell.norm.weight": f"{prefix}.mlstm_layer.multihead_norm.weight",
-            
+
             # mLSTM output projection
             "mlstm_cell.out_proj.weight": f"{prefix}.mlstm_layer.out_proj.weight",
-            
+
             # FFN normalization
             "norm_ffn.weight": f"{prefix}.norm_ffn.weight",
-            
+
             # FFN projections
             "ffn_proj_up.weight": f"{prefix}.ffn.proj_up.weight",
             "ffn_proj_up_gate.weight": f"{prefix}.ffn.proj_up_gate.weight",
@@ -261,10 +261,10 @@ class xLSTM7BCell(nn.Module):
 
     @classmethod
     def from_config(
-        cls,
-        block_index: int,
-        config: Dict[str, Any],
-        sparsity_mask: Optional[mx.array] = None
+            cls,
+            block_index: int,
+            config: Dict[str, Any],
+            sparsity_mask: Optional[mx.array] = None
     ) -> "xLSTM7BCell":
         """
         Create cell from config.json dict.

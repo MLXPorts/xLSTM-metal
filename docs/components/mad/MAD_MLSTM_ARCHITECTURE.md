@@ -4,7 +4,8 @@
 
 This document defines how to decompose the canonical xLSTM-7B `mLSTMLayer` into MAD atomic blocks with proper wiring.
 
-**Philosophy**: Embrace MAD! Create SMALL, composable, atomic blocks. Wire them together using MAD composition instead of monolithic classes.
+**Philosophy**: Embrace MAD! Create SMALL, composable, atomic blocks. Wire them together using MAD composition instead
+of monolithic classes.
 
 ## Canonical mLSTMLayer Data Flow
 
@@ -47,6 +48,7 @@ Input: x [B, S, embedding_dim=4096]
 ## MAD Atomic Blocks
 
 ### 1. UpProjectionSplitBlock
+
 **Purpose**: Expand dimension 2x and split into two branches
 
 ```python
@@ -69,6 +71,7 @@ class UpProjectionSplitBlock:
 ```
 
 ### 2. CausalConv1dBlock
+
 **Purpose**: Temporal convolution with causal masking + activation
 
 ```python
@@ -91,6 +94,7 @@ class CausalConv1dBlock:
 ```
 
 ### 3. mLSTMCoreBlock (Current Implementation)
+
 **Purpose**: Core mLSTM computation with Q/K/V projections + kernels
 
 ```python
@@ -114,6 +118,7 @@ class mLSTMCoreBlock:
 ```
 
 ### 4. SkipConnectionBlock
+
 **Purpose**: Learnable skip connection (elementwise scale + add)
 
 ```python
@@ -135,6 +140,7 @@ class SkipConnectionBlock:
 ```
 
 ### 5. OutputGateBlock
+
 **Purpose**: Elementwise gating with activation
 
 ```python
@@ -156,6 +162,7 @@ class OutputGateBlock:
 ```
 
 ### 6. DownProjectionBlock
+
 **Purpose**: Reduce dimension back to model dimension
 
 ```python
@@ -219,6 +226,7 @@ def mlstm_layer_wired(x):
 ## Block Size Strategy
 
 ### Small Blocks (Atomic)
+
 - **UpProjectionSplitBlock**: Single Linear + split
 - **CausalConv1dBlock**: Conv + activation
 - **SkipConnectionBlock**: Scale + add
@@ -226,12 +234,14 @@ def mlstm_layer_wired(x):
 - **DownProjectionBlock**: Linear + dropout
 
 ### Large Blocks (Composed)
+
 - **mLSTMLayerBlock**: Wired composition of all small blocks above
 - Could create intermediate compositions like:
-  - **ConvBranchBlock** = Conv + activation + projections
-  - **GatedOutputBlock** = Skip + gate + down-proj
+    - **ConvBranchBlock** = Conv + activation + projections
+    - **GatedOutputBlock** = Skip + gate + down-proj
 
-**Guideline**: Start with small atomic blocks. Create larger composed blocks only when the composition pattern is reused frequently.
+**Guideline**: Start with small atomic blocks. Create larger composed blocks only when the composition pattern is reused
+frequently.
 
 ## Benefits of MAD Decomposition
 

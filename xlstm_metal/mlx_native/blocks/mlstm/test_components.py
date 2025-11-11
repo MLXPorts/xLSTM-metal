@@ -19,6 +19,7 @@ def to_scalar(x):
     """Convert MLX array to Python scalar"""
     return float(x) if isinstance(x, mx.array) else float(x)
 
+
 def to_list(x):
     """Convert MLX array to Python list"""
     if isinstance(x, mx.array):
@@ -98,7 +99,7 @@ def test_rmsnorm_correctness():
     # Check RMS normalization (should have unit RMS per feature)
     # RMS(x) = sqrt(mean(x^2))
     x_norm_np = np.array(x_norm)
-    rms_per_feature = np.sqrt(np.mean(x_norm_np**2, axis=(0, 1)))
+    rms_per_feature = np.sqrt(np.mean(x_norm_np ** 2, axis=(0, 1)))
 
     # With learned weight initialized to 1, RMS should be ~1
     print(f"RMS per feature (first 10): {rms_per_feature[:10]}")
@@ -330,10 +331,12 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(f"\n✗ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
     except Exception as e:
         print(f"\n✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)

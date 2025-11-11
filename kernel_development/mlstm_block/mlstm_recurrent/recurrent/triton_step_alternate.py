@@ -17,23 +17,23 @@ from kernel_development.mlstm_block.mlstm_recurrent.vendored.triton.fw_step_alte
 
 @contiguous_noctx
 def mlstm_recurrent_step__triton_alternate_fw(
-    matC_old: torch.Tensor,  # (B, NH, DHQK, DHV)
-    vecN_old: torch.Tensor,  # (B, NH, DHQK)
-    scaM_old: torch.Tensor,  # (B, NH, 1)
-    vecQ: torch.Tensor,  # (B, NH, DHQK)
-    vecK: torch.Tensor,  # (B, NH, DHQK)
-    vecV: torch.Tensor,  # (B, NH, DHV)
-    scaI: torch.Tensor,  # (B, NH, 1)
-    scaF: torch.Tensor,  # (B, NH, 1)
-    matC_new: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-    vecN_new: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_new: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    eps: float = 1e-6,
-    # BLOCK_DQK: int = 16,
-    # BLOCK_DV: int = 16,
-    # BLOCK_DQK_H: int = 16,
-    # BLOCK_DV_H: int = 16,
+        matC_old: torch.Tensor,  # (B, NH, DHQK, DHV)
+        vecN_old: torch.Tensor,  # (B, NH, DHQK)
+        scaM_old: torch.Tensor,  # (B, NH, 1)
+        vecQ: torch.Tensor,  # (B, NH, DHQK)
+        vecK: torch.Tensor,  # (B, NH, DHQK)
+        vecV: torch.Tensor,  # (B, NH, DHV)
+        scaI: torch.Tensor,  # (B, NH, 1)
+        scaF: torch.Tensor,  # (B, NH, 1)
+        matC_new: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+        vecN_new: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_new: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        eps: float = 1e-6,
+        # BLOCK_DQK: int = 16,
+        # BLOCK_DV: int = 16,
+        # BLOCK_DQK_H: int = 16,
+        # BLOCK_DV_H: int = 16,
 ):
     """
 
@@ -75,11 +75,11 @@ def mlstm_recurrent_step__triton_alternate_fw(
     assert scaF.shape == (B, NH, 1), f"scaF has wrong shape, got {scaF.shape}"
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     if matC_new is None:
         assert (
-            vecN_new is None and scaM_new is None
+                vecN_new is None and scaM_new is None
         ), "Initial states must be provided together."
         matC_new = torch.empty_like(matC_old)
         vecN_new = torch.empty_like(vecN_old)
@@ -207,16 +207,16 @@ def mlstm_recurrent_step__triton_alternate_fw(
 
 
 def mlstm_recurrent_step__triton_alternate(
-    q: torch.Tensor,  # (B, NH, DHQK)
-    k: torch.Tensor,  # (B, NH, DHQK)
-    v: torch.Tensor,  # (B, NH, DHV)
-    i: torch.Tensor,  # (B, NH, 1)
-    f: torch.Tensor,  # (B, NH, 1)
-    c: torch.Tensor,  # (B, NH, DHQK, DHV)
-    n: torch.Tensor,  # (B, NH, DHQK)
-    m: torch.Tensor,  # (B, NH, 1)
-    eps: float = 1e-6,
-    **kwargs,
+        q: torch.Tensor,  # (B, NH, DHQK)
+        k: torch.Tensor,  # (B, NH, DHQK)
+        v: torch.Tensor,  # (B, NH, DHV)
+        i: torch.Tensor,  # (B, NH, 1)
+        f: torch.Tensor,  # (B, NH, 1)
+        c: torch.Tensor,  # (B, NH, DHQK, DHV)
+        n: torch.Tensor,  # (B, NH, DHQK)
+        m: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
+        **kwargs,
 ) -> tuple[
     torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 ]:  # vecH, (matC_state_new (B, NH, DHQK, DHV), vecN_state_new (B, NH, DHQK), vecM_state_new (B, NH, 1))

@@ -24,7 +24,7 @@ def _count_ln_flops(d):
 
 
 def count_flops_slstm_block_fw(
-    S, d, Nh, conv1d_kernel_size=4, pf_ffn=1.3, factor_exp=1, count_ln_flops: Callable[[int], int] = _count_ln_flops
+        S, d, Nh, conv1d_kernel_size=4, pf_ffn=1.3, factor_exp=1, count_ln_flops: Callable[[int], int] = _count_ln_flops
 ):
     """
 

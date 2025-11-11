@@ -15,11 +15,11 @@ import mlx.core as mx
 
 
 def on_stream_complete(
-    stream: mx.core.Stream,
-    callback: Callable[..., Any],
-    *args: Any,
-    executor: Optional[ThreadPoolExecutor] = None,
-    **kwargs: Any,
+        stream: mx.core.Stream,
+        callback: Callable[..., Any],
+        *args: Any,
+        executor: Optional[ThreadPoolExecutor] = None,
+        **kwargs: Any,
 ) -> threading.Thread | Future:
     """Wait for `stream` to complete in the background, then run `callback`.
 
@@ -43,12 +43,12 @@ def on_stream_complete(
 
 
 async def on_stream_complete_async(
-    stream: mx.core.Stream,
-    callback: Callable[..., Any],
-    *args: Any,
-    loop=None,
-    executor: Optional[ThreadPoolExecutor] = None,
-    **kwargs: Any,
+        stream: mx.core.Stream,
+        callback: Callable[..., Any],
+        *args: Any,
+        loop=None,
+        executor: Optional[ThreadPoolExecutor] = None,
+        **kwargs: Any,
 ) -> Any:
     """Async variant: wait on `stream` off-loop and then run `callback`."""
     if loop is None:
@@ -68,11 +68,11 @@ async def on_stream_complete_async(
 
 
 def after_eval(
-    arrays: Sequence[mx.core.array],
-    callback: Callable[..., Any],
-    *args: Any,
-    executor: Optional[ThreadPoolExecutor] = None,
-    **kwargs: Any,
+        arrays: Sequence[mx.core.array],
+        callback: Callable[..., Any],
+        *args: Any,
+        executor: Optional[ThreadPoolExecutor] = None,
+        **kwargs: Any,
 ) -> Future:
     """Evaluate `arrays` in a worker thread, then run `callback`.
 
@@ -91,4 +91,3 @@ def after_eval(
         return callback(*args, **kwargs)
 
     return executor.submit(wait_and_call)
-

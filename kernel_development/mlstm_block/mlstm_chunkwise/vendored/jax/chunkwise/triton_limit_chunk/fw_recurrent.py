@@ -15,19 +15,19 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__recurrent_fw_C(
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecB: jax.Array,  # (B, NH, NC, L)
-    vecI: jax.Array,  # (B, NH, NC, L)
-    matC_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
-    vecN_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK)
-    scaMinter_states: jax.Array | None = None,  # (B, NH, (NC + 1))
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaMinter_initial: jax.Array | None = None,  # (B, NH)
-    qk_scale: float | None = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecB: jax.Array,  # (B, NH, NC, L)
+        vecI: jax.Array,  # (B, NH, NC, L)
+        matC_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
+        vecN_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK)
+        scaMinter_states: jax.Array | None = None,  # (B, NH, (NC + 1))
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaMinter_initial: jax.Array | None = None,  # (B, NH)
+        qk_scale: float | None = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """
     Execute the recurrent forward kernel for the C computation in the mLSTM chunkwise formulation.

@@ -31,46 +31,46 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__parallel_fw_H_kernel(
-    matQ,  # (B, NH, S, DHQK)
-    matK,  # (B, NH, S, DHQK)
-    matV,  # (B, NH, S, DHHV)
-    matC_states,  # (B, NH, NC * DHQK, DHHV)
-    vecN_states,  # (B, NH, NC * DHQK)
-    scaMinter_states,  # (B, NH, NC)
-    vecI,  # (B, NH, NC, L)
-    vecB,  # (B, NH, NC, L)
-    matHout,  # (B, NH, S, DHHV)
-    vecNout,  # (B, NH, S)
-    vecMout,  # (B, NH, S)
-    qk_scale,
-    str_matQK_B_NH,
-    str_matQK_S,
-    str_matQK_DHQK,
-    str_matHV_B_NH,
-    str_matHV_S,
-    str_matHV_DHHV,
-    str_matCstates_B_NH,
-    str_matCstates_NCDHQK,
-    str_matCstates_DHHV,
-    str_vecNstates_B_NH,
-    str_vecNstates_NCDHQK,
-    str_scaMinterstates_B_NH,
-    str_vecBI_B_NH,
-    str_vecBI_NC,
-    str_vecBI_L,
-    str_vecMN_B_NH,
-    str_vecMN_S,
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    DTYPE: tl.constexpr = tl.float32,
-    EPS: tl.constexpr = 1e-6,
+        matQ,  # (B, NH, S, DHQK)
+        matK,  # (B, NH, S, DHQK)
+        matV,  # (B, NH, S, DHHV)
+        matC_states,  # (B, NH, NC * DHQK, DHHV)
+        vecN_states,  # (B, NH, NC * DHQK)
+        scaMinter_states,  # (B, NH, NC)
+        vecI,  # (B, NH, NC, L)
+        vecB,  # (B, NH, NC, L)
+        matHout,  # (B, NH, S, DHHV)
+        vecNout,  # (B, NH, S)
+        vecMout,  # (B, NH, S)
+        qk_scale,
+        str_matQK_B_NH,
+        str_matQK_S,
+        str_matQK_DHQK,
+        str_matHV_B_NH,
+        str_matHV_S,
+        str_matHV_DHHV,
+        str_matCstates_B_NH,
+        str_matCstates_NCDHQK,
+        str_matCstates_DHHV,
+        str_vecNstates_B_NH,
+        str_vecNstates_NCDHQK,
+        str_scaMinterstates_B_NH,
+        str_vecBI_B_NH,
+        str_vecBI_NC,
+        str_vecBI_L,
+        str_vecMN_B_NH,
+        str_vecMN_S,
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        DTYPE: tl.constexpr = tl.float32,
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 
@@ -186,11 +186,11 @@ def mlstm_chunkwise__parallel_fw_H_kernel(
             order=(1, 0),
         )
         vecN_km1_ptr = (
-            vecN_states
-            + idx_b_BNH * str_vecNstates_B_NH
-            + idx_b_NC * DHQK
-            + idx_b_DHQK * siz_b_DHQK
-            + tl.arange(0, siz_b_DHQK)
+                vecN_states
+                + idx_b_BNH * str_vecNstates_B_NH
+                + idx_b_NC * DHQK
+                + idx_b_DHQK * siz_b_DHQK
+                + tl.arange(0, siz_b_DHQK)
         )
 
         # load matQ block (L, siz_b_DHQK)
@@ -261,14 +261,14 @@ def mlstm_chunkwise__parallel_fw_H_kernel(
         order=(1, 0),
     )
     vecNout_ptr = (
-        vecNout
-        + idx_b_BNH * str_vecMN_B_NH
-        + (idx_b_NC * L + tl.arange(0, L)) * str_vecMN_S
+            vecNout
+            + idx_b_BNH * str_vecMN_B_NH
+            + (idx_b_NC * L + tl.arange(0, L)) * str_vecMN_S
     )
     vecMout_ptr = (
-        vecMout
-        + idx_b_BNH * str_vecMN_B_NH
-        + (idx_b_NC * L + tl.arange(0, L)) * str_vecMN_S
+            vecMout
+            + idx_b_BNH * str_vecMN_B_NH
+            + (idx_b_NC * L + tl.arange(0, L)) * str_vecMN_S
     )
     tl.store(matHout_ptr, matHout_val.to(DTYPE), boundary_check=(0, 1))
     tl.store(vecNout_ptr, vecH_denom_val.to(tl.float32))

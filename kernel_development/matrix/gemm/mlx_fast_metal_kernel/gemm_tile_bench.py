@@ -26,8 +26,10 @@ def bench_gemm(m=1024, n=1024, k=1024, tiles=("16x16", "16x16")):
     B = mx.random.normal((m, k))
 
     # Warm
-    _ = gemm_av(A, V); mx.eval(_)
-    _ = gemm_at_b(A, B); mx.eval(_)
+    _ = gemm_av(A, V);
+    mx.eval(_)
+    _ = gemm_at_b(A, B);
+    mx.eval(_)
 
     av, atb = tiles
     set_gemm_tiles(av, atb)
@@ -35,12 +37,14 @@ def bench_gemm(m=1024, n=1024, k=1024, tiles=("16x16", "16x16")):
     iters = 10
     t0 = time.time()
     for _ in range(iters):
-        C = gemm_av(A, V); mx.eval(C)
+        C = gemm_av(A, V);
+        mx.eval(C)
     t_av = (time.time() - t0) / iters
 
     t1 = time.time()
     for _ in range(iters):
-        Z = gemm_at_b(A, B); mx.eval(Z)
+        Z = gemm_at_b(A, B);
+        mx.eval(Z)
     t_atb = (time.time() - t1) / iters
 
     return t_av, t_atb
@@ -59,4 +63,4 @@ if __name__ == "__main__":
         print(f"m={m} n={n} k={k}")
         for av, atb in tiles:
             t_av, t_atb = bench_gemm(m, n, k, tiles=(av, atb))
-            print(f"  tiles av={av:>6} atb={atb:>6}:  A@V={t_av*1e3:.2f} ms,  A.T@B={t_atb*1e3:.2f} ms")
+            print(f"  tiles av={av:>6} atb={atb:>6}:  A@V={t_av * 1e3:.2f} ms,  A.T@B={t_atb * 1e3:.2f} ms")

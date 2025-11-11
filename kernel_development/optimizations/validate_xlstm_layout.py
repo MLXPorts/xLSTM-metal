@@ -1,4 +1,3 @@
-
 """
 Validate presence and placement of upstream xLSTM files and Metal kernel scaffolding.
 
@@ -16,6 +15,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+
 
 def check_files(base: Path, rels: list[str]) -> tuple[list[str], list[str]]:
     """Checks for the presence of files relative to a base path.
@@ -36,6 +36,7 @@ def check_files(base: Path, rels: list[str]) -> tuple[list[str], list[str]]:
         else:
             missing.append(rel)
     return present, missing
+
 
 def main() -> int:
     """Validates the project layout and prints a report.
@@ -146,6 +147,7 @@ def main() -> int:
     # Print report
     print("\n".join(report))
     return 0 if ok else 1
+
 
 if __name__ == "__main__":
     sys.exit(main())

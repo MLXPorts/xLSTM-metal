@@ -7,18 +7,18 @@ from .fw import mlstm_chunkwise_fw
 
 
 def mlstm_chunkwise__native_autograd(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array = None,
-    n_initial: jax.Array = None,
-    m_initial: jax.Array = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    chunk_size: int = 64,
-    **kwargs,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array = None,
+        n_initial: jax.Array = None,
+        m_initial: jax.Array = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        chunk_size: int = 64,
+        **kwargs,
 ) -> jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]:
     """
 

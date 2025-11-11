@@ -11,15 +11,15 @@ def _stable_logsigmoid(x: torch.Tensor) -> torch.Tensor:
 
 
 def _mlstm_step_eager(
-    matC_old: torch.Tensor,  # (B, NH, DHQK, DHHV)
-    vecN_old: torch.Tensor,  # (B, NH, DHQK)
-    scaM_old: torch.Tensor,  # (B, NH, 1)
-    vecQ: torch.Tensor,      # (B, NH, DHQK)
-    vecK: torch.Tensor,      # (B, NH, DHQK)
-    vecV: torch.Tensor,      # (B, NH, DHHV)
-    scaI: torch.Tensor,      # (B, NH, 1)
-    scaF: torch.Tensor,      # (B, NH, 1)
-    eps: float = 1e-6,
+        matC_old: torch.Tensor,  # (B, NH, DHQK, DHHV)
+        vecN_old: torch.Tensor,  # (B, NH, DHQK)
+        scaM_old: torch.Tensor,  # (B, NH, 1)
+        vecQ: torch.Tensor,  # (B, NH, DHQK)
+        vecK: torch.Tensor,  # (B, NH, DHQK)
+        vecV: torch.Tensor,  # (B, NH, DHHV)
+        scaI: torch.Tensor,  # (B, NH, 1)
+        scaF: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
 ) -> Tuple[torch.Tensor, Tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
     # Enforce float32 math like Triton kernels
     matC_old = matC_old.to(torch.float32)
@@ -58,8 +58,8 @@ def _mlstm_step_eager(
     N_new = f_act * vecN_old + i_act * vecK
 
     # Numerator and q·N
-    h_num = torch.einsum('bhjd,bhj->bhd', C_new, q_scaled)           # (B,NH,DHHV)
-    qn_dot = torch.einsum('bhj,bhj->bh', q_scaled, N_new)            # (B,NH)
+    h_num = torch.einsum('bhjd,bhj->bhd', C_new, q_scaled)  # (B,NH,DHHV)
+    qn_dot = torch.einsum('bhj,bhj->bh', q_scaled, N_new)  # (B,NH)
 
     denom = torch.maximum(qn_dot.abs(), torch.exp(-m_new.squeeze(-1))).unsqueeze(-1) + eps
     H_new = h_num / denom
@@ -78,16 +78,16 @@ except Exception as e:
 
 
 def mlstm_recurrent_step__metal_fw(
-    matC_old: torch.Tensor,  # (B, NH, DHQK, DHHV)
-    vecN_old: torch.Tensor,  # (B, NH, DHQK)
-    scaM_old: torch.Tensor,  # (B, NH, 1)
-    vecQ: torch.Tensor,      # (B, NH, DHQK)
-    vecK: torch.Tensor,      # (B, NH, DHQK)
-    vecV: torch.Tensor,      # (B, NH, DHHV)
-    scaI: torch.Tensor,      # (B, NH, 1)
-    scaF: torch.Tensor,      # (B, NH, 1)
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
+        matC_old: torch.Tensor,  # (B, NH, DHQK, DHHV)
+        vecN_old: torch.Tensor,  # (B, NH, DHQK)
+        scaM_old: torch.Tensor,  # (B, NH, 1)
+        vecQ: torch.Tensor,  # (B, NH, DHQK)
+        vecK: torch.Tensor,  # (B, NH, DHQK)
+        vecV: torch.Tensor,  # (B, NH, DHHV)
+        scaI: torch.Tensor,  # (B, NH, 1)
+        scaF: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
 ):
     """
 
@@ -111,16 +111,16 @@ def mlstm_recurrent_step__metal_fw(
 
 
 def mlstm_recurrent_step__metal(
-    q: torch.Tensor,  # (B, NH, DHQK)
-    k: torch.Tensor,  # (B, NH, DHQK)
-    v: torch.Tensor,  # (B, NH, DHV)
-    i: torch.Tensor,  # (B, NH, 1)
-    f: torch.Tensor,  # (B, NH, 1)
-    c: torch.Tensor,  # (B, NH, DHQK, DHV)
-    n: torch.Tensor,  # (B, NH, DHQK)
-    m: torch.Tensor,  # (B, NH, 1)
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
+        q: torch.Tensor,  # (B, NH, DHQK)
+        k: torch.Tensor,  # (B, NH, DHQK)
+        v: torch.Tensor,  # (B, NH, DHV)
+        i: torch.Tensor,  # (B, NH, 1)
+        f: torch.Tensor,  # (B, NH, 1)
+        c: torch.Tensor,  # (B, NH, DHQK, DHV)
+        n: torch.Tensor,  # (B, NH, DHQK)
+        m: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
 ):
     """
 

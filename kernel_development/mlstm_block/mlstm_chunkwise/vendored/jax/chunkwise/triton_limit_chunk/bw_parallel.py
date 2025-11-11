@@ -14,21 +14,21 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_bw_dQKV(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecB: jax.Array,  # (B, NH, NC, L)
-    vecI: jax.Array,  # (B, NH, NC, L)
-    vecM_combine: jax.Array,  # (B, NH, S) = (B, NH, NC * L)
-    scaM_inter: jax.Array,  # (B, NH, NC+1)
-    matC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
-    matDeltaH: jax.Array,  # (B, NH, S, DHHV)
-    vecN_out: jax.Array,  # (B, NH, S)
-    matDeltaC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
-    qk_scale: float | None = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
-    EPS: float = 1e-6,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecB: jax.Array,  # (B, NH, NC, L)
+        vecI: jax.Array,  # (B, NH, NC, L)
+        vecM_combine: jax.Array,  # (B, NH, S) = (B, NH, NC * L)
+        scaM_inter: jax.Array,  # (B, NH, NC+1)
+        matC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
+        matDeltaH: jax.Array,  # (B, NH, S, DHHV)
+        vecN_out: jax.Array,  # (B, NH, S)
+        matDeltaC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
+        qk_scale: float | None = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
+        EPS: float = 1e-6,
 ) -> tuple[
     jax.Array, jax.Array, jax.Array
 ]:  # matDeltaQ (B,NH,S,DHQK), matDeltaK (B,NH,S,DHQK), matDeltaV (B,NH,S,DHHV)
@@ -65,7 +65,7 @@ def mlstm_chunkwise__parallel_bw_dQKV(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = min(32 if str(_dtype) == "float32" else 64, triton.next_power_of_2(DHQK))
     siz_b_DHHV = min(32 if str(_dtype) == "float32" else 64, triton.next_power_of_2(DHHV))

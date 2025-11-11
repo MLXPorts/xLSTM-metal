@@ -20,17 +20,17 @@ def main():
     """Run pytest with the given arguments."""
     # Ensure we're in the project root
     project_root = Path(__file__).parent
-    
+
     # Build pytest command
     cmd = [sys.executable, "-m", "pytest"]
-    
+
     # Add any command-line arguments passed to this script
     if len(sys.argv) > 1:
         cmd.extend(sys.argv[1:])
     else:
         # Default: run all tests in tests/ directory
         cmd.append("tests/")
-    
+
     # Run pytest
     try:
         result = subprocess.run(cmd, cwd=project_root)

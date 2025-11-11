@@ -8,7 +8,8 @@ Relevance: Parallel training of xLSTM models on Apple Silicon multicore systems
 
 ## Executive Summary
 
-The Hogwild! paper demonstrates that **SGD can run in parallel without locks** when the problem has **sparse gradients**. This is directly applicable to our xLSTM training:
+The Hogwild! paper demonstrates that **SGD can run in parallel without locks** when the problem has **sparse gradients
+**. This is directly applicable to our xLSTM training:
 
 1. **mLSTM/sLSTM are sparse**: Each gradient update touches only a small subset of parameters
 2. **Apple Silicon benefits**: 12GB/s shared memory bandwidth vs MapReduce's 10MB/s
@@ -22,12 +23,14 @@ The Hogwild! paper demonstrates that **SGD can run in parallel without locks** w
 **Key idea:** Let processors read/write shared memory freely, even if they overwrite each other's work.
 
 **Why it works:** When gradients are sparse (each update touches few parameters), overwrites are:
+
 - **Rare** (low probability of collision)
 - **Harmless** (small error when they occur)
 
 ### Formal Sparsity Definition
 
 Given cost function:
+
 ```
 f(x) = Σ_e∈E f_e(x_e)
 ```
@@ -35,6 +38,7 @@ f(x) = Σ_e∈E f_e(x_e)
 where each `f_e` depends on small subset `e ⊂ {1,...,n}` of parameters.
 
 **Sparsity metrics:**
+
 - **Ω**: Max edge size `max_e |e|`
 - **ρ**: Fraction of overlapping edges (density)
 - **Δ**: Max variable frequency (normalized degree)
@@ -46,6 +50,7 @@ where each `f_e` depends on small subset `e ⊂ {1,...,n}` of parameters.
 ### Why xLSTM Training is Sparse
 
 **mLSTM block structure:**
+
 ```python
 # Each training example touches:
 # 1. Input embedding (sparse if vocabulary >> batch size)
@@ -57,26 +62,27 @@ where each `f_e` depends on small subset `e ⊂ {1,...,n}` of parameters.
 **Sparsity sources:**
 
 1. **Batch-level sparsity**:
-   - Batch size `B` << total parameters `n`
-   - Each SGD step updates parameters touched by batch
-   - Example: `B=32`, `n=1e9` → `ρ ≈ 32/1e9`
+    - Batch size `B` << total parameters `n`
+    - Each SGD step updates parameters touched by batch
+    - Example: `B=32`, `n=1e9` → `ρ ≈ 32/1e9`
 
 2. **Sequence-level sparsity**:
-   - Attention is over sequence length `S`
-   - Per-head operations: `O(S * head_dim)` parameters
-   - Rest of model untouched
+    - Attention is over sequence length `S`
+    - Per-head operations: `O(S * head_dim)` parameters
+    - Rest of model untouched
 
 3. **Embedding sparsity**:
-   - Vocabulary size `V` (e.g., 50k)
-   - Each example uses `S` tokens
-   - Only `S/V` fraction of embedding weights updated
-   - Example: `S=512`, `V=50k` → `Δ ≈ 0.01`
+    - Vocabulary size `V` (e.g., 50k)
+    - Each example uses `S` tokens
+    - Only `S/V` fraction of embedding weights updated
+    - Example: `S=512`, `V=50k` → `Δ ≈ 0.01`
 
 ### Hypergraph Structure
 
 **Induced hypergraph for mLSTM:**
 
 **Nodes:** All model parameters
+
 - Embedding weights: `V × d_model`
 - QKV projections: `d_model × 3 × num_heads × head_dim`
 - Gate projections: `d_model × 3 × num_heads`
@@ -84,6 +90,7 @@ where each `f_e` depends on small subset `e ⊂ {1,...,n}` of parameters.
 - Output weights: `d_model × V`
 
 **Hyperedges:** Each training example defines an edge `e` connecting:
+
 - Token embeddings used in that example
 - QKV parameters for attended positions
 - Gate parameters for those positions
@@ -92,6 +99,7 @@ where each `f_e` depends on small subset `e ⊂ {1,...,n}` of parameters.
 **Sparsity analysis:**
 
 For xlstm-large (2048 dim, 48 blocks, 50k vocab):
+
 - Total parameters: `n ≈ 1.3 billion`
 - Parameters per example: `|e| ≈ 2048 × 512 + 48 × (2048 × 512) ≈ 50M`
 - **Ω ≈ 50M / 1.3B ≈ 0.04** (4% of parameters touched)
@@ -117,6 +125,7 @@ k ≥ (2LM²Ω(1 + 6τρ + 6τ²ΩΔ^(1/2)) log(LD₀/ε)) / (c²ϑε)
 ```
 
 **Parameters:**
+
 - `L`: Lipschitz constant of gradient
 - `M`: Gradient bound
 - `c`: Strong convexity modulus
@@ -124,6 +133,7 @@ k ≥ (2LM²Ω(1 + 6τρ + 6τ²ΩΔ^(1/2)) log(LD₀/ε)) / (c²ϑε)
 - `ϑ ∈ (0,1)`: Stepsize underestimate factor
 
 **Key insight:** When `ρ, Δ = o(1/n)` and `τ = p < n^(1/4)`:
+
 - **Serial complexity:** `O(log(1/ε)/ε)` iterations
 - **Parallel complexity:** `O(log(1/ε)/ε)` iterations (same!)
 - **Speedup:** `p × speedup` (near-linear in number of processors)
@@ -137,11 +147,13 @@ The paper shows **constant stepsize + exponential backoff** achieves:
 ```
 
 **Benefits over 1/k diminishing stepsize:**
+
 - More robust to curvature misestimation
 - Faster in practice (larger steps early on)
 - No exponential slowdown if `c` overestimated
 
 **Recommended protocol:**
+
 1. Set `γ = ϑ/c` for `ϑ ∈ (0,1)`
 2. Run for `K` iterations
 3. Reduce `γ` by factor `β ≈ 0.37` (optimal)
@@ -155,6 +167,7 @@ The paper shows **constant stepsize + exponential backoff** achieves:
 **Current MAD limitation:** Sequential training only
 
 **Hogwild! enables:**
+
 ```python
 # Parallel training across backends
 def hogwild_train_mad(config, num_workers=8):
@@ -175,6 +188,7 @@ def hogwild_train_mad(config, num_workers=8):
 ```
 
 **Speedup estimate:**
+
 - Apple Silicon M2 Ultra: 24 cores (20 performance + 4 efficiency)
 - Expected speedup: **10-15×** for xLSTM training
 - Shared memory bandwidth: 800 GB/s (unified memory)
@@ -200,6 +214,7 @@ def pytorch_worker(shared_params, dataset):
 ```
 
 **Key requirement:** Atomic parameter updates
+
 - MLX: Native support via Metal atomics
 - PyTorch: `torch.Tensor.add_()` is atomic on MPS
 
@@ -208,6 +223,7 @@ def pytorch_worker(shared_params, dataset):
 **Current bottleneck:** Training each architecture sequentially
 
 **With Hogwild!:**
+
 - Train multiple architectures in parallel
 - Share embedding layer across experiments (sparse updates)
 - 10× speedup for architecture search
@@ -229,6 +245,7 @@ def pytorch_worker(shared_params, dataset):
 ### 1. Atomic Operations
 
 **MLX (Metal):**
+
 ```cpp
 // Metal supports atomic operations natively
 kernel void atomic_add(device float* dest,
@@ -241,6 +258,7 @@ kernel void atomic_add(device float* dest,
 ```
 
 **PyTorch (MPS):**
+
 ```python
 # PyTorch tensors support in-place atomic adds
 param.add_(gradient)  # Atomic on MPS backend
@@ -253,6 +271,7 @@ param.add_(gradient)  # Atomic on MPS backend
 **Solution:** Hogwild! is provably robust to staleness `τ < n^(1/4)`
 
 **For xlstm-large:**
+
 - `n ≈ 1.3B` parameters
 - `n^(1/4) ≈ 190`
 - Safe to use up to **190 parallel workers**
@@ -263,6 +282,7 @@ param.add_(gradient)  # Atomic on MPS backend
 **From paper:** Use constant stepsize with exponential backoff
 
 **Recommended for xLSTM:**
+
 ```python
 # Initial stepsize
 γ₀ = 0.001  # Conservative estimate
@@ -285,6 +305,7 @@ for epoch in range(num_epochs):
 **Challenge:** Some examples are longer/slower than others
 
 **Hogwild! advantage:** Natural load balancing
+
 - Fast workers process more examples
 - No synchronization barriers
 - Automatically adapts to varying gradient times
@@ -294,12 +315,14 @@ for epoch in range(num_epochs):
 ### Test 1: Serial vs Hogwild! (Single Backend)
 
 **Setup:**
+
 - Dataset: WikiText-103 (sparse, ~100M tokens)
 - Model: Small xLSTM (512 dim, 6 blocks)
 - Backends: MLX only
 - Workers: 1, 2, 4, 8, 16
 
 **Metrics:**
+
 - Wall clock time to convergence
 - Final loss (should be identical)
 - Speedup factor
@@ -309,11 +332,13 @@ for epoch in range(num_epochs):
 ### Test 2: Multi-Backend Hogwild!
 
 **Setup:**
+
 - Same dataset/model
 - Backends: Mix of MLX (GPU) and PyTorch (CPU)
 - Workers: 8 MLX + 8 PyTorch
 
 **Metrics:**
+
 - Convergence rate vs single-backend
 - Numerical parity (outputs should match within ε)
 
@@ -322,11 +347,13 @@ for epoch in range(num_epochs):
 ### Test 3: MAD Architecture Search
 
 **Setup:**
+
 - Evaluate 10 different layer sequences
 - Train each for 5 epochs
 - Serial vs Hogwild!
 
 **Metrics:**
+
 - Total wall clock time
 - Per-architecture convergence
 
@@ -335,10 +362,12 @@ for epoch in range(num_epochs):
 ### Test 4: Gradient Staleness
 
 **Setup:**
+
 - Vary staleness `τ` by controlling worker count
 - Measure convergence rate vs theoretical bound
 
 **Metrics:**
+
 - Iterations to convergence vs `τ`
 - Compare to Proposition 4.1 prediction
 
@@ -346,30 +375,30 @@ for epoch in range(num_epochs):
 
 ## Comparison to Alternatives
 
-| Method | Locks? | Speedup | Complexity | Works on Apple Silicon? |
-|--------|--------|---------|------------|------------------------|
-| **Hogwild!** | No | Near-linear | Simple | ✅ Yes (native atomics) |
-| Round-Robin | Yes | Sublinear | Medium | ⚠️ Possible (slow) |
-| MapReduce | N/A | Linear | High | ❌ No (distributed) |
-| Gradient Averaging | No | Linear | Medium | ✅ Yes (but slower) |
+| Method             | Locks? | Speedup     | Complexity | Works on Apple Silicon? |
+|--------------------|--------|-------------|------------|-------------------------|
+| **Hogwild!**       | No     | Near-linear | Simple     | ✅ Yes (native atomics)  |
+| Round-Robin        | Yes    | Sublinear   | Medium     | ⚠️ Possible (slow)      |
+| MapReduce          | N/A    | Linear      | High       | ❌ No (distributed)      |
+| Gradient Averaging | No     | Linear      | Medium     | ✅ Yes (but slower)      |
 
 **Key differences:**
 
 1. **Round-Robin (Vowpal Wabbit):**
-   - Requires locks/semaphores
-   - Paper shows 10× slower than Hogwild! for fast gradients
-   - xLSTM gradients are fast (< 1ms) → bad fit
+    - Requires locks/semaphores
+    - Paper shows 10× slower than Hogwild! for fast gradients
+    - xLSTM gradients are fast (< 1ms) → bad fit
 
 2. **MapReduce (Zinkevich et al.):**
-   - Run `p` independent SGD instances, average output
-   - Requires `p × data` passes
-   - Paper shows no improvement over serial
-   - Designed for clusters, not multicore
+    - Run `p` independent SGD instances, average output
+    - Requires `p × data` passes
+    - Paper shows no improvement over serial
+    - Designed for clusters, not multicore
 
 3. **Gradient Averaging (Dekel et al.):**
-   - Workers compute gradients, master averages and updates
-   - Requires communication overhead
-   - Good for distributed, overkill for shared memory
+    - Workers compute gradients, master averages and updates
+    - Requires communication overhead
+    - Good for distributed, overkill for shared memory
 
 **Conclusion:** Hogwild! is optimal for xLSTM on Apple Silicon.
 
@@ -394,12 +423,14 @@ for epoch in range(num_epochs):
 ---
 
 **References:**
+
 - Hogwild! paper: Niu et al., 2011 (https://arxiv.org/pdf/1106.5730)
 - MAD paper: Mechanistic Architecture Design
 - xlstm-large: Canonical checkpoint for validation
 - Apple Metal atomics: https://developer.apple.com/metal/
 
 **See also:**
+
 - `docs/MAD_COMPOSITION_PROPOSAL.md` - LFM2 pattern for heterogeneous sequences
 - `docs/XLSTM_ARCHITECTURE_SEQUENCES.md` - Canonical block orderings
 - `mad/blocks/` - Current MAD block implementations

@@ -10,24 +10,23 @@ This tests:
 """
 
 import sys
-from pathlib import Path
 
 sys.path.insert(0, '.')
 
 import mlx.core as mx
-from xlstm_metal.mlx_jit.blocks.slstm import sLSTMCell
+from xlstm_metal.mlx_jit.blocks.slstm import sLSTMNeuron
 from xlstm_metal.mlx_jit.models import xLSTMsLSTMCell
 
 
 def test_slstm_cell():
-    """Test 1: sLSTMCell creation and forward pass."""
+    """Test 1: sLSTMNeuron creation and forward pass."""
     print("\n" + "=" * 60)
-    print("TEST 1: sLSTMCell creation and forward pass")
+    print("TEST 1: sLSTMNeuron creation and forward pass")
     print("=" * 60)
 
     try:
-        # Create sLSTM cell
-        cell = sLSTMCell(
+        # Create sLSTM neuron
+        cell = sLSTMNeuron(
             input_size=512,
             num_heads=4,
             head_dim=128,
@@ -36,7 +35,7 @@ def test_slstm_cell():
             gate_soft_cap=15.0
         )
 
-        print(f"✓ sLSTMCell created")
+        print(f"✓ sLSTMNeuron created")
         print(f"  - input_size: {cell.input_size}")
         print(f"  - num_heads: {cell.num_heads}")
         print(f"  - head_dim: {cell.head_dim}")
@@ -246,12 +245,12 @@ def test_stateful_generation():
             # Forward with state
             output, state = block(x, state=state)
 
-            print(f"    Step {step+1}: output shape = {output.shape}, state types = {len(state)}")
+            print(f"    Step {step + 1}: output shape = {output.shape}, state types = {len(state)}")
 
             # Check state persistence
             c, n, m = state
             if c.shape[0] != B or c.shape[1] != 4:  # num_heads=4
-                print(f"❌ State shape incorrect at step {step+1}")
+                print(f"❌ State shape incorrect at step {step + 1}")
                 return False
 
         print(f"\n✓ Stateful generation successful")
@@ -273,7 +272,7 @@ def main():
     print("=" * 60)
 
     tests = [
-        ("sLSTMCell Creation", test_slstm_cell),
+        ("sLSTMNeuron Creation", test_slstm_cell),
         ("xLSTMsLSTMCell Block Wrapper", test_slstm_block_wrapper),
         ("Create from Config", test_slstm_from_config),
         ("Stateful Generation", test_stateful_generation),

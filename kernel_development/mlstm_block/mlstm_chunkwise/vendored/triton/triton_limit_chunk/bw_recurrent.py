@@ -5,22 +5,23 @@ import torch
 import triton
 
 from kernel_development.mlstm_block.mslstm_parallel.torch.utils import torch2triton_dtype
-from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import mlstm_chunkwise__recurrent_bw_dC_kernel
+from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import \
+    mlstm_chunkwise__recurrent_bw_dC_kernel
 from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__recurrent_bw_dC(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    scaM_inter: torch.Tensor,  # (B, NH, NC+1)
-    vecM_combine: torch.Tensor,  # (B, NH, S)
-    matDeltaH: torch.Tensor,  # (B, NH, S, DHHV)
-    vecN_out: torch.Tensor,  # (B, NH, S)
-    matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    qk_scale: float = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
-    EPS: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        scaM_inter: torch.Tensor,  # (B, NH, NC+1)
+        vecM_combine: torch.Tensor,  # (B, NH, S)
+        matDeltaH: torch.Tensor,  # (B, NH, S, DHHV)
+        vecN_out: torch.Tensor,  # (B, NH, S)
+        matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        qk_scale: float = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
+        EPS: float = 1e-6,
 ) -> torch.Tensor:  # matDeltaC_states (B, NH, (NC+1) * DHQK, DHHV)
     """Computes only the deltaC gradients for the backward pass.
     The other gradients are computed in the other (kernel) function.
@@ -34,7 +35,7 @@ def mlstm_chunkwise__recurrent_bw_dC(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     USE_LAST_STATE = matDeltaC_last is not None
 

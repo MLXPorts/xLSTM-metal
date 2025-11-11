@@ -5,7 +5,7 @@ Explain the change in 1–3 sentences. Link any relevant issues or docs.
 ## Checklist (Policy)
 
 - [ ] Reuse first: I searched for existing implementations (commands I ran):
-  - `rg -n "<keywords>" <paths>`
+    - `rg -n "<keywords>" <paths>`
 - [ ] No mocks/stubs in production paths (only in tests/examples if any)
 - [ ] Avoided “simplified/toy/placeholder/dummy/fake” language in production code/comments
 - [ ] If I called `ray.init(...)`, I also ensured an explicit `ray.shutdown()` on normal exit
@@ -15,8 +15,8 @@ Explain the change in 1–3 sentences. Link any relevant issues or docs.
 ## Validation
 
 - [ ] I ran a quick sanity check (commands):
-  - `conda run -n base python -c "import <module>; print('ok')"`
-  - `conda run -n base python scripts/xltop.py --json` (optional)
+    - `conda run -n base python -c "import <module>; print('ok')"`
+    - `conda run -n base python scripts/xltop.py --json` (optional)
 
 ## Notes / Risks
 

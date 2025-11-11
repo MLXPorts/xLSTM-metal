@@ -5,24 +5,25 @@ import torch
 import triton
 
 from kernel_development.mlstm_block.mslstm_parallel.torch.utils import torch2triton_dtype
-from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import mlstm_chunkwise__recurrent_fw_C_kernel
+from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.limit_chunk import \
+    mlstm_chunkwise__recurrent_fw_C_kernel
 from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__recurrent_fw_C(
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    vecI: torch.Tensor,  # (B, NH, NC, L)
-    matC_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
-    vecN_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK)
-    scaMinter_states: torch.Tensor = None,  # (B, NH, (NC + 1)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaMinter_initial: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        vecI: torch.Tensor,  # (B, NH, NC, L)
+        matC_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
+        vecN_states: torch.Tensor = None,  # (B, NH, (NC + 1) * DHQK)
+        scaMinter_states: torch.Tensor = None,  # (B, NH, (NC + 1)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaMinter_initial: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1))

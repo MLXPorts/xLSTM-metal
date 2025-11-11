@@ -11,10 +11,10 @@ import jax.numpy as jnp
 
 
 def compute_chunkwise_log_gates_vecB_vecA(
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    chunk_size: int,
-    return_vecB_only: bool = False,
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        chunk_size: int,
+        return_vecB_only: bool = False,
 ):
     """
 
@@ -44,13 +44,13 @@ def compute_chunkwise_log_gates_vecB_vecA(
         # stable vecA computation:
         vecF_cumsum = jnp.flip(jnp.flip(vecF_logsig_chunked[..., 1:], axis=-1).cumsum(-1), axis=-1)
         vecA = (
-            jnp.concat(
-                [
-                    vecF_cumsum,
-                    jnp.zeros((B, NH, NC, 1), dtype=jnp.float32),
-                ],
-                axis=-1,
-            )
-            + vecI_chunked
+                jnp.concat(
+                    [
+                        vecF_cumsum,
+                        jnp.zeros((B, NH, NC, 1), dtype=jnp.float32),
+                    ],
+                    axis=-1,
+                )
+                + vecI_chunked
         )  # (B, NH, NC, L)
         return vecB, vecA

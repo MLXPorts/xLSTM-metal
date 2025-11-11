@@ -31,12 +31,12 @@ class RMSNorm(nn.Module):
     """
 
     def __init__(
-        self,
-        num_features: int,
-        eps: float = 1e-6,
-        use_weight: bool = True,
-        use_bias: bool = False,
-        force_float32_reductions: bool = True
+            self,
+            num_features: int,
+            eps: float = 1e-6,
+            use_weight: bool = True,
+            use_bias: bool = False,
+            force_float32_reductions: bool = True
     ):
         super().__init__()
         # Store eps as MLX scalar for stability
@@ -94,13 +94,13 @@ class MultiHeadLayerNorm(nn.Module):
     """
 
     def __init__(
-        self,
-        num_heads: int,
-        head_dim: int,
-        eps: float = 1e-6,
-        use_weight: bool = True,
-        use_bias: bool = False,
-        force_float32_reductions: bool = True
+            self,
+            num_heads: int,
+            head_dim: int,
+            eps: float = 1e-6,
+            use_weight: bool = True,
+            use_bias: bool = False,
+            force_float32_reductions: bool = True
     ):
         super().__init__()
         self.num_heads = num_heads

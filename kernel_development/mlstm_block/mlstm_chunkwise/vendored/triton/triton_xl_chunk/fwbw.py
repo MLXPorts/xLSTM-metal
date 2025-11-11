@@ -19,34 +19,34 @@ def _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.bfloat16) -> Cal
         @custom_fwd(device_type="cuda", cast_inputs=autocast_kernel_dtype)
         @contiguous
         def forward(
-            ctx,
-            matQ: torch.Tensor,  # (B, NH, S, DHQK)
-            matK: torch.Tensor,  # (B, NH, S, DHQK)
-            matV: torch.Tensor,  # (B, NH, S, DHV)
-            vecI: torch.Tensor,  # (B, NH, S)
-            vecF: torch.Tensor,  # (B, NH, S)
-            matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-            vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-            scaM_initial: torch.Tensor = None,  # (B, NH, 1)
-            qk_scale: float = None,
-            return_last_states: bool = False,
-            eps: float = 0.0,
-            chunk_size: int = 128,
-            chunk_size_inter: int | None = None,
-            chunk_size_intra: int | None = None,
-            siz_b_L_parallel: int | None = None,
-            siz_b_L_loop: int | None = None,
-            siz_b_DH_parallel: int | None = None,
-            siz_b_DH_loop: int | None = None,
-            num_warps_intra: int | None = None,
-            num_warps_inter: int | None = None,
-            num_stages_intra: int | None = None,
-            num_stages_inter: int | None = None,
-            recompute_states_in_bw: bool = True,
+                ctx,
+                matQ: torch.Tensor,  # (B, NH, S, DHQK)
+                matK: torch.Tensor,  # (B, NH, S, DHQK)
+                matV: torch.Tensor,  # (B, NH, S, DHV)
+                vecI: torch.Tensor,  # (B, NH, S)
+                vecF: torch.Tensor,  # (B, NH, S)
+                matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+                vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+                scaM_initial: torch.Tensor = None,  # (B, NH, 1)
+                qk_scale: float = None,
+                return_last_states: bool = False,
+                eps: float = 0.0,
+                chunk_size: int = 128,
+                chunk_size_inter: int | None = None,
+                chunk_size_intra: int | None = None,
+                siz_b_L_parallel: int | None = None,
+                siz_b_L_loop: int | None = None,
+                siz_b_DH_parallel: int | None = None,
+                siz_b_DH_loop: int | None = None,
+                num_warps_intra: int | None = None,
+                num_warps_inter: int | None = None,
+                num_stages_intra: int | None = None,
+                num_stages_inter: int | None = None,
+                recompute_states_in_bw: bool = True,
         ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
             B, NH, S, DHQK = matQ.shape
             if qk_scale is None:
-                qk_scale = DHQK**-0.5
+                qk_scale = DHQK ** -0.5
 
             matH_out, vecN_out, vecM_out, last_states, all_states = mlstm_chunkwise_fw(
                 matQ=matQ,
@@ -119,7 +119,7 @@ def _mlstm_chunkwise_fwbw_generator(autocast_kernel_dtype=torch.bfloat16) -> Cal
         @custom_bwd(device_type="cuda")
         @contiguous
         def backward(
-            ctx, matDeltaH_out, matDeltaC_last, vecDeltaN_last, scaDeltaM_last
+                ctx, matDeltaH_out, matDeltaC_last, vecDeltaN_last, scaDeltaM_last
         ):
             (
                 matQ,
@@ -240,31 +240,31 @@ def _get_chunkwise_fwbw_kernel(autocast_kernel_dtype: torch.dtype) -> Callable:
 
 
 def mlstm_chunkwise__xl_chunk(
-    q: torch.Tensor,  # (B, NH, S, DHQK)
-    k: torch.Tensor,  # (B, NH, S, DHQK)
-    v: torch.Tensor,  # (B, NH, S, DHHV)
-    i: torch.Tensor,  # (B, NH, S)
-    f: torch.Tensor,  # (B, NH, S)
-    c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    n_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    m_initial: torch.Tensor = None,  # (B, NH, 1)
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    chunk_size: int = 128,
-    chunk_size_inter: int | None = None,
-    chunk_size_intra: int | None = None,
-    siz_b_L_parallel: int | None = None,
-    siz_b_L_loop: int | None = None,
-    siz_b_DH_parallel: int | None = None,
-    siz_b_DH_loop: int | None = None,
-    num_warps_intra: int | None = None,
-    num_warps_inter: int | None = None,
-    num_stages_intra: int | None = None,
-    num_stages_inter: int | None = None,
-    recompute_states_in_bw: bool = True,
-    autocast_kernel_dtype: torch.dtype = torch.float32,
+        q: torch.Tensor,  # (B, NH, S, DHQK)
+        k: torch.Tensor,  # (B, NH, S, DHQK)
+        v: torch.Tensor,  # (B, NH, S, DHHV)
+        i: torch.Tensor,  # (B, NH, S)
+        f: torch.Tensor,  # (B, NH, S)
+        c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        n_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        m_initial: torch.Tensor = None,  # (B, NH, 1)
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        chunk_size: int = 128,
+        chunk_size_inter: int | None = None,
+        chunk_size_intra: int | None = None,
+        siz_b_L_parallel: int | None = None,
+        siz_b_L_loop: int | None = None,
+        siz_b_DH_parallel: int | None = None,
+        siz_b_DH_loop: int | None = None,
+        num_warps_intra: int | None = None,
+        num_warps_inter: int | None = None,
+        num_stages_intra: int | None = None,
+        num_stages_inter: int | None = None,
+        recompute_states_in_bw: bool = True,
+        autocast_kernel_dtype: torch.dtype = torch.float32,
 ) -> (
-    torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+        torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):
     """
 

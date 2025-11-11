@@ -89,7 +89,7 @@ class SLSTMHead(nn.Module):
         outs = []
         x = (x_codes - 65.0) / self.input_scale
         for t in range(S):
-            xt = x[:, t:t+1]
+            xt = x[:, t:t + 1]
             pre_i = self.W_i(xt)
             pre_f = self.W_f(xt)
             pre_o = self.W_o(xt)
@@ -149,7 +149,7 @@ class CfCHead(nn.Module):
         outs = []
         x = (x_codes - 65.0) / self.input_scale
         for t in range(S):
-            xt = x[:, t:t+1]
+            xt = x[:, t:t + 1]
             pre_i = self.W_i(xt)
             pre_f = self.W_f(xt)
             pre_o = self.W_o(xt)
@@ -219,7 +219,7 @@ class ReversibleTauAccumulator(nn.Module):
         outs = []
         x = (x_codes - 65.0) / self.input_scale
         for t in range(S):
-            xt = x[:, t:t+1]
+            xt = x[:, t:t + 1]
             tau = self.compute_tau((xt - 0.0) / self.tau_scale)
             h_update = self.W_in(xt) + self.W_h(h)
             h = (1 - tau) * h + tau * self.softsign(h_update)
@@ -239,15 +239,15 @@ class CfCTorch(nn.Module):
     """
 
     def __init__(
-        self,
-        input_size: int,
-        units: int,
-        mode: str = "default",
-        backbone_units: int = 128,
-        backbone_layers: int = 1,
-        backbone_dropout: float = 0.0,
-        activation: str = "lecun_tanh",
-        input_scale: float = 100.0,
+            self,
+            input_size: int,
+            units: int,
+            mode: str = "default",
+            backbone_units: int = 128,
+            backbone_layers: int = 1,
+            backbone_dropout: float = 0.0,
+            activation: str = "lecun_tanh",
+            input_scale: float = 100.0,
     ):
         super().__init__()
         assert mode in ("default", "no_gate", "pure")
@@ -297,7 +297,8 @@ class CfCTorch(nn.Module):
                 x = layer(x)
         return x
 
-    def forward(self, x_codes: torch.Tensor, h0: torch.Tensor | None = None, timespans: torch.Tensor | None = None) -> torch.Tensor:
+    def forward(self, x_codes: torch.Tensor, h0: torch.Tensor | None = None,
+                timespans: torch.Tensor | None = None) -> torch.Tensor:
         """
 
         :param x_codes:

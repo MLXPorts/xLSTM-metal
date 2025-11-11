@@ -6,15 +6,15 @@ import jax.numpy as jnp
 
 
 def mlstm_parallel_bw(
-    matDeltaHtilde: jax.Array,
-    matQ: jax.Array,
-    matK: jax.Array,
-    matV: jax.Array,
-    vecI: jax.Array,
-    vecF: jax.Array,
-    vecN: jax.Array,
-    vecM: jax.Array,
-    eps: float = 1e-6,
+        matDeltaHtilde: jax.Array,
+        matQ: jax.Array,
+        matK: jax.Array,
+        matV: jax.Array,
+        vecI: jax.Array,
+        vecF: jax.Array,
+        vecN: jax.Array,
+        vecM: jax.Array,
+        eps: float = 1e-6,
 ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array, jax.Array]:
     """
 
@@ -57,7 +57,7 @@ def mlstm_parallel_bw(
     # intermediate delta-errors
     matDeltaC = matDeltaHtilde @ matV.swapaxes(-2, -1) / (vecN[:, :, :, None] + eps)
 
-    matS = (matQ @ matK.swapaxes(-2, -1)) * (DHQK**-0.5)
+    matS = (matQ @ matK.swapaxes(-2, -1)) * (DHQK ** -0.5)
 
     matDeltaDtilde = matDeltaC * matD * matS
 
@@ -66,8 +66,8 @@ def mlstm_parallel_bw(
     # output delta-errors / gradients
     matP = matDeltaC * matD
 
-    matDeltaQ = (matP @ matK) * (DHQK**-0.5)
-    matDeltaK = (matP.swapaxes(-2, -1) @ matQ) * (DHQK**-0.5)
+    matDeltaQ = (matP @ matK) * (DHQK ** -0.5)
+    matDeltaK = (matP.swapaxes(-2, -1) @ matQ) * (DHQK ** -0.5)
 
     matCtilde = matS * matD
     matDeltaV = matCtilde.swapaxes(-2, -1) @ (matDeltaHtilde / (vecN[:, :, :, None] + eps))

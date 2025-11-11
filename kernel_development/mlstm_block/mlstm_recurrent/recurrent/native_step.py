@@ -6,17 +6,17 @@ import torch
 
 
 def mlstm_recurrent_step__native_fw(
-    matC_old: torch.Tensor,  # (B, NH, DHQK, DHV)
-    vecN_old: torch.Tensor,  # (B, NH, DHQK)
-    scaM_old: torch.Tensor,  # (B, NH, 1)
-    vecQ: torch.Tensor,  # (B, NH, DHQK)
-    vecK: torch.Tensor,  # (B, NH, DHQK)
-    vecV: torch.Tensor,  # (B, NH, DHV)
-    scaI: torch.Tensor,  # (B, NH, 1)
-    scaF: torch.Tensor,  # (B, NH, 1)
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
-    **kwargs,
+        matC_old: torch.Tensor,  # (B, NH, DHQK, DHV)
+        vecN_old: torch.Tensor,  # (B, NH, DHQK)
+        scaM_old: torch.Tensor,  # (B, NH, 1)
+        vecQ: torch.Tensor,  # (B, NH, DHQK)
+        vecK: torch.Tensor,  # (B, NH, DHQK)
+        vecV: torch.Tensor,  # (B, NH, DHV)
+        scaI: torch.Tensor,  # (B, NH, 1)
+        scaF: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
+        **kwargs,
 ) -> tuple[
     torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 ]:  # vecH, (matC_state_new (B, NH, DHQK, DHV), vecN_state_new (B, NH, DHQK), vecM_state_new (B, NH, 1))
@@ -76,7 +76,7 @@ def mlstm_recurrent_step__native_fw(
 
     vecQ_scaled = vecQ * (DHQK ** (-0.5))  # (B, NH, DHQK)
     matC_state_new = scaF_act[:, :, :, None] * matC_old + scaI_act[:, :, :, None] * (
-        vecK[:, :, :, None] @ vecV[:, :, None, :]
+            vecK[:, :, :, None] @ vecV[:, :, None, :]
     )  # (B, NH, DHQK, DHV)
     vecN_state_new = scaF_act * vecN_old + scaI_act * vecK  # (B, NH, DHQK)
     h_num = vecQ_scaled[:, :, None, :] @ matC_state_new.to(
@@ -102,17 +102,17 @@ def mlstm_recurrent_step__native_fw(
 
 
 def mlstm_recurrent_step__native(
-    q: torch.Tensor,  # (B, NH, DHQK)
-    k: torch.Tensor,  # (B, NH, DHQK)
-    v: torch.Tensor,  # (B, NH, DHV)
-    i: torch.Tensor,  # (B, NH, 1)
-    f: torch.Tensor,  # (B, NH, 1)
-    c: torch.Tensor,  # (B, NH, DHQK, DHV)
-    n: torch.Tensor,  # (B, NH, DHQK)
-    m: torch.Tensor,  # (B, NH, 1)
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
-    **kwargs,
+        q: torch.Tensor,  # (B, NH, DHQK)
+        k: torch.Tensor,  # (B, NH, DHQK)
+        v: torch.Tensor,  # (B, NH, DHV)
+        i: torch.Tensor,  # (B, NH, 1)
+        f: torch.Tensor,  # (B, NH, 1)
+        c: torch.Tensor,  # (B, NH, DHQK, DHV)
+        n: torch.Tensor,  # (B, NH, DHQK)
+        m: torch.Tensor,  # (B, NH, 1)
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
+        **kwargs,
 ) -> tuple[
     torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]
 ]:  # vecH, (matC_state_new (B, NH, DHQK, DHV), vecN_state_new (B, NH, DHQK), vecM_state_new (B, NH, 1))

@@ -1,16 +1,20 @@
 # Experimental Kernels: Research and Development Archive
 
-This directory contains kernel prototypes, research experiments, and alternative implementations developed during the xLSTM-Metal optimization process. These are **research artifacts** preserved for reference, learning, and potential future use.
+This directory contains kernel prototypes, research experiments, and alternative implementations developed during the
+xLSTM-Metal optimization process. These are **research artifacts** preserved for reference, learning, and potential
+future use.
 
 ## Purpose
 
 Experimental kernels serve multiple purposes:
+
 - **Historical Record**: Document optimization attempts and design decisions
 - **Educational Resource**: Provide reference implementations for learning Metal/MLX
 - **Benchmarking Baseline**: Compare production kernels against alternative approaches
 - **Future Research**: Foundation for extended context, quantization, or new architectures
 
-⚠️ **Note**: For production use, refer to `xlstm_metal/blocks/` and `xlstm_metal/wiring/`. Experimental kernels are not optimized for production workloads.
+⚠️ **Note**: For production use, refer to `xlstm_metal/blocks/` and `xlstm_metal/wiring/`. Experimental kernels are not
+optimized for production workloads.
 
 ## Directory Structure
 
@@ -58,6 +62,7 @@ experimental_kernels/
 **Approach**: SIMD-optimized per-head normalization using one simdgroup (32 threads) per (batch, num_heads) row.
 
 **Key Findings**:
+
 - Achieves 2-4x speedup over MLX ops for moderate head dimensions (96-192)
 - Numeric parity with max error ~1e-6
 - Uses threadgroup memory with two-barrier reduction pattern
@@ -70,12 +75,14 @@ experimental_kernels/
 **Location**: `GEMM_TILING_ATTEMPTS.md`, `mlx_fast_kernels/`
 
 **Approaches Explored**:
+
 - **Naive 1D Launch**: Simple but memory-bound (baseline)
 - **2D Tile-based**: Block-level tiling with shared memory
 - **Multi-kernel Split**: Separate `gemm_av` and `gemm_at_b` kernels
 - **Fused Covariance**: Single-pass Z = Aᵀ(A·V) computation
 
 **Key Learnings**:
+
 - Two-kernel approach (`gemm_av` → `gemm_at_b`) outperforms fused for large matrices
 - Tile size 16×16 provides good balance on Apple Silicon
 - Non-square tiles beneficial for rectangular matrices
@@ -91,7 +98,8 @@ experimental_kernels/
 
 **Benchmarks**: Compared MLX elementwise ops vs custom Metal kernel
 
-**Finding**: MLX's optimized elementwise ops are competitive; custom kernel overhead not justified for this simple operation
+**Finding**: MLX's optimized elementwise ops are competitive; custom kernel overhead not justified for this simple
+operation
 
 **Status**: Using MLX native ops in production (`xlstm_metal/blocks/mlstm_mlx/components.py`)
 
@@ -100,11 +108,13 @@ experimental_kernels/
 **Location**: `2025-09-10-mlx-research/mlx_sequence_precompute_scan_demo.py`, `mx_streams_overlap_demo.py`
 
 **Research Questions**:
+
 - Can we overlap CPU and GPU work using MLX streams?
 - What's the optimal chunk size for sequence processing?
 - How does precomputation affect memory vs recomputation tradeoff?
 
 **Key Insights**:
+
 - MLX lazy evaluation naturally overlaps operations
 - Explicit streams beneficial for long sequences (>8K tokens)
 - Chunk size 64-128 balances memory and recomputation
@@ -117,7 +127,8 @@ experimental_kernels/
 
 **Purpose**: Demonstrate how to bridge custom Metal kernels into PyTorch MPS backend
 
-**Approach**: 
+**Approach**:
+
 - Embed Metal code as string literals in `.mm` files
 - Runtime compilation via `newLibraryWithSource`
 - PyTorch custom op registration
@@ -171,12 +182,14 @@ If you want to integrate an experimental kernel:
 ## Performance Notes
 
 **Apple Silicon Architecture**:
+
 - Unified memory eliminates CPU-GPU transfer overhead
 - Simdgroups (32 threads) are the fundamental execution unit
 - Threadgroup memory (32KB) for fast inter-thread communication
 - MLX automatically optimizes for M1/M2/M3/M4 generations
 
 **Optimization Priorities**:
+
 1. Memory access patterns (coalescing, bank conflicts)
 2. Reduction locality (minimize threadgroup barriers)
 3. Register pressure (limit per-thread memory)
@@ -189,21 +202,23 @@ See [kernel_guide.md](docs/kernel_guide.md) for detailed optimization techniques
 ### Comprehensive Guides
 
 - **[kernel_guide.md](docs/kernel_guide.md)**: Complete Metal kernel development guide
-  - MLX Metal kernels with `@mx.custom_function`
-  - PyTorch MPS backend patterns
-  - Metal Shading Language basics
-  - Synchronization and memory management
+    - MLX Metal kernels with `@mx.custom_function`
+    - PyTorch MPS backend patterns
+    - Metal Shading Language basics
+    - Synchronization and memory management
 
 - **[MLX_IMPLEMENTATION_GUIDE.md](docs/MLX_IMPLEMENTATION_GUIDE.md)**: MLX-specific patterns
-  - Lazy evaluation and graph optimization
-  - Custom function decorators
-  - Metal kernel integration
-  - Numerical stability techniques
+    - Lazy evaluation and graph optimization
+    - Custom function decorators
+    - Metal kernel integration
+    - Numerical stability techniques
 
 ### Research Reports
 
-- **[docs/MLX_MHLN_Kernel_Report.md](docs/MLX_MHLN_Kernel_Report.md)**: Detailed analysis of multi-head LayerNorm optimization
-- **[docs/2025-09-10-mlx-research-journal.md](docs/2025-09-10-mlx-research-journal.md)**: Daily research notes and findings
+- **[docs/MLX_MHLN_Kernel_Report.md](docs/MLX_MHLN_Kernel_Report.md)**: Detailed analysis of multi-head LayerNorm
+  optimization
+- **[docs/2025-09-10-mlx-research-journal.md](docs/2025-09-10-mlx-research-journal.md)**: Daily research notes and
+  findings
 - **[GEMM_TILING_ATTEMPTS.md](matrix/gemm/GEMM_TILING_ATTEMPTS.md)**: GEMM optimization journey
 
 ## Contributing Experimental Kernels
@@ -228,4 +243,5 @@ See main [README.md](../README.md) and [docs/](../docs/) for production document
 
 ---
 
-*These experimental kernels represent the research and optimization process behind xLSTM-Metal. They are preserved for education, benchmarking, and future research directions.*
+*These experimental kernels represent the research and optimization process behind xLSTM-Metal. They are preserved for
+education, benchmarking, and future research directions.*

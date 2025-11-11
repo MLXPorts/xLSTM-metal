@@ -79,42 +79,42 @@ MINIMUM_MAX_VAL = -10  # -float("inf")  # -10.0
 @triton.autotune(list(filter(keep, configs)), key=["N_CTX", "HEAD_DIM"])
 @triton.jit
 def mlstm_parallel_fw_kernel(
-    matQ,
-    matK,
-    matV,
-    vecI,
-    vecF_cs,
-    qk_scale,
-    matH,  #
-    vecM,
-    vecN,
-    stride_qz,
-    stride_qh,
-    stride_qm,
-    stride_qk,  #
-    stride_kz,
-    stride_kh,
-    stride_kn,
-    stride_kk,  #
-    stride_vz,
-    stride_vh,
-    stride_vk,
-    stride_vn,  #
-    stride_hz,
-    stride_hh,
-    stride_hm,
-    stride_hn,  #
-    stride_ifmn_z,
-    stride_ifmn_h,
-    stride_ifmn_m,
-    Z,
-    H,
-    N_CTX,  #
-    HEAD_DIM: tl.constexpr,  #
-    BLOCK_Q: tl.constexpr,  #
-    BLOCK_KV: tl.constexpr,  #
-    MINIMUM_MAX_VAL: tl.constexpr,
-    EPS: tl.constexpr = 1e-6,
+        matQ,
+        matK,
+        matV,
+        vecI,
+        vecF_cs,
+        qk_scale,
+        matH,  #
+        vecM,
+        vecN,
+        stride_qz,
+        stride_qh,
+        stride_qm,
+        stride_qk,  #
+        stride_kz,
+        stride_kh,
+        stride_kn,
+        stride_kk,  #
+        stride_vz,
+        stride_vh,
+        stride_vk,
+        stride_vn,  #
+        stride_hz,
+        stride_hh,
+        stride_hm,
+        stride_hn,  #
+        stride_ifmn_z,
+        stride_ifmn_h,
+        stride_ifmn_m,
+        Z,
+        H,
+        N_CTX,  #
+        HEAD_DIM: tl.constexpr,  #
+        BLOCK_Q: tl.constexpr,  #
+        BLOCK_KV: tl.constexpr,  #
+        MINIMUM_MAX_VAL: tl.constexpr,
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 

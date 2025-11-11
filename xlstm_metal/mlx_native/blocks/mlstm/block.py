@@ -65,7 +65,8 @@ class mLSTMConfig:
 
         # Validate chunk_size
         if self.chunk_size > self.max_chunk_size:
-            raise ValueError(f"chunk_size={self.chunk_size} exceeds Metal kernel buffer limit of {self.max_chunk_size}!")
+            raise ValueError(
+                f"chunk_size={self.chunk_size} exceeds Metal kernel buffer limit of {self.max_chunk_size}!")
 
 
 class mLSTMLayer(nn.Module):
@@ -129,9 +130,9 @@ class mLSTMLayer(nn.Module):
         )
 
     def __call__(
-        self,
-        x: mx.array,
-        state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+            self,
+            x: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
         """
         Forward pass
@@ -308,9 +309,9 @@ class mLSTMBlock(nn.Module):
         self.mlstm_layer = mLSTMLayer(config)
 
     def __call__(
-        self,
-        x: mx.array,
-        state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+            self,
+            x: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
         """
         Forward pass with pre-normalization and residual

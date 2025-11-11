@@ -13,47 +13,47 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__recurrent_bw_dC_kernel(
-    matQ,  # (B, NH, S, DHQK)
-    vecF,  # (B, NH, NC * L) = (B, NH, S)
-    scaM_inter,  # (B, NH, NC+1)
-    vecM_combine,  # (B, NH, S)
-    matDeltaH,  # (B, NH, S, DHHV)
-    vecN_out,  # (B, NH, S)
-    matDeltaC_last,  # (B, NH, DHQK, DHHV)
-    matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
-    qk_scale: tl.constexpr,
-    str_matQ_B_NH: tl.constexpr,
-    str_matQ_S: tl.constexpr,
-    str_matQ_DHQK: tl.constexpr,
-    str_vecF_B_NH: tl.constexpr,
-    str_scaM_inter_B_NH: tl.constexpr,
-    str_scaM_inter_NC: tl.constexpr,
-    str_vecM_combine_B_NH: tl.constexpr,
-    str_vecM_combine_S: tl.constexpr,
-    str_matDeltaH_B_NH: tl.constexpr,
-    str_matDeltaH_S: tl.constexpr,
-    str_matDeltaH_DHHV: tl.constexpr,
-    str_vecN_out_B_NH: tl.constexpr,
-    str_vecN_out_S: tl.constexpr,
-    str_matDeltaC_last_B_NH: tl.constexpr,
-    str_matDeltaC_last_DHQK: tl.constexpr,
-    str_matDeltaC_last_DHHV: tl.constexpr,
-    str_matDeltaC_states_B_NH: tl.constexpr,
-    str_matDeltaC_states_NCDHQK: tl.constexpr,
-    str_matDeltaC_states_DHHV: tl.constexpr,
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    save_states_every_nth_chunk: tl.constexpr,
-    USE_LAST_STATE: tl.constexpr,
-    DTYPE: tl.constexpr = tl.float32,
-    EPS: tl.constexpr = 1e-6,
+        matQ,  # (B, NH, S, DHQK)
+        vecF,  # (B, NH, NC * L) = (B, NH, S)
+        scaM_inter,  # (B, NH, NC+1)
+        vecM_combine,  # (B, NH, S)
+        matDeltaH,  # (B, NH, S, DHHV)
+        vecN_out,  # (B, NH, S)
+        matDeltaC_last,  # (B, NH, DHQK, DHHV)
+        matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
+        qk_scale: tl.constexpr,
+        str_matQ_B_NH: tl.constexpr,
+        str_matQ_S: tl.constexpr,
+        str_matQ_DHQK: tl.constexpr,
+        str_vecF_B_NH: tl.constexpr,
+        str_scaM_inter_B_NH: tl.constexpr,
+        str_scaM_inter_NC: tl.constexpr,
+        str_vecM_combine_B_NH: tl.constexpr,
+        str_vecM_combine_S: tl.constexpr,
+        str_matDeltaH_B_NH: tl.constexpr,
+        str_matDeltaH_S: tl.constexpr,
+        str_matDeltaH_DHHV: tl.constexpr,
+        str_vecN_out_B_NH: tl.constexpr,
+        str_vecN_out_S: tl.constexpr,
+        str_matDeltaC_last_B_NH: tl.constexpr,
+        str_matDeltaC_last_DHQK: tl.constexpr,
+        str_matDeltaC_last_DHHV: tl.constexpr,
+        str_matDeltaC_states_B_NH: tl.constexpr,
+        str_matDeltaC_states_NCDHQK: tl.constexpr,
+        str_matDeltaC_states_DHHV: tl.constexpr,
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        save_states_every_nth_chunk: tl.constexpr,
+        USE_LAST_STATE: tl.constexpr,
+        DTYPE: tl.constexpr = tl.float32,
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 

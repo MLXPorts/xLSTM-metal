@@ -30,16 +30,16 @@ syntax, no heavy parsing, and tight integration with Codex blocks.
 ## Directives
 
 - `block <id> <type> [param=value[,value2...]]` — declare a node
-  - Example: `block p protocol.ollama`
+    - Example: `block p protocol.ollama`
 - `link <fromId>.<port> -> <toId>.<port>` — connect ports
-  - Example: `link p.stream.delta -> x.stream.delta`
+    - Example: `link p.stream.delta -> x.stream.delta`
 - `set <key>=<value>` — set a flow variable
-  - Example: `set provider=ollama`
+    - Example: `set provider=ollama`
 - `when <key>=<csv> [supports=<csv>]` — start a conditional block (ends with `endif`)
-  - Example: `when provider=ollama family=qwen supports=xml`
+    - Example: `when provider=ollama family=qwen supports=xml`
 - `endif` — end condition
 - `use <name>` — include a predefined snippet/macro
-  - Example: `use tools.negotiation_advertise`
+    - Example: `use tools.negotiation_advertise`
 - `hint <key>=<value>` — provide request hints (e.g., nonces)
 - `end` — optional terminator
 - `# ...` — comments
@@ -47,44 +47,44 @@ syntax, no heavy parsing, and tight integration with Codex blocks.
 ## Port Conventions (Typed)
 
 - protocol.*
-  - inputs: `messages.in`
-  - outputs: `stream.delta`, `messages.out`
+    - inputs: `messages.in`
+    - outputs: `stream.delta`, `messages.out`
 - codec.*
-  - inputs: `stream.delta`, `tool_result.neutral`
-  - outputs: `tool_use.neutral`, `messages.out`
+    - inputs: `stream.delta`, `tool_result.neutral`
+    - outputs: `tool_use.neutral`, `messages.out`
 - router.mcp
-  - inputs: `tool_use.neutral`
-  - outputs: `tool_result.neutral`
+    - inputs: `tool_use.neutral`
+    - outputs: `tool_result.neutral`
 - family.*
-  - inputs: `messages.in`
-  - outputs: `messages.out`
+    - inputs: `messages.in`
+    - outputs: `messages.out`
 - tools.negotiation_advertise (macro)
-  - outputs: `messages.prefix`, `tools.function_defs`
+    - outputs: `messages.prefix`, `tools.function_defs`
 - advisor.*
-  - inputs: `messages.in`, `decisions.in`, `toolplan.in`
-  - outputs: `messages.out`, `decisions.out`, `critiques.out`
+    - inputs: `messages.in`, `decisions.in`, `toolplan.in`
+    - outputs: `messages.out`, `decisions.out`, `critiques.out`
 - scheduler.idle_nudge
-  - outputs: `messages.out`
+    - outputs: `messages.out`
 - sink.ui (implicit)
-  - inputs: `messages.out`
+    - inputs: `messages.out`
 
 ## Minimal Grammar (Informal)
 
 - Tokens are space-delimited; key=value pairs allow characters like `:/.+-_` without quoting.
 - EBNF:
-  - `line := (comment | block | link | set | when | endif | use | hint | end)`
-  - `block := "block" id type [args]`
-  - `link := "link" id "." port "->" id "." port`
-  - `set := "set" key "=" value`
-  - `when := "when" cond { " " cond }`
-    - `cond := key "=" csv | "supports=" csv`
-  - `endif := "endif"`
-  - `args := key "=" csv { "," csv }`
-  - `csv := value { "," value }`
-  - `use := "use" name`
-  - `hint := "hint" key "=" value`
-  - `end := "end"`
-  - `comment := "#" text`
+    - `line := (comment | block | link | set | when | endif | use | hint | end)`
+    - `block := "block" id type [args]`
+    - `link := "link" id "." port "->" id "." port`
+    - `set := "set" key "=" value`
+    - `when := "when" cond { " " cond }`
+        - `cond := key "=" csv | "supports=" csv`
+    - `endif := "endif"`
+    - `args := key "=" csv { "," csv }`
+    - `csv := value { "," value }`
+    - `use := "use" name`
+    - `hint := "hint" key "=" value`
+    - `end := "end"`
+    - `comment := "#" text`
 
 ## Examples
 
@@ -171,17 +171,17 @@ end
 
 - Single-pass, no external dependencies.
 - Maintains:
-  - `nodes`: `id → { type, params }`
-  - `edges`: `{ from: {id, port}, to: {id, port} }[]`
-  - `vars`: from `set`, e.g., `provider`, `family`
-  - `supports`: implied by provider specs + capability cache
-  - `hints`: `key=value` for request hints (e.g., `cap_probe_nonce`)
+    - `nodes`: `id → { type, params }`
+    - `edges`: `{ from: {id, port}, to: {id, port} }[]`
+    - `vars`: from `set`, e.g., `provider`, `family`
+    - `supports`: implied by provider specs + capability cache
+    - `hints`: `key=value` for request hints (e.g., `cap_probe_nonce`)
 - `when/endif` push/pop a boolean include flag; lines are skipped when false.
 - `use` expands known macros (e.g., `tools.negotiation_advertise → block t tools.negotiation_advertise`).
 - Ports are validated for compatibility using static block metadata.
 - Compilation:
-  - FlowLang nodes map to existing blocks (protocol.*, codec.*, router.mcp, family.*, tools.*).
-  - Produces an ordered block list for the PipelineEngine; edges inform stream-time handoff & hints.
+    - FlowLang nodes map to existing blocks (protocol.*, codec.*, router.mcp, family.*, tools.*).
+    - Produces an ordered block list for the PipelineEngine; edges inform stream-time handoff & hints.
 
 ## Performance
 
@@ -192,9 +192,9 @@ end
 ## Coexistence with Current System
 
 - FlowLang can be:
-  - Loaded explicitly from a file (`pipelines.flow: path`), or
-  - Generated automatically from Provider Specs + capabilities when `pipelines.autobuild=true`, or
-  - Overridden by Pipeline DSL rules (rules take precedence).
+    - Loaded explicitly from a file (`pipelines.flow: path`), or
+    - Generated automatically from Provider Specs + capabilities when `pipelines.autobuild=true`, or
+    - Overridden by Pipeline DSL rules (rules take precedence).
 - Blocks and codepaths remain the same; FlowLang is a thin orchestration layer above them.
 
 ## Next Steps

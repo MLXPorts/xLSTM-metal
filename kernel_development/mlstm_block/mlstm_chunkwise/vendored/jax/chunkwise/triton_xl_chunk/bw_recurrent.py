@@ -15,19 +15,19 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__recurrent_bw_dC(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    vecF: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
-    scaM_inter: jax.Array,  # (B, NH, NC+1)
-    vecM_combine: jax.Array,  # (B, NH, S)
-    matDeltaH: jax.Array,  # (B, NH, S, DHHV)
-    vecN_out: jax.Array,  # (B, NH, S)
-    matDeltaC_last: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
-    qk_scale: float | None = None,
-    chunk_size: int = 64,
-    save_states_every_nth_chunk: int = 1,
-    num_warps: int | None = None,
-    num_stages: int | None = None,
-    eps: float = 0.0,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        vecF: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
+        scaM_inter: jax.Array,  # (B, NH, NC+1)
+        vecM_combine: jax.Array,  # (B, NH, S)
+        matDeltaH: jax.Array,  # (B, NH, S, DHHV)
+        vecN_out: jax.Array,  # (B, NH, S)
+        matDeltaC_last: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
+        qk_scale: float | None = None,
+        chunk_size: int = 64,
+        save_states_every_nth_chunk: int = 1,
+        num_warps: int | None = None,
+        num_stages: int | None = None,
+        eps: float = 0.0,
 ) -> jax.Array:  # matDeltaC_states (B, NH, (NC+1) * DHQK, DHHV)
     """
     Computes only the deltaC gradients for the backward pass.
@@ -69,7 +69,7 @@ def mlstm_chunkwise__recurrent_bw_dC(
     ), f"save_states_every_nth_chunk must be a power of 2. Got {save_states_every_nth_chunk}."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     USE_LAST_STATE = matDeltaC_last is not None
 

@@ -29,17 +29,17 @@ from .fw import mlstm_chunkwise__recurrent_fw_C
 
 
 def mlstm_chunkwise__recurrent_bw_dC(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    scaM_inter: torch.Tensor,  # (B, NH, NC+1)
-    vecM_combine: torch.Tensor,  # (B, NH, S)
-    matDeltaH: torch.Tensor,  # (B, NH, S, DHV)
-    vecN_out: torch.Tensor,  # (B, NH, S)
-    matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-    qk_scale: float = None,
-    chunk_size: int = 64,
-    num_chunks: int = 1,
-    eps: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        scaM_inter: torch.Tensor,  # (B, NH, NC+1)
+        vecM_combine: torch.Tensor,  # (B, NH, S)
+        matDeltaH: torch.Tensor,  # (B, NH, S, DHV)
+        vecN_out: torch.Tensor,  # (B, NH, S)
+        matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+        qk_scale: float = None,
+        chunk_size: int = 64,
+        num_chunks: int = 1,
+        eps: float = 1e-6,
 ) -> torch.Tensor:  # matDeltaC_states (B, NH, (NC+1) * DHQK, DHV)
     """Computes only the deltaC gradients for the backward pass.
     The other gradients are computed in the other (kernel) function.
@@ -53,7 +53,7 @@ def mlstm_chunkwise__recurrent_bw_dC(
     matDeltaC_states = torch.zeros((B, NH, (NC + 1) * DHQK, DHV), dtype=_dtype, device=_device)
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     if matDeltaC_last is not None:
         matDeltaC_k = matDeltaC_last
@@ -65,7 +65,7 @@ def mlstm_chunkwise__recurrent_bw_dC(
     for k in range(NC, 0, -1):  # goes until 1
         # store the matDeltaC_k from the previous iteration
         # in the first iteration, this is the delta error from the last chunk
-        matDeltaC_states[:, :, k * DHQK : (k + 1) * DHQK, :] = matDeltaC_k.clone()
+        matDeltaC_states[:, :, k * DHQK: (k + 1) * DHQK, :] = matDeltaC_k.clone()
 
         # load
         scaG_k = scaG[:, :, (k - 1), None]
@@ -74,14 +74,14 @@ def mlstm_chunkwise__recurrent_bw_dC(
         scaGbar_k = torch.exp(scaG_k + scaM_inter_kminus1 - scaM_inter_k)[:, :, None]
 
         vecB_k = vecB[:, :, (k - 1), :]  # (B, NH, L)
-        vecM_combine_k = vecM_combine[:, :, (k - 1) * L : k * L]  # (B, NH, L)
+        vecM_combine_k = vecM_combine[:, :, (k - 1) * L: k * L]  # (B, NH, L)
         vecBbar_k = torch.exp(vecB_k + scaM_inter_kminus1 - vecM_combine_k)[:, :, :, None]  # (B, NH, L, 1)
 
-        matQ_k = matQ[:, :, (k - 1) * L : k * L, :]  # (B, NH, L, DHQK)
+        matQ_k = matQ[:, :, (k - 1) * L: k * L, :]  # (B, NH, L, DHQK)
         matQbar_k = matQ_k * vecBbar_k * qk_scale
 
-        vecN_k = vecN_out[:, :, (k - 1) * L : k * L, None]  # (B, NH, L, 1)
-        matDeltaH_k = matDeltaH[:, :, (k - 1) * L : k * L, :] / (vecN_k + eps)  # (B, NH, L, DHV)
+        vecN_k = vecN_out[:, :, (k - 1) * L: k * L, None]  # (B, NH, L, 1)
+        matDeltaH_k = matDeltaH[:, :, (k - 1) * L: k * L, :] / (vecN_k + eps)  # (B, NH, L, DHV)
 
         # matDeltaC_k-1 update
         matDeltaC_kminus1 = scaGbar_k * matDeltaC_k + matQbar_k.transpose(-2, -1) @ matDeltaH_k  # (B, NH, DHQK, DHV)
@@ -96,21 +96,21 @@ def mlstm_chunkwise__recurrent_bw_dC(
 
 
 def _mlstm_chunkwise__parallel_bw_dQKV(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHV)
-    vecB: torch.Tensor,  # (B, NH, NC, L)
-    vecI: torch.Tensor,  # (B, NH, NC, L)
-    vecM_combine: torch.Tensor,  # (B, NH, S) = (B, NH, NC * L)
-    vecN_out: torch.Tensor,  # (B, NH, S)
-    matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHV)
-    scaM_inter: torch.Tensor,  # (B, NH, NC+1)
-    matDeltaH: torch.Tensor,  # (B, NH, S, DHV)
-    matDeltaC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHV)
-    qk_scale: float = None,
-    chunk_size: int = 64,
-    num_chunks: int = 1,
-    eps: float = 1e-6,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHV)
+        vecB: torch.Tensor,  # (B, NH, NC, L)
+        vecI: torch.Tensor,  # (B, NH, NC, L)
+        vecM_combine: torch.Tensor,  # (B, NH, S) = (B, NH, NC * L)
+        vecN_out: torch.Tensor,  # (B, NH, S)
+        matC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHV)
+        scaM_inter: torch.Tensor,  # (B, NH, NC+1)
+        matDeltaH: torch.Tensor,  # (B, NH, S, DHV)
+        matDeltaC_states: torch.Tensor,  # (B, NH, NC * DHQK, DHV)
+        qk_scale: float = None,
+        chunk_size: int = 64,
+        num_chunks: int = 1,
+        eps: float = 1e-6,
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matDeltaQ (B,NH,S,DHQK), matDeltaK (B,NH,S,DHQK), matDeltaV (B,NH,S,DHV)
@@ -120,7 +120,7 @@ def _mlstm_chunkwise__parallel_bw_dQKV(
     _dtype, _device = matQ.dtype, matQ.device
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     #! intra chunk gradients
     # load / prepare the inputs
@@ -192,29 +192,29 @@ def _mlstm_chunkwise__parallel_bw_dQKV(
 
 
 def mlstm_chunkwise_bw(
-    ## Forward arguments
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHV)
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_initial: torch.Tensor = None,  # (B, NH)
-    ## Backward arguments
-    matC_all: torch.Tensor = None,  # (B, NH, NC * DHQK, DHV)
-    vecN_all: torch.Tensor = None,  # (B, NH, NC * DHQK)
-    scaM_all: torch.Tensor = None,  # (B, NH, NC+1)
-    vecN_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
-    vecM_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
-    matDeltaH: torch.Tensor = None,  # (B, NH, S, DHV)
-    matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-    vecDeltaN_last: torch.Tensor = None,  # (B, NH, DHQK)
-    scaDeltaM_last: torch.Tensor = None,  # (B, NH)
-    ## Common arguments
-    qk_scale: float = None,
-    CHUNK_SIZE: int = 64,
-    EPS: float = 1e-6,
+        ## Forward arguments
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHV)
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_initial: torch.Tensor = None,  # (B, NH)
+        ## Backward arguments
+        matC_all: torch.Tensor = None,  # (B, NH, NC * DHQK, DHV)
+        vecN_all: torch.Tensor = None,  # (B, NH, NC * DHQK)
+        scaM_all: torch.Tensor = None,  # (B, NH, NC+1)
+        vecN_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
+        vecM_out: torch.Tensor = None,  # (B, NH, NC * L) = (B, NH, S)
+        matDeltaH: torch.Tensor = None,  # (B, NH, S, DHV)
+        matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+        vecDeltaN_last: torch.Tensor = None,  # (B, NH, DHQK)
+        scaDeltaM_last: torch.Tensor = None,  # (B, NH)
+        ## Common arguments
+        qk_scale: float = None,
+        CHUNK_SIZE: int = 64,
+        EPS: float = 1e-6,
 ):
     """
 
@@ -248,7 +248,7 @@ def mlstm_chunkwise_bw(
     NC = S // CHUNK_SIZE
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     vecI = rearrange(vecI, "b nh (nc l) -> b nh nc l", l=CHUNK_SIZE)
     vecF = rearrange(vecF, "b nh (nc l) -> b nh nc l", l=CHUNK_SIZE)
@@ -260,7 +260,7 @@ def mlstm_chunkwise_bw(
     #! recompute the "all" states if needed
     if matC_all is None:
         assert (
-            (matC_all is None) and (vecN_all is None) and (scaM_all is None)
+                (matC_all is None) and (vecN_all is None) and (scaM_all is None)
         ), "Either all or none of the states must be provided."
         matC_all, vecN_all, scaM_all = mlstm_chunkwise__recurrent_fw_C(
             matK=matK,

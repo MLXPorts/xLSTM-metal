@@ -15,15 +15,11 @@ import mlx.core as mx
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from xlstm_metal.mlx_jit.wiring import WiredMADModel, create_xlstm_wiring
 from xlstm_metal.mlx_jit.utils import load_config, load_weights_into_wired_model
+
+
 # soft_cap is not in our NCPS cells - will be added when needed
 # from xlstm_metal.blocks.mlstm import soft_cap
-
-
-def soft_cap(x: mx.array, cap_value: float) -> mx.array:
-    """Apply soft cap to logits."""
-    return cap_value * mx.tanh(x / cap_value)
 
 
 class xLSTMRunner:
@@ -95,10 +91,10 @@ class xLSTMRunner:
 
     @classmethod
     def from_pretrained(
-        cls,
-        model_id: str,
-        cache_dir: Optional[str] = None,
-        force_download: bool = False
+            cls,
+            model_id: str,
+            cache_dir: Optional[str] = None,
+            force_download: bool = False
     ):
         """
         Load xLSTM model from HuggingFace Hub or local directory.
@@ -170,7 +166,7 @@ class xLSTMRunner:
 
         # Check for safetensors files
         if (self.model_path / "model.safetensors").exists() or \
-           (self.model_path / "model.safetensors.index.json").exists():
+                (self.model_path / "model.safetensors.index.json").exists():
             # Load from safetensors directory
             load_safetensors_into_wired_model(str(self.model_path), self.model)
             print(f"✓ Weights loaded from safetensors")
@@ -189,9 +185,9 @@ class xLSTMRunner:
         self.state = None
 
     def forward(
-        self,
-        input_ids: mx.array,
-        state: Optional[dict] = None
+            self,
+            input_ids: mx.array,
+            state: Optional[dict] = None
     ) -> tuple[mx.array, dict]:
         """
         Forward pass through the model.
@@ -213,11 +209,11 @@ class xLSTMRunner:
         return logits_capped, new_state
 
     def generate_next_token(
-        self,
-        input_ids: mx.array,
-        temperature: float = 1.0,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None
+            self,
+            input_ids: mx.array,
+            temperature: float = 1.0,
+            top_k: Optional[int] = None,
+            top_p: Optional[float] = None
     ) -> int:
         """
         Generate next token given input token IDs.
@@ -265,10 +261,10 @@ class xLSTMRunner:
             # Find how many tokens to keep (at least 1)
             keep_mask = cumulative_probs <= top_p
             num_keep = max(1, int(mx.sum(keep_mask).item()))
-            
+
             # Get threshold (logit value at cutoff)
             threshold = sorted_logits[num_keep - 1]
-            
+
             # Keep only tokens above threshold
             next_token_logits = mx.where(
                 next_token_logits >= threshold,
@@ -283,13 +279,13 @@ class xLSTMRunner:
         return int(next_token)
 
     def generate(
-        self,
-        prompt_ids: List[int],
-        max_tokens: int = 100,
-        temperature: float = 1.0,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-        stop_tokens: Optional[List[int]] = None
+            self,
+            prompt_ids: List[int],
+            max_tokens: int = 100,
+            temperature: float = 1.0,
+            top_k: Optional[int] = None,
+            top_p: Optional[float] = None,
+            stop_tokens: Optional[List[int]] = None
     ) -> List[int]:
         """
         Generate tokens autoregressively.

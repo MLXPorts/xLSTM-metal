@@ -176,23 +176,23 @@ Flows are user‑editable code. To prevent a broken edit from severing connectiv
 guarded “flow_repair” tool.
 
 - Triggers:
-  - Flow compile/validation error (unknown block/port, type mismatch, multi‑writer, cycle).
-  - Router detection error (“unsupported tool use …”).
+    - Flow compile/validation error (unknown block/port, type mismatch, multi‑writer, cycle).
+    - Router detection error (“unsupported tool use …”).
 - Safe Mode behavior:
-  - Suspend the user flow; run a known‑good baseline graph (protocol → codec → router.mcp → sink) selected by Pipeline
-    DSL.
-  - Keep strict autodetection and MCP routing; no format guessing.
-  - Emit a concise system message with failure + suggested action.
+    - Suspend the user flow; run a known‑good baseline graph (protocol → codec → router.mcp → sink) selected by Pipeline
+      DSL.
+    - Keep strict autodetection and MCP routing; no format guessing.
+    - Emit a concise system message with failure + suggested action.
 - Repair Tool (structured via MCP):
-  - Name: `flow_repair`
-  - Params (schema): `{ path: string; patch: { nodes?: Node[], edges?: Edge[] } }`
-  - Constraints:
-    - Kernel blocks (`router.mcp`, protocol→codec→router wiring) cannot be removed or bypassed.
-    - Provider credentials, base URLs, and secrets are immutable.
-    - Only nodes/edges/options may be added/adjusted when valid.
-  - Flow is re‑validated (Zod + port type checks) before adoption.
+    - Name: `flow_repair`
+    - Params (schema): `{ path: string; patch: { nodes?: Node[], edges?: Edge[] } }`
+    - Constraints:
+        - Kernel blocks (`router.mcp`, protocol→codec→router wiring) cannot be removed or bypassed.
+        - Provider credentials, base URLs, and secrets are immutable.
+        - Only nodes/edges/options may be added/adjusted when valid.
+    - Flow is re‑validated (Zod + port type checks) before adoption.
 - Exit Safe Mode:
-  - On successful compile + validation of the repaired flow, resume normal execution.
+    - On successful compile + validation of the repaired flow, resume normal execution.
 
 This keeps the AI productive (can propose repairs) while preserving strict routing and safety guarantees.
 

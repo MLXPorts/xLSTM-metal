@@ -1,6 +1,7 @@
 # mLSTM Metal Kernels
 
-This directory contains Metal C++ kernel implementations for the mLSTM (Matrix LSTM) chunkwise algorithm, ported from the Triton reference kernels in `mlstm_kernels`.
+This directory contains Metal C++ kernel implementations for the mLSTM (Matrix LSTM) chunkwise algorithm, ported from
+the Triton reference kernels in `mlstm_kernels`.
 
 ## Overview
 
@@ -15,12 +16,12 @@ The chunkwise mLSTM algorithm decomposes sequence processing into two phases:
 
 Performance comparison on Apple M3 Ultra (128 GPU cores, 256GB Unified RAM):
 
-| Sequence Length | Chunk Size | Sequential (ms) | Chunkwise (ms) | Speedup  |
-|----------------|------------|-----------------|----------------|----------|
-| 64             | 32         | 5.85            | 0.70           | 8.39x    |
-| 128            | 64         | 11.49           | 0.60           | 19.27x   |
-| 256            | 64         | 22.60           | 0.79           | 28.49x   |
-| 512            | 64         | 47.21           | 0.86           | 54.64x   |
+| Sequence Length | Chunk Size | Sequential (ms) | Chunkwise (ms) | Speedup |
+|-----------------|------------|-----------------|----------------|---------|
+| 64              | 32         | 5.85            | 0.70           | 8.39x   |
+| 128             | 64         | 11.49           | 0.60           | 19.27x  |
+| 256             | 64         | 22.60           | 0.79           | 28.49x  |
+| 512             | 64         | 47.21           | 0.86           | 54.64x  |
 
 **Speedup scales with sequence length** - longer sequences see greater benefits.
 
@@ -29,39 +30,39 @@ Performance comparison on Apple M3 Ultra (128 GPU cores, 256GB Unified RAM):
 ### Forward Kernels (Inference)
 
 - **fw_kernel_recurrent.py**: Recurrent phase - computes inter-chunk states (C, n, m)
-  - Input: K, V, gates (i, f)
-  - Output: matC_states, vecN_states, scaMinter_states for all chunks
-  - Threadgroup memory: ~10 KB (16x16 tiles)
-  - Grid: (num_tiles_DHQK, num_tiles_DHHV, B*NH)
+    - Input: K, V, gates (i, f)
+    - Output: matC_states, vecN_states, scaMinter_states for all chunks
+    - Threadgroup memory: ~10 KB (16x16 tiles)
+    - Grid: (num_tiles_DHQK, num_tiles_DHHV, B*NH)
 
 - **fw_kernel_parallel.py**: Parallel phase - computes outputs within chunks
-  - Input: Q, K, V, inter-chunk states, gates
-  - Output: Hidden states H, normalizers N, running max M
-  - Threadgroup memory: ~10 KB (16x16 tiles)
-  - Grid: (num_tiles_DHHV, num_tiles_LQ, NC * B*NH)
+    - Input: Q, K, V, inter-chunk states, gates
+    - Output: Hidden states H, normalizers N, running max M
+    - Threadgroup memory: ~10 KB (16x16 tiles)
+    - Grid: (num_tiles_DHHV, num_tiles_LQ, NC * B*NH)
 
 ### Backward Kernels (Training)
 
 - **bw_kernel_recurrent.py**: ✅ Recurrent backward pass (Metal complete - 15K, 280 lines)
-  - Computes ∂Loss/∂C_states by iterating chunks in reverse
-  - Uses scaGbar gating and matQbar @ matDeltaH accumulation
-  - Grid: (num_tiles_DHQK, num_tiles_DHHV, B*NH)
+    - Computes ∂Loss/∂C_states by iterating chunks in reverse
+    - Uses scaGbar gating and matQbar @ matDeltaH accumulation
+    - Grid: (num_tiles_DHQK, num_tiles_DHHV, B*NH)
 
 - **bw_kernel_parallel_dV.py**: ✅ Parallel backward for ∂Loss/∂V (Metal complete - 16K, 420 lines)
-  - Intra-chunk: matSbar^T @ matDeltaH
-  - Inter-chunk: matKbar @ matDeltaC
-  - Grid: (num_tiles_DHHV, num_tiles_LKV, NC * B*NH)
+    - Intra-chunk: matSbar^T @ matDeltaH
+    - Inter-chunk: matKbar @ matDeltaC
+    - Grid: (num_tiles_DHHV, num_tiles_LKV, NC * B*NH)
 
 - **bw_kernel_parallel_dK.py**: ✅ Parallel backward for ∂Loss/∂K (Metal complete - 15K, 405 lines)
-  - Intra-chunk: matDeltaSbar^T @ matQ
-  - Inter-chunk: vecAbar * (matV @ matDeltaC^T)
-  - Grid: (num_tiles_DHQK, num_tiles_LKV, NC * B*NH)
+    - Intra-chunk: matDeltaSbar^T @ matQ
+    - Inter-chunk: vecAbar * (matV @ matDeltaC^T)
+    - Grid: (num_tiles_DHQK, num_tiles_LKV, NC * B*NH)
 
 - **bw_kernel_parallel_dQ.py**: ✅ Parallel backward for ∂Loss/∂Q (Metal complete - 15K, 390 lines)
-  - Loops over LKV blocks (lower triangular masking)
-  - Intra-chunk: matDeltaS @ matK
-  - Inter-chunk: vecBbar * (matDeltaH @ matC^T)
-  - Grid: (num_tiles_DHQK, num_tiles_LQ, NC * B*NH)
+    - Loops over LKV blocks (lower triangular masking)
+    - Intra-chunk: matDeltaS @ matK
+    - Inter-chunk: vecBbar * (matDeltaH @ matC^T)
+    - Grid: (num_tiles_DHQK, num_tiles_LQ, NC * B*NH)
 
 **Status**: 6/6 kernels complete (100%)! ✅ Full training and inference support on Apple Silicon.
 
@@ -107,30 +108,33 @@ The kernels use MLX's `mx.fast.metal_kernel()` JIT compilation:
 ### Threadgroup Memory Layout
 
 Recurrent kernel threadgroup memory (~10 KB with 16x16 tiles):
+
 - `matC_k_val[16][16]`: Tile of C matrix (4 KB)
 - `vecN_k_val[16]`: Tile of N vector (64 bytes)
 - `scaMinter_k_val_shared[1]`: Shared scalar (4 bytes)
 - Various temporary arrays for K, V tiles
 
 Parallel kernel threadgroup memory (~10 KB with 16x16 tiles):
+
 - Multiple 16x16 matrices for intra-chunk attention
 - Multiple 16x16 matrices for inter-chunk contribution
 - Thread-local arrays sized to 16 for tile computation
 
 ### Key Differences from Triton
 
-| Triton                          | Metal C++                                    |
-|---------------------------------|----------------------------------------------|
-| `tl.program_id(0/1/2)`         | `threadgroup_position_in_grid.x/y/z`        |
+| Triton                         | Metal C++                                        |
+|--------------------------------|--------------------------------------------------|
+| `tl.program_id(0/1/2)`         | `threadgroup_position_in_grid.x/y/z`             |
 | `tl.zeros((M, N))`             | `threadgroup float arr[M][N]` + cooperative init |
-| `tl.load(ptr, boundary_check)` | Manual bounds-checked loads                  |
-| `tl.dot(A, B)`                 | Manual FMA accumulation loops                |
-| `tl.make_block_ptr()`          | Manual memory indexing with strides          |
-| Parameters as `tl.constexpr`   | Parameters in `uint32` buffer                |
+| `tl.load(ptr, boundary_check)` | Manual bounds-checked loads                      |
+| `tl.dot(A, B)`                 | Manual FMA accumulation loops                    |
+| `tl.make_block_ptr()`          | Manual memory indexing with strides              |
+| Parameters as `tl.constexpr`   | Parameters in `uint32` buffer                    |
 
 ### Porting from Triton to Metal
 
 The kernels preserve **all algorithmic logic** from the Triton reference:
+
 - Gate computations (vecA, vecB, scaG, logsigmoid)
 - Exponential gating with numerical stability (running max m_t)
 - Tile-based cooperative loading
@@ -148,15 +152,18 @@ While the **numerical algorithms are identical** to the Triton reference, severa
 **Issue**: Apple GPUs have a **32 KB threadgroup memory limit** per threadgroup.
 
 **Original Triton**: Used 64x64 tiles (16 KB per matrix with fp32)
+
 - Multiple 64x64 matrices would exceed 32 KB limit
 - Example: 3 matrices = 48 KB > 32 KB limit
 
 **Metal Solution**: Reduced to **16x16 tiles** (~1 KB per matrix)
+
 - Typical usage: ~10 KB total across all threadgroup arrays
 - Allows multiple temporary matrices without hitting limits
 - Trade-off: More threadgroups launched, but still achieves 8-55x speedup
 
 **Code change**:
+
 ```metal
 // Triton (inferred from block sizes)
 threadgroup float matC[64][64];  // 16 KB
@@ -170,16 +177,19 @@ threadgroup float matC[16][16];  // 1 KB
 **Issue**: Metal requires threadgroup array dimensions to be **compile-time constants**.
 
 **Original Triton**: Could use `tl.constexpr` and dynamic tile sizes
+
 ```python
 matC = tl.zeros([siz_b_DHQK, siz_b_DHHV], dtype=tl.float32)  # Runtime size
 ```
 
 **Metal Solution**: Hardcode to maximum tile size (16x16)
+
 ```metal
 threadgroup float matC[16][16];  // Fixed at compile time
 ```
 
 **Impact**:
+
 - Tile sizes must be ≤16 in both dimensions
 - Currently hardcoded to 16 but could be made configurable via kernel variants
 - No runtime performance impact (size was limited by memory anyway)
@@ -189,11 +199,13 @@ threadgroup float matC[16][16];  // Fixed at compile time
 **Issue**: Metal doesn't have a built-in threadgroup matrix multiply like Triton's `tl.dot()`.
 
 **Original Triton**:
+
 ```python
 matC_acc += tl.dot(matA, matB)  # Hardware-optimized GEMM
 ```
 
 **Metal Solution**: Manual FMA accumulation loops
+
 ```metal
 for (uint k = 0; k < tile_dim; ++k) {
     sum += matA[ty][k] * matB[k][tx];
@@ -202,6 +214,7 @@ matC_acc[ty][tx] += sum;
 ```
 
 **Impact**:
+
 - Slightly more verbose code
 - Metal compiler should still generate efficient SIMD instructions
 - Performance: Still achieves 8-55x speedup (so it's fast enough)
@@ -211,11 +224,13 @@ matC_acc[ty][tx] += sum;
 **Issue**: Metal threadgroup memory layout requires explicit transpose consideration.
 
 **Original Triton**: Used `tl.trans()` to transpose after computation
+
 ```python
 matD_trans_val = tl.trans(tl.exp(matDtilde_val - vecM_out_val[:, None]))
 ```
 
 **Metal Solution**: Compute directly in transposed layout
+
 ```metal
 // Allocate as [siz_b_LKV][siz_b_LQ] (already transposed)
 threadgroup float matD_trans[16][16];
@@ -224,6 +239,7 @@ matD_trans[ty][tx] = exp(matDtilde_val - vecM_out_LQ[tx]);
 ```
 
 **Impact**:
+
 - Eliminates explicit transpose operation
 - More efficient (one less memory pass)
 - Numerically identical results
@@ -235,12 +251,14 @@ matD_trans[ty][tx] = exp(matDtilde_val - vecM_out_LQ[tx]);
 **Original Triton**: Parameters compiled into kernel (fast but requires recompilation)
 
 **Metal Solution**: Pack all parameters into `uint32` buffers
+
 ```python
 params = mx.array([B, NH, S, DHQK, DHHV, NC, L, ...], dtype=mx.uint32)
 strides = mx.array([str_matQK_B_NH, str_matQK_S, ...], dtype=mx.uint32)
 ```
 
 **Metal kernel extracts them**:
+
 ```metal
 uint B = params[0];
 uint NH = params[1];
@@ -249,6 +267,7 @@ float qk_scale = as_type<float>(params[11]);  // Float packed as uint32
 ```
 
 **Impact**:
+
 - Kernel compiles once, works for all parameter values
 - Slightly more boilerplate in wrapper code
 - Better runtime performance (no recompilation delays)
@@ -258,11 +277,13 @@ float qk_scale = as_type<float>(params[11]);  // Float packed as uint32
 **Issue**: Triton's `boundary_check=(0,1)` handled out-of-bounds access automatically.
 
 **Original Triton**:
+
 ```python
 matK_val = tl.load(matK_ptr, boundary_check=(0, 1))  # Automatic bounds check
 ```
 
 **Metal Solution**: Manual if-statements for bounds
+
 ```metal
 if (ty < siz_b_LKV && tx < siz_b_DHQK && k_row < L && k_col < DHQK && k_seq_idx < S) {
     matK_tile[ty][tx] = matK[idx];
@@ -272,6 +293,7 @@ if (ty < siz_b_LKV && tx < siz_b_DHQK && k_row < L && k_col < DHQK && k_seq_idx 
 ```
 
 **Impact**:
+
 - More verbose code
 - Slightly larger kernel source
 - Performance: Negligible (GPU branch prediction handles this well)
@@ -281,6 +303,7 @@ if (ty < siz_b_LKV && tx < siz_b_DHQK && k_row < L && k_col < DHQK && k_seq_idx 
 **Issue**: Metal requires all threads to participate in initializing threadgroup arrays.
 
 **Metal Pattern**:
+
 ```metal
 // Initialize accumulator (all threads cooperate)
 if (tx < siz_b_DHHV && ty < siz_b_LKV) {
@@ -290,23 +313,25 @@ threadgroup_barrier(mem_flags::mem_threadgroup);
 ```
 
 **Impact**:
+
 - Ensures proper memory initialization
 - Required for correctness (uninitialized threadgroup memory is undefined)
 - Standard Metal programming pattern
 
 ## Summary of Changes
 
-| Aspect | Triton | Metal | Reason |
-|--------|--------|-------|--------|
-| Tile size | 64x64 | 16x16 | 32 KB threadgroup memory limit |
-| Array dimensions | Runtime | Compile-time | Metal language requirement |
-| Matrix multiply | `tl.dot()` | Manual FMA loops | No built-in threadgroup GEMM |
-| Transpose | `tl.trans()` | Compute in transposed layout | Optimization |
-| Parameters | Kernel args | `uint32` buffers | Avoid recompilation |
-| Boundary checks | `boundary_check=` | Manual if-statements | Language difference |
-| Initialization | Implicit | Explicit cooperative pattern | Metal requirement |
+| Aspect           | Triton            | Metal                        | Reason                         |
+|------------------|-------------------|------------------------------|--------------------------------|
+| Tile size        | 64x64             | 16x16                        | 32 KB threadgroup memory limit |
+| Array dimensions | Runtime           | Compile-time                 | Metal language requirement     |
+| Matrix multiply  | `tl.dot()`        | Manual FMA loops             | No built-in threadgroup GEMM   |
+| Transpose        | `tl.trans()`      | Compute in transposed layout | Optimization                   |
+| Parameters       | Kernel args       | `uint32` buffers             | Avoid recompilation            |
+| Boundary checks  | `boundary_check=` | Manual if-statements         | Language difference            |
+| Initialization   | Implicit          | Explicit cooperative pattern | Metal requirement              |
 
-**All numerical equations remain identical** - these are purely implementation details to match Metal's execution model and memory constraints.
+**All numerical equations remain identical** - these are purely implementation details to match Metal's execution model
+and memory constraints.
 
 ## Numerical Stability
 
@@ -317,6 +342,7 @@ Both kernels implement exponential gating with careful numerical stability:
 3. **Epsilon for division**: Add small constant to denominators
 
 The chunkwise implementation may differ slightly from sequential due to:
+
 - Different summation order (chunk boundaries)
 - Different numerical precision in parallel accumulation
 

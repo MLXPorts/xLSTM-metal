@@ -6,30 +6,31 @@ import triton
 
 from .chunkwise_gates import compute_chunkwise_log_gates_vecB
 from kernel_development.mlstm_block.mslstm_parallel.torch.utils import torch2triton_dtype
-from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk import mlstm_chunkwise__parallel_fw_Hintra_kernel
+from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk import \
+    mlstm_chunkwise__parallel_fw_Hintra_kernel
 from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_fw_Hintra(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecI: torch.Tensor,  # (B, NH, NC * L) = (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, NC * L) = (B, NH, S)
-    # these are all the states at every chunk, (we only use NC states up to the last chunk, i.e. :-1)
-    matC_states: torch.Tensor,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecN_states: torch.Tensor,  # (B, NH, (NC+1) * DHQK)
-    scaMinter_states: torch.Tensor,  # (B, NH, (NC+1))
-    qk_scale: float = None,
-    chunk_size: int = 64,
-    siz_b_LQ: int = 32,
-    siz_b_LKV: int = 32,
-    siz_b_DHQK: int | None = None,
-    siz_b_DHHV: int | None = None,  # DHHV blocksize for each thread block
-    num_warps: int | None = None,
-    num_stages: int | None = None,
-    eps: float = 1e-6,
-    output_dtype: torch.dtype = torch.float32,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecI: torch.Tensor,  # (B, NH, NC * L) = (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, NC * L) = (B, NH, S)
+        # these are all the states at every chunk, (we only use NC states up to the last chunk, i.e. :-1)
+        matC_states: torch.Tensor,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecN_states: torch.Tensor,  # (B, NH, (NC+1) * DHQK)
+        scaMinter_states: torch.Tensor,  # (B, NH, (NC+1))
+        qk_scale: float = None,
+        chunk_size: int = 64,
+        siz_b_LQ: int = 32,
+        siz_b_LKV: int = 32,
+        siz_b_DHQK: int | None = None,
+        siz_b_DHHV: int | None = None,  # DHHV blocksize for each thread block
+        num_warps: int | None = None,
+        num_stages: int | None = None,
+        eps: float = 1e-6,
+        output_dtype: torch.dtype = torch.float32,
 ) -> tuple[
     torch.Tensor, torch.Tensor, torch.Tensor
 ]:  # matH_out (B, NH, S, DHHV), vecN_out (B, NH, S), vecM_out (B, NH, S)
@@ -43,7 +44,7 @@ def mlstm_chunkwise__parallel_fw_Hintra(
     DHHV = matV.shape[-1]
 
     assert (
-        S % chunk_size == 0
+            S % chunk_size == 0
     ), f"Sequence length {S} must be divisible by chunk size {chunk_size}"
     NC = S // chunk_size
     L = chunk_size
@@ -51,7 +52,7 @@ def mlstm_chunkwise__parallel_fw_Hintra(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = (
         min(64, triton.next_power_of_2(DHQK)) if siz_b_DHQK is None else siz_b_DHQK

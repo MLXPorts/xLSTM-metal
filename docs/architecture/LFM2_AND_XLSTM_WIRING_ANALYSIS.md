@@ -2,7 +2,8 @@
 
 ## Executive Summary
 
-After analyzing the LFM2 (Liquid Foundation Model 2) implementation in transformers and comparing it to MAD and xLSTM-7B, here are the key findings:
+After analyzing the LFM2 (Liquid Foundation Model 2) implementation in transformers and comparing it to MAD and
+xLSTM-7B, here are the key findings:
 
 1. **No true parallelism** - All models use sequential block execution with residual connections
 2. **Heterogeneous layers** - LFM2 uses a config-driven `layer_types` pattern for mixing different operator types
@@ -22,11 +23,13 @@ if self.layer_types is None:
 ```
 
 **Key insight:** `layer_types` is a list like:
+
 ```python
 ["conv", "conv", "full_attention", "conv", "conv", "full_attention", ...]
 ```
 
 Each layer can be either:
+
 - `"full_attention"` - Multi-head attention with RoPE
 - `"conv"` - Short depthwise convolution with gating
 
@@ -86,6 +89,7 @@ for layer in self.layers:
 ```
 
 **No parallelism!** Just like MAD, LFM2 uses:
+
 - `nn.ModuleList` to store layers
 - Sequential iteration in forward pass
 - Manual residual connections
@@ -140,6 +144,7 @@ All three systems (MAD, LFM2, xLSTM) use **GPU-level tiled computation**:
 3. **Within mLSTM chunkwise** - Chunks processed in parallel
 
 Example from our `fw_kernel_parallel.metal`:
+
 ```metal
 // Each threadgroup processes a tile
 // Multiple threadgroups run in parallel on GPU
@@ -158,11 +163,13 @@ kernel void mlstm_chunkwise_forward(
 ### Block-to-Block Parallelism (What We DON'T Have)
 
 Neither MAD, LFM2, nor canonical xLSTM have:
+
 - Parallel execution of multiple blocks
 - Threading/async for block processing
 - Model parallelism (that's a separate concern - data/tensor parallelism)
 
 **Why?** Sequential dependencies:
+
 - Block N+1 depends on output of Block N
 - State updates are sequential (especially for mLSTM recurrent state)
 
@@ -324,24 +331,24 @@ class mLSTMBlock(nn.Module):
 ### What We Should Do
 
 1. **Use LFM2's `layer_types` pattern** for heterogeneous blocks
-   - Supports xLSTM-1B (mixed mLSTM/sLSTM)
-   - Supports xLSTM-7B (all mLSTM)
-   - Future-proof for NCPS mixers
+    - Supports xLSTM-1B (mixed mLSTM/sLSTM)
+    - Supports xLSTM-7B (all mLSTM)
+    - Future-proof for NCPS mixers
 
 2. **Use MAD's registry pattern** for extensibility
-   - Easy to add new block types
-   - Config-driven construction
-   - Clean separation of concerns
+    - Easy to add new block types
+    - Config-driven construction
+    - Clean separation of concerns
 
 3. **Use NCPS wiring INSIDE blocks** (not between blocks)
-   - Wire Q/K/V projections with sparsity masks
-   - Wire gates with polarity
-   - Enable component-level flexibility
+    - Wire Q/K/V projections with sparsity masks
+    - Wire gates with polarity
+    - Enable component-level flexibility
 
 4. **Use HyperProfiles** for backend compensation
-   - MLX vs PyTorch numerical differences
-   - Initialization ranges
-   - Dtype handling
+    - MLX vs PyTorch numerical differences
+    - Initialization ranges
+    - Dtype handling
 
 ### What We Should NOT Do
 
@@ -362,6 +369,7 @@ class mLSTMBlock(nn.Module):
 ## Next Steps
 
 Should we:
+
 1. **Start with dtype fix** (unblock inference testing)
 2. **Design the config system** (support xLSTM-1B/7B/future models)
 3. **Implement BlockRegistry** (enable heterogeneous blocks)

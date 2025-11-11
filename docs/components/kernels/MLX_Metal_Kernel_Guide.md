@@ -1,10 +1,13 @@
 # Comprehensive Guide to Using Metal in MLX
 
-This guide covers everything you need to know about implementing custom Metal kernels with Apple's MLX library. MLX's `fast.metal_kernel` API provides direct access to Metal for high-performance GPU computations, but with limited documentation. This comprehensive guide fills that gap.
+This guide covers everything you need to know about implementing custom Metal kernels with Apple's MLX library. MLX's
+`fast.metal_kernel` API provides direct access to Metal for high-performance GPU computations, but with limited
+documentation. This comprehensive guide fills that gap.
 
 ## 1. Understanding the Metal Kernel API in MLX
 
-MLX exposes Apple's Metal API through `mx.fast.metal_kernel`, allowing you to write custom GPU kernels directly. Here's the essential structure:
+MLX exposes Apple's Metal API through `mx.fast.metal_kernel`, allowing you to write custom GPU kernels directly. Here's
+the essential structure:
 
 ```python
 kernel = mx.fast.metal_kernel(
@@ -32,18 +35,19 @@ output = kernel(
 
 ### Key Concepts to Understand:
 
-1. **MLX vs. Metal Kernel**: MLX automatically generates the Metal kernel function signature. You only provide the function body in the `source` parameter.
+1. **MLX vs. Metal Kernel**: MLX automatically generates the Metal kernel function signature. You only provide the
+   function body in the `source` parameter.
 
 2. **Input and Output Naming**: The kernel receives inputs and creates outputs following a naming convention:
-   - Inputs: `inp0`, `inp1`, etc. (from first to last in your input list)
-   - Input sizes: `inp0_size`, `inp1_size`, etc. (these are pointers)
-   - Shapes: `A_shape[0]`, `A_shape[1]`, etc. (for each dimension)
-   - Outputs: `out0`, `out1`, etc. (from first to last in your output list)
+    - Inputs: `inp0`, `inp1`, etc. (from first to last in your input list)
+    - Input sizes: `inp0_size`, `inp1_size`, etc. (these are pointers)
+    - Shapes: `A_shape[0]`, `A_shape[1]`, etc. (for each dimension)
+    - Outputs: `out0`, `out1`, etc. (from first to last in your output list)
 
 3. **Thread Positioning**: Access thread positions using Metal's built-in attributes:
-   - `thread_position_in_grid`: Global position in the entire compute grid
-   - `thread_position_in_threadgroup`: Local position within a threadgroup
-   - `threadgroup_position_in_grid`: Threadgroup position in the grid
+    - `thread_position_in_grid`: Global position in the entire compute grid
+    - `thread_position_in_threadgroup`: Local position within a threadgroup
+    - `threadgroup_position_in_grid`: Threadgroup position in the grid
 
 ## 2. Writing Your First Metal Kernel
 
@@ -134,7 +138,8 @@ atomic_fetch_add_explicit(&counter, 1, memory_order_relaxed);
 
 For algorithms with dependencies between threads (like Cholesky decomposition), proper synchronization is crucial:
 
-1. **Barriers**: Use `threadgroup_barrier(mem_flags::mem_device)` to ensure all memory operations complete before proceeding
+1. **Barriers**: Use `threadgroup_barrier(mem_flags::mem_device)` to ensure all memory operations complete before
+   proceeding
 2. **Phases**: Use the single-threaded or block-based approach for algorithms with sequential dependencies
 3. **Memory Order**: Use appropriate memory order flags for atomic operations
 
@@ -160,8 +165,8 @@ When implementing mathematical algorithms, numerical stability is crucial:
    ```
 
 3. **Use appropriate precision**:
-   - Perform intermediate calculations in higher precision when needed
-   - Consider accumulating sums using `double` for better precision
+    - Perform intermediate calculations in higher precision when needed
+    - Consider accumulating sums using `double` for better precision
 
 ## 6. Advanced Metal Kernel Techniques
 
@@ -195,6 +200,7 @@ for (uint k = 0; k < num_blocks; k++) {
 ```
 
 This approach:
+
 1. Divides the matrix into blocks
 2. Processes the diagonal block sequentially
 3. Processes other blocks in parallel
@@ -225,6 +231,7 @@ result = kernel(
 ```
 
 In your Metal code, use the template parameter:
+
 ```metal
 T value = inp[index];  // Uses the type specified in template
 ```
@@ -251,6 +258,7 @@ def my_metal_function(A):
 ```
 
 Benefits:
+
 - Clean function interface
 - Can be used with other MLX operations seamlessly
 - Supports automatic differentiation
@@ -271,6 +279,7 @@ optimized_version = mx.compile(existing_function)
 ```
 
 Benefits:
+
 - Fuses operations for better performance
 - Reduces memory allocations
 - Can be combined with custom Metal kernels
@@ -355,6 +364,7 @@ def mlx_cholesky(A):
 ```
 
 Key features:
+
 - Single thread execution ensures correct sequential ordering
 - Explicit zero-initialization of upper triangle
 - Numerical safeguards for diagonal elements
@@ -480,6 +490,7 @@ def block_cholesky(A, block_size=16):
 ```
 
 Key features:
+
 - Block-based parallelization strategy
 - Careful synchronization between processing phases
 - Work distribution among threads
@@ -490,12 +501,13 @@ Key features:
 
 MLX provides several optimized operations like layer_norm, rms_norm, and rope. Your custom Metal kernels might achieve:
 
-| Operation          | Custom Metal | MLX Built-in | Speedup  |
-|--------------------|--------------|--------------|----------|
-| Cholesky (32×32)   | 0.00015s     | 0.015s       | ~100×    |
-| Cholesky (512×512) | 0.00023s     | 0.0032s      | ~14×     |
+| Operation          | Custom Metal | MLX Built-in | Speedup |
+|--------------------|--------------|--------------|---------|
+| Cholesky (32×32)   | 0.00015s     | 0.015s       | ~100×   |
+| Cholesky (512×512) | 0.00023s     | 0.0032s      | ~14×    |
 
 Factors affecting performance:
+
 1. Kernel complexity
 2. Memory access patterns
 3. Thread organization
@@ -507,14 +519,14 @@ Factors affecting performance:
 ### 10.1 Performance Optimization
 
 1. **Thread Organization**: Choose grid and threadgroup sizes based on your algorithm structure
-   - Element-wise operations: `grid=(size, 1, 1), threadgroup=(min(size, 256), 1, 1)`
-   - Matrix operations: Consider 2D grids: `grid=(width, height, 1)`
-   - Block-based: Size grids based on blocks: `grid=(num_blocks, 1, 1)`
+    - Element-wise operations: `grid=(size, 1, 1), threadgroup=(min(size, 256), 1, 1)`
+    - Matrix operations: Consider 2D grids: `grid=(width, height, 1)`
+    - Block-based: Size grids based on blocks: `grid=(num_blocks, 1, 1)`
 
 2. **Memory Access Patterns**: Optimize memory access for coalescing
-   - Access adjacent memory locations within a threadgroup
-   - Minimize strided access patterns
-   - Consider row vs. column major storage
+    - Access adjacent memory locations within a threadgroup
+    - Minimize strided access patterns
+    - Consider row vs. column major storage
 
 3. **Reduce Thread Divergence**: Minimize conditionals that cause threads to take different paths
 
@@ -574,6 +586,11 @@ def custom_op_vjp(primals, cotangents, output):
 
 ## Conclusion
 
-MLX's Metal kernel API provides tremendous flexibility and performance for custom operations. By understanding the proper usage of thread organization, memory access, and synchronization, you can implement highly efficient algorithms that outperform standard implementations.
+MLX's Metal kernel API provides tremendous flexibility and performance for custom operations. By understanding the
+proper usage of thread organization, memory access, and synchronization, you can implement highly efficient algorithms
+that outperform standard implementations.
 
-The Cholesky decomposition implementation demonstrates both a reliable approach (single-threaded) and a high-performance approach (block-based), showcasing the tradeoffs involved in parallel algorithm design. By leveraging the tools and techniques in this guide, you can create custom Metal kernels for a wide range of computational needs in your MLX applications.
+The Cholesky decomposition implementation demonstrates both a reliable approach (single-threaded) and a high-performance
+approach (block-based), showcasing the tradeoffs involved in parallel algorithm design. By leveraging the tools and
+techniques in this guide, you can create custom Metal kernels for a wide range of computational needs in your MLX
+applications.

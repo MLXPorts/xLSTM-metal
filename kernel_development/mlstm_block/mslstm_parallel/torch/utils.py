@@ -8,6 +8,7 @@ import torch
 
 try:
     import triton.language as tl
+
     _torch_to_triton_dtype = {
         torch.float32: tl.float32,
         torch.float16: tl.float16,
@@ -43,6 +44,7 @@ def contiguous(fn):
     :param fn:
     :return:
     """
+
     @functools.wraps(fn)
     def wrapper(ctx, *args, **kwargs):
         """
@@ -70,6 +72,7 @@ def contiguous_noctx(fn):
     :param fn:
     :return:
     """
+
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
         """
@@ -114,6 +117,7 @@ def tensor_or_none(x):
     :return:
     """
     return x if x is None else torch.tensor(x)
+
 
 def int_or_none(x):
     """

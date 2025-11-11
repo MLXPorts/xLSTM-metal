@@ -14,9 +14,9 @@ from torch.nn.functional import logsigmoid
 
 @torch.compile
 def compute_chunkwise_log_gates_vecB_vecA(
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    chunk_size: int,
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        chunk_size: int,
 ):
     """
 
@@ -42,22 +42,22 @@ def compute_chunkwise_log_gates_vecB_vecA(
     # vecA = (vecB[..., -1, None] - vecB) + vecI  # (B, NH, NC, L)
     # stable vecA computation:
     vecA = (
-        torch.cat(
-            [
-                vecF_logsig_chunked[..., 1:].flip(-1).cumsum(-1).flip(-1),
-                torch.zeros((B, NH, NC, 1), device=_device, dtype=torch.float32),
-            ],
-            dim=-1,
-        )
-        + vecI_chunked
+            torch.cat(
+                [
+                    vecF_logsig_chunked[..., 1:].flip(-1).cumsum(-1).flip(-1),
+                    torch.zeros((B, NH, NC, 1), device=_device, dtype=torch.float32),
+                ],
+                dim=-1,
+            )
+            + vecI_chunked
     )  # (B, NH, NC, L)
     return vecB, vecA
 
 
 @torch.compile
 def compute_chunkwise_log_gates_vecB(
-    vecF: torch.Tensor,  # (B, NH, S)
-    chunk_size: int,
+        vecF: torch.Tensor,  # (B, NH, S)
+        chunk_size: int,
 ):
     """
 
@@ -77,12 +77,13 @@ def compute_chunkwise_log_gates_vecB(
 
     return vecB
 
-# Note: we separate this into a extra function for torch.compile. 
+
+# Note: we separate this into a extra function for torch.compile.
 # torch.compile will compile this into a single kernel with ca. 0.2 ms runtime (compared to 2.5 ms non-fused kernels)
 # for a 1.3B sized model with ctx8192.
 @torch.compile
 def compute_gate_grads_vecDeltaI_vecDeltaF(
-    matQ: torch.Tensor, matK: torch.Tensor, matDeltaQ: torch.Tensor, matDeltaK: torch.Tensor, vecF: torch.Tensor
+        matQ: torch.Tensor, matK: torch.Tensor, matDeltaQ: torch.Tensor, matDeltaK: torch.Tensor, vecF: torch.Tensor
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """
 

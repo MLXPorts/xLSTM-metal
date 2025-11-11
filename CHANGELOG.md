@@ -1,11 +1,14 @@
 # Changelog
 
-All notable changes to this project are documented here. Entries are derived from commit history, grouped by release, with a commit‑by‑commit digest. Items related to external projects removed from the repo are omitted.
+All notable changes to this project are documented here. Entries are derived from commit history, grouped by release,
+with a commit‑by‑commit digest. Items related to external projects removed from the repo are omitted.
 
 ## [0.2.0] - 2025-09-02
 
 Highlights
-- Ray compiled prefill: optional asyncio actors with concurrency groups; optional Ray Compiled Graphs (beta) for steady‑state chunk execution; prefill tok/s gauges.
+
+- Ray compiled prefill: optional asyncio actors with concurrency groups; optional Ray Compiled Graphs (beta) for
+  steady‑state chunk execution; prefill tok/s gauges.
 - xltop: decode tok/s sparkline from CSV tails; better non‑curses parity.
 - Optimizer: GA/random sweeps with JSONL/CSV telemetry; plotting utility.
 - Memory watchdog: integrated across Ray workers; preserves GPU‑only (`PYTORCH_ENABLE_MPS_FALLBACK=0`).
@@ -14,7 +17,9 @@ Highlights
 - Docs/ops: expanded agents guide, tuning and observability notes; policy pre‑commit hook; ignore `runs/` outputs.
 
 Commit digest
-- b315fd7 release(v0.2.0): version bump, CHANGELOG, README quick start, Ray shutdown in varquant experiment, ignore runs/, pre‑commit policy hook; include Ray driver and xltop updates
+
+- b315fd7 release(v0.2.0): version bump, CHANGELOG, README quick start, Ray shutdown in varquant experiment, ignore
+  runs/, pre‑commit policy hook; include Ray driver and xltop updates
 - 8ea7c2e Add signal handling and stats tracking to xLSTM scripts
 - a24adc8 Refactor code structure for improved readability and maintainability
 - 2758c23 Add xLSTM‑7B model download and loading scripts
@@ -50,17 +55,20 @@ Commit digest
 - e7fecd0 Initial commit: xLSTM implementation suite
 
 Compatibility notes
+
 - Default chunkwise backend is `chunkwise--ray_compiled_steps` (Ray local‑mode by default).
 - With dashboard mode, actors are cleaned up and Ray auto‑shutdowns unless `XLSTM_RAY_AUTOSHUTDOWN=0`.
 
 ## [0.1.0] - 2025-08 (inferred)
 
 Highlights
+
 - Baseline Apple Silicon MPS path with compiled step and queued chunkwise prefill.
 - Early PyTorch JIT + Metal integration, unified Metal‑optimized variants.
 - Initial optimizer harness and foundational docs.
 
 Commit digest (high‑level)
+
 - 4289f40 feat(mps): Apple/MPS compiled backends + queued chunkwise for xLSTM
 - 7971cbb Implement PyTorch JIT + Metal integration for xLSTM
 - bfde744 Research and implement PyTorch Metal kernel integration
@@ -69,4 +77,5 @@ Commit digest (high‑level)
 - e7fecd0 Initial commit
 
 [0.2.0]: https://github.com/your-org/xlstm/releases/tag/v0.2.0
+
 [0.1.0]: https://github.com/your-org/xlstm/releases/tag/v0.1.0

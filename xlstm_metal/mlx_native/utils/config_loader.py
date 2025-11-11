@@ -77,7 +77,6 @@ def get_mlstm_config(config: Dict[str, Any]) -> Dict[str, Any]:
         'chunk_size': config['chunk_size']
     }
 
-
 # PyTorch transformers uses xLSTMConfig class with the following structure:
 #
 # from transformers import AutoConfig

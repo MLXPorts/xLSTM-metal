@@ -1,4 +1,3 @@
-
 """
 Download xLSTM-7B model with better resume capability
 """
@@ -13,7 +12,7 @@ local_dir = "./xlstm_7b_model"
 # List of files we need
 required_files = [
     "model-00001-of-00006.safetensors",
-    "model-00002-of-00006.safetensors", 
+    "model-00002-of-00006.safetensors",
     "model-00003-of-00006.safetensors",
     "model-00004-of-00006.safetensors",
     "model-00005-of-00006.safetensors",
@@ -31,7 +30,7 @@ print("=" * 60)
 existing_files = set()
 for file in required_files:
     if os.path.exists(os.path.join(local_dir, file)):
-        size_mb = os.path.getsize(os.path.join(local_dir, file)) / (1024*1024)
+        size_mb = os.path.getsize(os.path.join(local_dir, file)) / (1024 * 1024)
         print(f"✓ Already have: {file} ({size_mb:.1f} MB)")
         existing_files.add(file)
 
@@ -41,7 +40,7 @@ if missing_files:
     print(f"\nNeed to download {len(missing_files)} files:")
     for file in missing_files:
         print(f"  - {file}")
-    
+
     print("\nDownloading...")
     for i, file in enumerate(missing_files, 1):
         print(f"\n[{i}/{len(missing_files)}] Downloading {file}...")
@@ -53,7 +52,7 @@ if missing_files:
                 resume_download=True,
                 local_dir_use_symlinks=False
             )
-            size_mb = os.path.getsize(downloaded_path) / (1024*1024)
+            size_mb = os.path.getsize(downloaded_path) / (1024 * 1024)
             print(f"  ✓ Downloaded: {file} ({size_mb:.1f} MB)")
         except Exception as e:
             print(f"  ✗ Error downloading {file}: {e}")
@@ -67,14 +66,14 @@ print("Final status:")
 for file in required_files[:6]:  # Just check safetensor files
     path = os.path.join(local_dir, file)
     if os.path.exists(path):
-        size_gb = os.path.getsize(path) / (1024**3)
+        size_gb = os.path.getsize(path) / (1024 ** 3)
         print(f"  ✓ {file}: {size_gb:.2f} GB")
     else:
         print(f"  ✗ {file}: MISSING")
 
 total_size = sum(
-    os.path.getsize(os.path.join(local_dir, f)) 
-    for f in os.listdir(local_dir) 
+    os.path.getsize(os.path.join(local_dir, f))
+    for f in os.listdir(local_dir)
     if f.endswith('.safetensors')
-) / (1024**3)
+) / (1024 ** 3)
 print(f"\nTotal safetensors size: {total_size:.1f} GB")

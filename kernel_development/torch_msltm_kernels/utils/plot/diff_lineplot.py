@@ -8,8 +8,8 @@ from .ewma import ewma_vectorized
 
 
 def compute_errors_per_batchhead(
-    baseline: np.ndarray,  # (B, NH, S, ...)
-    target: np.ndarray,  # (B, NH, S, ...)
+        baseline: np.ndarray,  # (B, NH, S, ...)
+        target: np.ndarray,  # (B, NH, S, ...)
 ) -> np.ndarray:  # (B * NH, S, F) F are flattened features
     """
 
@@ -33,12 +33,12 @@ def compute_errors_per_batchhead(
 
 
 def plot_error_statistics_over_time_single(
-    errors: np.ndarray,  # shape: (num_timesteps, num_features)
+        errors: np.ndarray,  # shape: (num_timesteps, num_features)
         percentiles=None,
-    title: str = "",
-    add_mean: bool = False,
-    ema_alpha: float = 0.02,
-    figsize=(10, 6),
+        title: str = "",
+        add_mean: bool = False,
+        ema_alpha: float = 0.02,
+        figsize=(10, 6),
 ):
     """
 
@@ -82,13 +82,13 @@ def plot_error_statistics_over_time_single(
 
 
 def plot_error_statistics_over_time_per_batchhead(
-    errors: np.ndarray,  # shape: (num_batchheads, num_timesteps, num_features)
+        errors: np.ndarray,  # shape: (num_batchheads, num_timesteps, num_features)
         percentiles=None,
-    title: str = "",
-    add_mean: bool = False,
-    ema_alpha: float = 0.02,
-    max_num_batchhead_plots: int = -1,  # -1 means all
-    figsize=(10, 6),
+        title: str = "",
+        add_mean: bool = False,
+        ema_alpha: float = 0.02,
+        max_num_batchhead_plots: int = -1,  # -1 means all
+        figsize=(10, 6),
 ):
     """
 

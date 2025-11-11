@@ -39,7 +39,7 @@ class mLSTMConfig:
 
 class LayerNorm(nn.Module):
     """Per-head layer norm (like MultiHeadLayerNorm in MLX version)."""
-    
+
     def __init__(self, num_heads: int, head_dim: int, eps: float = 1e-6):
         super().__init__()
         self.weight = nn.Parameter(torch.ones(num_heads, head_dim))
@@ -116,9 +116,9 @@ class mLSTMLayer(nn.Module):
                 self.mlstm_kernel = None
 
     def forward(
-        self,
-        x: torch.Tensor,  # [B, S, D]
-        state: Optional[Tuple] = None,
+            self,
+            x: torch.Tensor,  # [B, S, D]
+            state: Optional[Tuple] = None,
     ) -> Tuple[torch.Tensor, Tuple]:
         """
         Forward pass through mLSTM layer.
@@ -146,7 +146,7 @@ class mLSTMLayer(nn.Module):
         # Gates
         i_preact = self.igate_preact(x)  # [B, S, NH]
         f_preact = self.fgate_preact(x)  # [B, S, NH]
-        
+
         # Reshape gates to [B, NH, S]
         i = i_preact.transpose(1, 2)  # [B, NH, S]
         f = f_preact.transpose(1, 2)  # [B, NH, S]
@@ -194,15 +194,15 @@ class mLSTMLayer(nn.Module):
         return out, new_state
 
     def _recurrent_fallback(
-        self,
-        q: torch.Tensor,  # [B, NH, S, qk_dim]
-        k: torch.Tensor,  # [B, NH, S, qk_dim]
-        v: torch.Tensor,  # [B, NH, S, head_dim]
-        i: torch.Tensor,  # [B, NH, S]
-        f: torch.Tensor,  # [B, NH, S]
-        c_init: Optional[torch.Tensor] = None,
-        n_init: Optional[torch.Tensor] = None,
-        m_init: Optional[torch.Tensor] = None,
+            self,
+            q: torch.Tensor,  # [B, NH, S, qk_dim]
+            k: torch.Tensor,  # [B, NH, S, qk_dim]
+            v: torch.Tensor,  # [B, NH, S, head_dim]
+            i: torch.Tensor,  # [B, NH, S]
+            f: torch.Tensor,  # [B, NH, S]
+            c_init: Optional[torch.Tensor] = None,
+            n_init: Optional[torch.Tensor] = None,
+            m_init: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         """
         Fallback recurrent implementation if kernel not available.
@@ -234,13 +234,13 @@ class mLSTMLayer(nn.Module):
             q_t = q[:, :, t, :]  # [B, NH, qk_dim]
             k_t = k[:, :, t, :]  # [B, NH, qk_dim]
             v_t = v[:, :, t, :]  # [B, NH, head_dim]
-            i_t = i[:, :, t:t+1]  # [B, NH, 1]
-            f_t = f[:, :, t:t+1]  # [B, NH, 1]
+            i_t = i[:, :, t:t + 1]  # [B, NH, 1]
+            f_t = f[:, :, t:t + 1]  # [B, NH, 1]
 
             # Update logic (simplified exponential gating)
             f_log = torch.nn.functional.logsigmoid(f_t)
             m_new = torch.max(f_log + m_state, i_t)
-            
+
             f_act = torch.exp(f_log + m_state - m_new)
             i_act = torch.exp(i_t - m_new)
 

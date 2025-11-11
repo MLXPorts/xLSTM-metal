@@ -16,31 +16,31 @@ except ImportError:
 
 
 def _mlstm_recurrent_sequence_loop_fw(
-    mlstm_step_fn: Callable,
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHV)
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_initial: torch.Tensor = None,  # (B, NH)
-    return_last_states: bool = False,
-    return_all_states: bool = False,
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
-    **kwargs,
+        mlstm_step_fn: Callable,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHV)
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_initial: torch.Tensor = None,  # (B, NH)
+        return_last_states: bool = False,
+        return_all_states: bool = False,
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
+        **kwargs,
 ) -> tuple[
     torch.Tensor,  # (B, NH, S, DHV)
     torch.Tensor,  # (B, NH, S, DHQK)
     torch.Tensor,  # (B, NH, S)
     None
     | (
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ),  # (matC_state_last (B, NH, DHQK, DHV), vecN_state_last (B, NH, DHQK), vecM_state_last (B, NH, 1))
     None
     | (
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ),  # (matC_states (B, NH, S, DHQK, DHV), vecN_states (B, NH, S, DHQK), vecM_states (B, NH, S))
 ]:
     global vecM_list, vecN_list, matC_list
@@ -50,10 +50,10 @@ def _mlstm_recurrent_sequence_loop_fw(
 
     if matC_initial is not None:
         assert (
-            vecN_initial is not None and scaM_initial is not None
+                vecN_initial is not None and scaM_initial is not None
         ), "Initial states must be provided together."
         assert (
-            vecN_initial is not None and scaM_initial is not None
+                vecN_initial is not None and scaM_initial is not None
         ), "Initial states must be provided together."
         matC_state, vecN_state, vecM_state = (
             matC_initial.to(dtype=dtype_state),
@@ -129,20 +129,20 @@ def _mlstm_recurrent_sequence_loop_fw(
 
 
 def mlstm_recurrent_sequence__native_fw(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    dtype_state: torch.dtype = torch.float32,
-    **kwargs,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        dtype_state: torch.dtype = torch.float32,
+        **kwargs,
 ) -> (
-    torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+        torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):
     """
 
@@ -172,19 +172,19 @@ def mlstm_recurrent_sequence__native_fw(
 
 if mlstm_recurrent_step__triton_alternate_fw is not None:
     def mlstm_recurrent_sequence__triton_alternate_step_fw(
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        i: torch.Tensor,
-        f: torch.Tensor,
-        c_initial: torch.Tensor = None,
-        n_initial: torch.Tensor = None,
-        m_initial: torch.Tensor = None,
-        return_last_states: bool = False,
-        eps: float = 1e-6,
-        **kwargs,
+            q: torch.Tensor,
+            k: torch.Tensor,
+            v: torch.Tensor,
+            i: torch.Tensor,
+            f: torch.Tensor,
+            c_initial: torch.Tensor = None,
+            n_initial: torch.Tensor = None,
+            m_initial: torch.Tensor = None,
+            return_last_states: bool = False,
+            eps: float = 1e-6,
+            **kwargs,
     ) -> (
-        torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+            torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
     ):
         """
 
@@ -212,23 +212,22 @@ if mlstm_recurrent_step__triton_alternate_fw is not None:
 else:
     mlstm_recurrent_sequence__triton_alternate_step_fw = None
 
-
 if mlstm_recurrent_step__triton_fw is not None:
     def mlstm_recurrent_sequence__triton_step_fused_fw(
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        i: torch.Tensor,
-        f: torch.Tensor,
-        c_initial: torch.Tensor = None,
-        n_initial: torch.Tensor = None,
-        m_initial: torch.Tensor = None,
-        return_last_states: bool = False,
-        eps: float = 1e-6,
-        dtype_state: torch.dtype = torch.float32,
-        **kwargs,
+            q: torch.Tensor,
+            k: torch.Tensor,
+            v: torch.Tensor,
+            i: torch.Tensor,
+            f: torch.Tensor,
+            c_initial: torch.Tensor = None,
+            n_initial: torch.Tensor = None,
+            m_initial: torch.Tensor = None,
+            return_last_states: bool = False,
+            eps: float = 1e-6,
+            dtype_state: torch.dtype = torch.float32,
+            **kwargs,
     ) -> (
-        torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+            torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
     ):
         """
 

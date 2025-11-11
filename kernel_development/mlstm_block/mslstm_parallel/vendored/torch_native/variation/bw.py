@@ -6,15 +6,15 @@ from torch.nn.functional import logsigmoid
 
 
 def mlstm_parallel_bw(
-    matDeltaHtilde: torch.Tensor,
-    matQ: torch.Tensor,
-    matK: torch.Tensor,
-    matV: torch.Tensor,
-    vecI: torch.Tensor,
-    vecF: torch.Tensor,
-    vecN: torch.Tensor,
-    vecM: torch.Tensor,
-    eps: float = 1e-6,
+        matDeltaHtilde: torch.Tensor,
+        matQ: torch.Tensor,
+        matK: torch.Tensor,
+        matV: torch.Tensor,
+        vecI: torch.Tensor,
+        vecF: torch.Tensor,
+        vecN: torch.Tensor,
+        vecM: torch.Tensor,
+        eps: float = 1e-6,
 ) -> tuple[torch.Tensor, ...]:
     """
 
@@ -60,7 +60,7 @@ def mlstm_parallel_bw(
     # intermediate delta-errors
     matDeltaC = matDeltaHtilde @ matV.transpose(-2, -1) / (vecN[:, :, :, None] + eps)
 
-    matS = (matQ @ matK.transpose(-2, -1)) * (DHQK**-0.5)
+    matS = (matQ @ matK.transpose(-2, -1)) * (DHQK ** -0.5)
 
     matDeltaDtilde = matDeltaC * matD * matS
 
@@ -69,8 +69,8 @@ def mlstm_parallel_bw(
     # output delta-errors / gradients
     matP = matDeltaC * matD
 
-    matDeltaQ = (matP @ matK) * (DHQK**-0.5)
-    matDeltaK = (matP.transpose(-2, -1) @ matQ) * (DHQK**-0.5)
+    matDeltaQ = (matP @ matK) * (DHQK ** -0.5)
+    matDeltaK = (matP.transpose(-2, -1) @ matQ) * (DHQK ** -0.5)
 
     matCtilde = matS * matD
     matDeltaV = matCtilde.transpose(-2, -1) @ (matDeltaHtilde / (vecN[:, :, :, None] + eps))

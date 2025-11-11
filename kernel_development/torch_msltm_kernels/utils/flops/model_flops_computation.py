@@ -2,18 +2,18 @@
 #  This software may be used and distributed according to the terms of the NXAI Community License Agreement.
 
 def compute_total_model_flops(
-    total_fw_block_flops: int = None,
-    batch_size: int = None,
-    num_blocks: int = None,
-    vocab_size: int = None,
-    embedding_dim: int = None,
-    sequence_length: int = None,
-    num_train_steps: int = 1,
-    include_embedding_flops: bool = True,
-    include_logits_flops: bool = True,
-    backward_flop_factor: float = 2.0,
-    total_fw_block2_flops: int = None,
-    num_blocks2: int = None,
+        total_fw_block_flops: int = None,
+        batch_size: int = None,
+        num_blocks: int = None,
+        vocab_size: int = None,
+        embedding_dim: int = None,
+        sequence_length: int = None,
+        num_train_steps: int = 1,
+        include_embedding_flops: bool = True,
+        include_logits_flops: bool = True,
+        backward_flop_factor: float = 2.0,
+        total_fw_block2_flops: int = None,
+        num_blocks2: int = None,
 ) -> int:
     """
 
@@ -52,19 +52,19 @@ def compute_total_model_flops(
 
 
 def compute_total_model_flops_for_block_flops_dict(
-    block_flops_dict: dict[str, tuple[int, ...]],
-    batch_size: int = None,
-    num_blocks: int = None,
-    vocab_size: int = None,
-    embedding_dim: int = None,
-    sequence_length: int = None,
-    num_train_steps: int = None,
+        block_flops_dict: dict[str, tuple[int, ...]],
+        batch_size: int = None,
+        num_blocks: int = None,
+        vocab_size: int = None,
+        embedding_dim: int = None,
+        sequence_length: int = None,
+        num_train_steps: int = None,
         sizes_dict=None,
-    include_embedding_flops: bool = True,
-    include_logits_flops: bool = True,
-    backward_flop_factor: float = 2.0,
-    block2_flops_dict: dict[str, tuple[int, ...]] = None,
-    num_blocks2: int = None,
+        include_embedding_flops: bool = True,
+        include_logits_flops: bool = True,
+        backward_flop_factor: float = 2.0,
+        block2_flops_dict: dict[str, tuple[int, ...]] = None,
+        num_blocks2: int = None,
 ) -> dict[str, tuple[int]]:
     """
 

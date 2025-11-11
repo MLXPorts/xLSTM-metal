@@ -1,4 +1,3 @@
-
 """
 MLX orthogonality helpers (left/right orthonormality + completion).
 

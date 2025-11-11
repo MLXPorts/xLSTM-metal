@@ -15,17 +15,17 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__recurrent_fw_C(
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecF: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
-    vecI: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaMinter_initial: jax.Array | None = None,  # (B, NH)
-    chunk_size: int = 64,
-    num_stages: int | None = None,
-    num_warps: int | None = None,
-    save_states_every_nth_chunk: int = 1,
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecF: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
+        vecI: jax.Array,  # (B, NH, NC * L) = (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaMinter_initial: jax.Array | None = None,  # (B, NH)
+        chunk_size: int = 64,
+        num_stages: int | None = None,
+        num_warps: int | None = None,
+        save_states_every_nth_chunk: int = 1,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:
     """
     Execute the recurrent forward kernel for the C computation in the mLSTM chunkwise formulation.

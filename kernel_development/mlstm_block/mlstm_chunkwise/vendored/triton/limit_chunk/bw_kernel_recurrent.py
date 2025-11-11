@@ -31,48 +31,48 @@ import triton.language as tl
 
 @triton.jit
 def mlstm_chunkwise__recurrent_bw_dC_kernel(
-    matQ,  # (B, NH, S, DHQK)
-    vecB,  # (B, NH, NC, L)
-    scaM_inter,  # (B, NH, NC+1)
-    vecM_combine,  # (B, NH, S)
-    matDeltaH,  # (B, NH, S, DHHV)
-    vecN_out,  # (B, NH, S)
-    matDeltaC_last,  # (B, NH, DHQK, DHHV)
-    matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
-    qk_scale,
-    str_matQ_B_NH,
-    str_matQ_S,
-    str_matQ_DHQK,
-    str_vecB_B_NH,
-    str_vecB_NC,
-    str_vecB_L,
-    str_scaM_inter_B_NH,
-    str_scaM_inter_NC,
-    str_vecM_combine_B_NH,
-    str_vecM_combine_S,
-    str_matDeltaH_B_NH,
-    str_matDeltaH_S,
-    str_matDeltaH_DHHV,
-    str_vecN_out_B_NH,
-    str_vecN_out_S,
-    str_matDeltaC_last_B_NH,
-    str_matDeltaC_last_DHQK,
-    str_matDeltaC_last_DHHV,
-    str_matDeltaC_states_B_NH,
-    str_matDeltaC_states_NCDHQK,
-    str_matDeltaC_states_DHHV,
-    B: tl.constexpr,
-    NH: tl.constexpr,
-    S: tl.constexpr,
-    DHQK: tl.constexpr,
-    DHHV: tl.constexpr,
-    NC: tl.constexpr,
-    L: tl.constexpr,
-    siz_b_DHQK: tl.constexpr,
-    siz_b_DHHV: tl.constexpr,
-    USE_LAST_STATE: tl.constexpr,
-    DTYPE: tl.constexpr = tl.float32,
-    EPS: tl.constexpr = 1e-6,
+        matQ,  # (B, NH, S, DHQK)
+        vecB,  # (B, NH, NC, L)
+        scaM_inter,  # (B, NH, NC+1)
+        vecM_combine,  # (B, NH, S)
+        matDeltaH,  # (B, NH, S, DHHV)
+        vecN_out,  # (B, NH, S)
+        matDeltaC_last,  # (B, NH, DHQK, DHHV)
+        matDeltaC_states,  # (B, NH, (NC+1) * DHQK, DHHV)
+        qk_scale,
+        str_matQ_B_NH,
+        str_matQ_S,
+        str_matQ_DHQK,
+        str_vecB_B_NH,
+        str_vecB_NC,
+        str_vecB_L,
+        str_scaM_inter_B_NH,
+        str_scaM_inter_NC,
+        str_vecM_combine_B_NH,
+        str_vecM_combine_S,
+        str_matDeltaH_B_NH,
+        str_matDeltaH_S,
+        str_matDeltaH_DHHV,
+        str_vecN_out_B_NH,
+        str_vecN_out_S,
+        str_matDeltaC_last_B_NH,
+        str_matDeltaC_last_DHQK,
+        str_matDeltaC_last_DHHV,
+        str_matDeltaC_states_B_NH,
+        str_matDeltaC_states_NCDHQK,
+        str_matDeltaC_states_DHHV,
+        B: tl.constexpr,
+        NH: tl.constexpr,
+        S: tl.constexpr,
+        DHQK: tl.constexpr,
+        DHHV: tl.constexpr,
+        NC: tl.constexpr,
+        L: tl.constexpr,
+        siz_b_DHQK: tl.constexpr,
+        siz_b_DHHV: tl.constexpr,
+        USE_LAST_STATE: tl.constexpr,
+        DTYPE: tl.constexpr = tl.float32,
+        EPS: tl.constexpr = 1e-6,
 ):
     """
 

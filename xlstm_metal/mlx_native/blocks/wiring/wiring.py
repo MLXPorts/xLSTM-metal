@@ -364,11 +364,11 @@ class WiredMADModel(nn.Module):
     """
 
     def __init__(
-        self,
-        wiring: MADWiring,
-        input_block: str,
-        output_block: str,
-        enable_parallel: bool = False  # TODO: Implement parallel execution
+            self,
+            wiring: MADWiring,
+            input_block: str,
+            output_block: str,
+            enable_parallel: bool = False  # TODO: Implement parallel execution
     ):
         """
         Initialize wired MAD model.
@@ -401,9 +401,9 @@ class WiredMADModel(nn.Module):
             self.blocks[name] = wiring.get_block(name)
 
     def forward(
-        self,
-        x: torch.Tensor,
-        hidden_states: Optional[Dict[str, Any]] = None
+            self,
+            x: torch.Tensor,
+            hidden_states: Optional[Dict[str, Any]] = None
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
         """
         Forward pass following wiring graph.
@@ -484,10 +484,10 @@ class WiredMADModel(nn.Module):
 
 
 def create_parallel_head_wiring(
-    num_heads: int = 4,
-    d_model: int = 512,
-    head_dim: int = 128,
-    backend: BackendType = BackendType.TORCH_COMPILED
+        num_heads: int = 4,
+        d_model: int = 512,
+        head_dim: int = 128,
+        backend: BackendType = BackendType.TORCH_COMPILED
 ) -> MADWiring:
     """
     Create wiring for parallel multi-head mLSTM.
@@ -550,9 +550,9 @@ def create_parallel_head_wiring(
 
 
 def create_xlstm_7_1_wiring(
-    d_model: int = 512,
-    num_blocks: int = 8,
-    backend: BackendType = BackendType.TORCH_COMPILED
+        d_model: int = 512,
+        num_blocks: int = 8,
+        backend: BackendType = BackendType.TORCH_COMPILED
 ) -> MADWiring:
     """
     Create wiring for 7:1 xLSTM pattern (7 mLSTM blocks, 1 sLSTM block).
@@ -622,17 +622,17 @@ def create_xlstm_7_1_wiring(
 
 
 def create_xlstm_7b_mlx_wiring(
-    embedding_dim: int = 4096,
-    num_heads: int = 8,
-    num_blocks: int = 32,
-    vocab_size: int = 50304,
-    qk_dim_factor: float = 0.5,
-    v_dim_factor: float = 1.0,
-    gate_soft_cap: float = 15.0,
-    ffn_proj_factor: float = 2.671875,
-    ffn_act_fn: str = "swish",
-    norm_eps: float = 1e-6,
-    output_logit_soft_cap: float = 30.0
+        embedding_dim: int = 4096,
+        num_heads: int = 8,
+        num_blocks: int = 32,
+        vocab_size: int = 50304,
+        qk_dim_factor: float = 0.5,
+        v_dim_factor: float = 1.0,
+        gate_soft_cap: float = 15.0,
+        ffn_proj_factor: float = 2.671875,
+        ffn_act_fn: str = "swish",
+        norm_eps: float = 1e-6,
+        output_logit_soft_cap: float = 30.0
 ) -> MADWiring:
     """
     Create MAD wiring for xLSTM-7B model using MLX backend.
@@ -709,10 +709,10 @@ def create_xlstm_7b_mlx_wiring(
 
     # Connect blocks sequentially
     for i in range(num_blocks - 1):
-        wiring.add_connection(f'xlstm_{i}', f'xlstm_{i+1}')
+        wiring.add_connection(f'xlstm_{i}', f'xlstm_{i + 1}')
 
     # Connect last block to final norm and lm head
-    wiring.add_connection(f'xlstm_{num_blocks-1}', 'final_norm')
+    wiring.add_connection(f'xlstm_{num_blocks - 1}', 'final_norm')
     wiring.add_connection('final_norm', 'lm_head')
 
     return wiring

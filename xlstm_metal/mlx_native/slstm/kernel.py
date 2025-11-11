@@ -91,15 +91,15 @@ def slstm_recurrent_step(
 
 
 def slstm_sequential(
-    z: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    o_preact: mx.array,
-    c_initial: Optional[mx.array] = None,
-    n_initial: Optional[mx.array] = None,
-    m_initial: Optional[mx.array] = None,
-    eps: float = 1e-6,
-    return_last_states: bool = True
+        z: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        o_preact: mx.array,
+        c_initial: Optional[mx.array] = None,
+        n_initial: Optional[mx.array] = None,
+        m_initial: Optional[mx.array] = None,
+        eps: float = 1e-6,
+        return_last_states: bool = True
 ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
     """
     Sequential sLSTM processing for inference.

@@ -9,18 +9,18 @@ from kernel_development.mlstm_block.mslstm_parallel.vendored.torch_native import
 
 
 def _parallel_native_compiled_autograd_eager(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    return_last_states: bool = True,
-    eps: float = 1e-6,
-    autocast_kernel_dtype: torch.dtype = torch.bfloat16,
-    **kwargs,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        return_last_states: bool = True,
+        eps: float = 1e-6,
+        autocast_kernel_dtype: torch.dtype = torch.bfloat16,
+        **kwargs,
 ):
     # Strict device check: compiled path must run on GPU
     if q.device.type == 'cpu':
@@ -35,18 +35,18 @@ def _parallel_native_compiled_autograd_eager(
 
 
 def _parallel_native_stablef_compiled_autograd_eager(
-    q: torch.Tensor,
-    k: torch.Tensor,
-    v: torch.Tensor,
-    i: torch.Tensor,
-    f: torch.Tensor,
-    c_initial: torch.Tensor = None,
-    n_initial: torch.Tensor = None,
-    m_initial: torch.Tensor = None,
-    return_last_states: bool = True,
-    eps: float = 1e-6,
-    autocast_kernel_dtype: torch.dtype = torch.bfloat16,
-    **kwargs,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        i: torch.Tensor,
+        f: torch.Tensor,
+        c_initial: torch.Tensor = None,
+        n_initial: torch.Tensor = None,
+        m_initial: torch.Tensor = None,
+        return_last_states: bool = True,
+        eps: float = 1e-6,
+        autocast_kernel_dtype: torch.dtype = torch.bfloat16,
+        **kwargs,
 ):
     # Strict device check: compiled path must run on GPU
     if q.device.type == 'cpu':

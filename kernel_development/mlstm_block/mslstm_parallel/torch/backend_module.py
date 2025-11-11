@@ -130,20 +130,20 @@ class mLSTMBackend(nn.Module):
         self._train_fn = train_kernel_fn
 
     def forward(
-        self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        i: torch.Tensor,
-        f: torch.Tensor,
-        c_initial: torch.Tensor = None,
-        n_initial: torch.Tensor = None,
-        m_initial: torch.Tensor = None,
-        return_last_states: bool = None,
-        mode: Literal["train", "inference"] = None,
+            self,
+            q: torch.Tensor,
+            k: torch.Tensor,
+            v: torch.Tensor,
+            i: torch.Tensor,
+            f: torch.Tensor,
+            c_initial: torch.Tensor = None,
+            n_initial: torch.Tensor = None,
+            m_initial: torch.Tensor = None,
+            return_last_states: bool = None,
+            mode: Literal["train", "inference"] = None,
     ) -> (
-        torch.Tensor
-        | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+            torch.Tensor
+            | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
     ):
         """Forward pass of the mLSTM backend.
 

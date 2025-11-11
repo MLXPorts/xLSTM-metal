@@ -5,6 +5,7 @@ Metal kernel implementation for variable-precision quantization using MLX's `fas
 ## Overview
 
 This kernel implements floating-point quantization by:
+
 1. Clipping input values to [-1, 1] range
 2. Scaling by `2^(bits-1) - 1`
 3. Rounding to nearest integer
@@ -15,6 +16,7 @@ This simulates reduced bit precision while maintaining float32 format.
 ## Implementation Pattern
 
 Follows the established pattern from `soft_cap` kernel:
+
 - Class with `.compile()` method for early compilation
 - `_kernel` instance variable caches compiled Metal shader
 - Lazy compilation if `.compile()` not called explicitly
@@ -23,6 +25,7 @@ Follows the established pattern from `soft_cap` kernel:
 ## Usage
 
 ### Basic Usage
+
 ```python
 import mlx.core as mx
 from variable_quantization import quantize
@@ -32,6 +35,7 @@ y = quantize(x, bits=4)  # Quantize to 4-bit precision
 ```
 
 ### Early Compilation Pattern
+
 ```python
 from variable_quantization import VariableQuantizationMLXKernel
 
@@ -45,6 +49,7 @@ y2 = kernel(data2, bits=8)
 ```
 
 ### Class-Based Usage
+
 ```python
 from variable_quantization import VariableQuantizationMLXKernel
 
@@ -56,16 +61,17 @@ result = kernel(data, bits=4)
 
 Different bit depths provide different quantization levels:
 
-| Bits | Scale | Levels | Range |
-|------|-------|--------|-------|
-| 2    | 1     | 3      | -1.0, 0.0, 1.0 |
-| 4    | 7     | 15     | -1.0 to 1.0 in steps of ~0.143 |
-| 8    | 127   | 255    | -1.0 to 1.0 in steps of ~0.008 |
+| Bits | Scale | Levels | Range                            |
+|------|-------|--------|----------------------------------|
+| 2    | 1     | 3      | -1.0, 0.0, 1.0                   |
+| 4    | 7     | 15     | -1.0 to 1.0 in steps of ~0.143   |
+| 8    | 127   | 255    | -1.0 to 1.0 in steps of ~0.008   |
 | 16   | 32767 | 65535  | -1.0 to 1.0 in steps of ~0.00003 |
 
 ## Examples
 
 ### Compare Bit Depths
+
 ```python
 x = mx.array([0.1, 0.5, 0.9], dtype=mx.float32)
 
@@ -75,6 +81,7 @@ y_8bit = quantize(x, bits=8)  # High precision
 ```
 
 ### Multi-dimensional Arrays
+
 ```python
 # Works with any shape
 x = mx.random.uniform(-1, 1, shape=(100, 50), dtype=mx.float32)
@@ -82,6 +89,7 @@ y = quantize(x, bits=4)  # Shape preserved: (100, 50)
 ```
 
 ### Clipping Behavior
+
 ```python
 # Values outside [-1, 1] are automatically clipped
 x = mx.array([-2.0, -0.5, 0.5, 2.0], dtype=mx.float32)
@@ -98,18 +106,21 @@ Class implementing the quantization kernel.
 #### Methods
 
 **`__init__()`**
+
 - Initializes kernel with `_kernel = None`
 
 **`compile() -> mx.fast.metal_kernel`**
+
 - Compiles Metal shader and caches result
 - Returns cached kernel on subsequent calls
 - Call early to frontload compilation cost
 
 **`__call__(x: mx.array, bits: int) -> mx.array`**
+
 - Apply quantization to input array
 - **Parameters:**
-  - `x`: Input array (float32)
-  - `bits`: Number of bits (1-16)
+    - `x`: Input array (float32)
+    - `bits`: Number of bits (1-16)
 - **Returns:** Quantized array (same shape as input)
 - **Raises:** `ValueError` if bits not in [1, 16]
 
@@ -120,11 +131,13 @@ Convenience function using global kernel instance.
 ## Testing
 
 Run tests to verify correctness:
+
 ```bash
 python test_quantization.py
 ```
 
 Tests cover:
+
 - Kernel compilation and caching
 - 2, 4, and 8-bit quantization
 - Clipping behavior
@@ -147,6 +160,7 @@ The kernel uses several Metal optimizations for high performance:
 ### Benchmark Results (Apple Silicon)
 
 **Throughput by Array Size (4-bit quantization)**:
+
 - 1K elements: ~5 M elements/s (cache-friendly)
 - 10K elements: ~55 M elements/s
 - 100K elements: ~510 M elements/s
@@ -158,6 +172,7 @@ The kernel uses several Metal optimizations for high performance:
 **Bit Depth Impact**: Performance remains consistent across 2-16 bit depths (~5,000 M elements/s for 1M arrays)
 
 Run benchmark:
+
 ```bash
 python benchmark_optimized.py
 ```
@@ -167,17 +182,20 @@ python benchmark_optimized.py
 Two kernel implementations are provided:
 
 **Standard Kernel** (vectorized SIMD):
+
 - Best for small arrays (< 10K elements)
 - Lower latency for small workloads
 - Simple memory access pattern
 
 **Block Kernel** (threadgroup shared memory):
+
 - Optimal for large arrays (> 100K elements)
 - Uses 4KB shared memory per threadgroup
 - Cooperative load/store for bandwidth efficiency
 - Default for global `quantize()` function
 
 Select kernel variant:
+
 ```python
 # Standard vectorized kernel
 kernel_std = VariableQuantizationMLXKernel(use_block_kernel=False)
@@ -233,6 +251,7 @@ for (uint i = local_tid; i < block_size; i += tg_size) {
 ### Performance Characteristics
 
 **Memory Access Pattern**:
+
 1. **Load Phase**: Threads cooperatively load 1024 elements into shared memory
 2. **Barrier**: Ensure all loads complete before processing
 3. **Process Phase**: Vectorized SIMD operations on shared memory (4x parallelism)
@@ -240,6 +259,7 @@ for (uint i = local_tid; i < block_size; i += tg_size) {
 5. **Store Phase**: Threads cooperatively write back to global memory
 
 **Why This Is Fast**:
+
 - **Shared memory**: ~400 GB/s bandwidth (vs ~200 GB/s for device memory)
 - **Coalesced access**: All threads in warp access consecutive memory
 - **Vectorization**: 4 elements per instruction (SIMD lanes)
@@ -249,12 +269,14 @@ for (uint i = local_tid; i < block_size; i += tg_size) {
 **Occupancy**: 256 threads per threadgroup = 8 warps (100% occupancy on Apple GPU)
 
 ### Grid Configuration
+
 - Grid: `(num_blocks * 256, 1, 1)` where num_blocks = ceil(size / 1024)
 - Threadgroup: `(256, 1, 1)` - optimal for Apple Silicon
 - Each thread processes multiple elements via strided loops
 - Block size: 1024 elements (4KB shared memory per threadgroup)
 
 ### Input Preparation
+
 1. Flatten input array
 2. Cast to float32
 3. Compute scale: `2^(bits-1) - 1`
@@ -262,6 +284,7 @@ for (uint i = local_tid; i < block_size; i += tg_size) {
 5. Create shape buffer with size
 
 ### Output Processing
+
 Reshape flattened output back to original shape
 
 ## Files
@@ -275,6 +298,7 @@ Reshape flattened output back to original shape
 ## Comparison to Original Experiment
 
 The original Ray-based experiment had:
+
 - NumPy implementation
 - Ray distributed computing
 - Multiple quantization methods (quantile, floating_point)
@@ -282,6 +306,7 @@ The original Ray-based experiment had:
 - Memory profiling
 
 This implementation:
+
 - Uses MLX Metal kernel (GPU acceleration)
 - Implements only floating_point method
 - Much simpler API
@@ -302,6 +327,7 @@ activations = quantize(activations, bits=4)  # Reduce precision
 ## Future Enhancements
 
 Potential improvements:
+
 - Add quantile-based quantization method
 - Support for asymmetric quantization ranges
 - Per-channel quantization for tensors

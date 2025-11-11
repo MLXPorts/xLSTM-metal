@@ -10,14 +10,14 @@ MINIMUM_MAX_VAL = -10  # -float("inf")  # -10.0
 
 
 def mlstm_parallel_fw(
-    matQ: torch.Tensor,
-    matK: torch.Tensor,
-    matV: torch.Tensor,
-    vecI: torch.Tensor,
-    vecF: torch.Tensor,
-    eps: float = 1e-6,
-    # BLOCK_Q: int = BLOCK_Q,
-    # BLOCK_KV: int = BLOCK_KV,
+        matQ: torch.Tensor,
+        matK: torch.Tensor,
+        matV: torch.Tensor,
+        vecI: torch.Tensor,
+        vecF: torch.Tensor,
+        eps: float = 1e-6,
+        # BLOCK_Q: int = BLOCK_Q,
+        # BLOCK_KV: int = BLOCK_KV,
 ) -> torch.Tensor:
     """
 
@@ -84,7 +84,7 @@ def mlstm_parallel_fw(
         matV=matV.contiguous(),
         vecI=vecI.contiguous(),
         vecF_cs=vecF_cs.contiguous(),
-        qk_scale=HEAD_DIM_Q**0.5,
+        qk_scale=HEAD_DIM_Q ** 0.5,
         matH=matH,
         vecN=vecN,
         vecM=vecM,

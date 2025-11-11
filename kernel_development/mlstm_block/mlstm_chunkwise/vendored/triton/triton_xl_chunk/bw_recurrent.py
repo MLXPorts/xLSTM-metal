@@ -5,24 +5,25 @@ import torch
 import triton
 
 from kernel_development.mlstm_block.mslstm_parallel.torch.utils import torch2triton_dtype
-from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk import mlstm_chunkwise__recurrent_bw_dC_kernel
+from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk import \
+    mlstm_chunkwise__recurrent_bw_dC_kernel
 from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__recurrent_bw_dC(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    vecF: torch.Tensor,  # (B, NH, NC * L) = (B, NH, S)
-    scaM_inter: torch.Tensor,  # (B, NH, NC+1)
-    vecM_combine: torch.Tensor,  # (B, NH, S)
-    matDeltaH: torch.Tensor,  # (B, NH, S, DHHV)
-    vecN_out: torch.Tensor,  # (B, NH, S)
-    matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    qk_scale: float = None,
-    chunk_size: int = 64,
-    save_states_every_nth_chunk: int = 1,
-    num_warps: int | None = None,
-    num_stages: int | None = None,
-    eps: float = 0.0,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        vecF: torch.Tensor,  # (B, NH, NC * L) = (B, NH, S)
+        scaM_inter: torch.Tensor,  # (B, NH, NC+1)
+        vecM_combine: torch.Tensor,  # (B, NH, S)
+        matDeltaH: torch.Tensor,  # (B, NH, S, DHHV)
+        vecN_out: torch.Tensor,  # (B, NH, S)
+        matDeltaC_last: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        qk_scale: float = None,
+        chunk_size: int = 64,
+        save_states_every_nth_chunk: int = 1,
+        num_warps: int | None = None,
+        num_stages: int | None = None,
+        eps: float = 0.0,
 ) -> torch.Tensor:  # matDeltaC_states (B, NH, (NC+1) * DHQK, DHHV)
     """Computes only the deltaC gradients for the backward pass.
     The other gradients are computed in the other (kernel) function.
@@ -43,7 +44,7 @@ def mlstm_chunkwise__recurrent_bw_dC(
     ), f"save_states_every_nth_chunk must be a power of 2. Got {save_states_every_nth_chunk}."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     USE_LAST_STATE = matDeltaC_last is not None
 

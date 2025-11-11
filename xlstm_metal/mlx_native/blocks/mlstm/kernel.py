@@ -11,15 +11,15 @@ import mlx.core as mx
 
 
 def mlstm_recurrent_step(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    c_state: mx.array,
-    n_state: mx.array,
-    m_state: mx.array,
-    eps: float = 1e-6
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        c_state: mx.array,
+        n_state: mx.array,
+        m_state: mx.array,
+        eps: float = 1e-6
 ) -> Tuple[mx.array, mx.array, mx.array, mx.array]:
     """
     Single-step mLSTM recurrence with exponential gating.
@@ -105,16 +105,16 @@ def mlstm_recurrent_step(
 
 
 def mlstm_sequential(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    c_initial: Optional[mx.array] = None,
-    n_initial: Optional[mx.array] = None,
-    m_initial: Optional[mx.array] = None,
-    eps: float = 1e-6,
-    return_last_states: bool = True
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        c_initial: Optional[mx.array] = None,
+        n_initial: Optional[mx.array] = None,
+        m_initial: Optional[mx.array] = None,
+        eps: float = 1e-6,
+        return_last_states: bool = True
 ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
     """
     Sequential mLSTM processing for inference.
@@ -189,24 +189,24 @@ def mlstm_sequential(
 # See mad/blocks/mlstm_metal/ for Metal C++ implementations
 
 def mlstm_chunkwise(
-    q: mx.array,
-    k: mx.array,
-    v: mx.array,
-    i_preact: mx.array,
-    f_preact: mx.array,
-    chunk_size: int = 64,
-    c_initial: Optional[mx.array] = None,
-    n_initial: Optional[mx.array] = None,
-    m_initial: Optional[mx.array] = None,
-    eps: float = 1e-6,
-    return_last_states: bool = True,
-    siz_b_DHQK: int = 16,
-    siz_b_DHHV: int = 16,
-    siz_b_LQ: int = 8,
-    siz_b_LKV: int = 8,
-    siz_b_DHQK_parallel: int = 8,
-    siz_b_DHHV_parallel: int = 8,
-    max_chunk_size: int = 64
+        q: mx.array,
+        k: mx.array,
+        v: mx.array,
+        i_preact: mx.array,
+        f_preact: mx.array,
+        chunk_size: int = 64,
+        c_initial: Optional[mx.array] = None,
+        n_initial: Optional[mx.array] = None,
+        m_initial: Optional[mx.array] = None,
+        eps: float = 1e-6,
+        return_last_states: bool = True,
+        siz_b_DHQK: int = 16,
+        siz_b_DHHV: int = 16,
+        siz_b_LQ: int = 8,
+        siz_b_LKV: int = 8,
+        siz_b_DHQK_parallel: int = 8,
+        siz_b_DHHV_parallel: int = 8,
+        max_chunk_size: int = 64
 ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
     """
     Chunkwise parallel mLSTM processing using Metal kernels.

@@ -10,28 +10,28 @@ from .fw_recurrent import mlstm_chunkwise__recurrent_fw_C
 
 
 def mlstm_chunkwise_bw(
-    # Forward arguments
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHV)
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_initial: jax.Array | None = None,  # (B, NH)
-    qk_scale: float = None,
-    # Backward arguments
-    matC_all: jax.Array | None = None,  # (B, NH, NC * DHQK, DHV)
-    vecN_all: jax.Array | None = None,  # (B, NH, NC * DHQK)
-    scaM_all: jax.Array | None = None,  # (B, NH, NC)
-    vecN_out: jax.Array | None = None,  # (B, NH, NC * L) = (B, NH, S)
-    vecM_out: jax.Array | None = None,  # (B, NH, NC * L) = (B, NH, S)
-    matDeltaH: jax.Array | None = None,  # (B, NH, S, DHV)
-    matDeltaC_last: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-    # Common arguments
-    CHUNK_SIZE: int = 64,
-    EPS: float = 1e-6,
-    reduce_slicing: bool = False,
+        # Forward arguments
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHV)
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_initial: jax.Array | None = None,  # (B, NH)
+        qk_scale: float = None,
+        # Backward arguments
+        matC_all: jax.Array | None = None,  # (B, NH, NC * DHQK, DHV)
+        vecN_all: jax.Array | None = None,  # (B, NH, NC * DHQK)
+        scaM_all: jax.Array | None = None,  # (B, NH, NC)
+        vecN_out: jax.Array | None = None,  # (B, NH, NC * L) = (B, NH, S)
+        vecM_out: jax.Array | None = None,  # (B, NH, NC * L) = (B, NH, S)
+        matDeltaH: jax.Array | None = None,  # (B, NH, S, DHV)
+        matDeltaC_last: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+        # Common arguments
+        CHUNK_SIZE: int = 64,
+        EPS: float = 1e-6,
+        reduce_slicing: bool = False,
 ) -> tuple[
     jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array | None, jax.Array | None, jax.Array | None
 ]:  # matDeltaQ, matDeltaK, matDeltaV, vecDeltaI, vecDeltaF, matDeltaC_initial, vecDeltaN_initial, scaDeltaM_initial
@@ -83,7 +83,7 @@ def mlstm_chunkwise_bw(
     NC = S // CHUNK_SIZE
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     vecI = vecI.reshape(B, NH, NC, CHUNK_SIZE)
     vecF = vecF.reshape(B, NH, NC, CHUNK_SIZE).astype(jnp.float32)
@@ -95,7 +95,7 @@ def mlstm_chunkwise_bw(
     # Recompute the "all" states if needed.
     if matC_all is None:
         assert (
-            (matC_all is None) and (vecN_all is None) and (scaM_all is None)
+                (matC_all is None) and (vecN_all is None) and (scaM_all is None)
         ), "Either all or none of the states must be provided."
         matC_all, vecN_all, scaM_all = mlstm_chunkwise__recurrent_fw_C(
             matK=matK,

@@ -215,7 +215,7 @@ def test_state_continuity():
         q_full, k_full, v_full, i_full, f_full
     )
 
-    print(f"Full sequence (S={S1+S2}):")
+    print(f"Full sequence (S={S1 + S2}):")
     print(f"  Output shape: {h_full.shape}")
 
     # Compare: second half of full run vs continued run
@@ -250,10 +250,12 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(f"\n✗ Test failed: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)
     except Exception as e:
         print(f"\n✗ Unexpected error: {e}")
         import traceback
+
         traceback.print_exc()
         exit(1)

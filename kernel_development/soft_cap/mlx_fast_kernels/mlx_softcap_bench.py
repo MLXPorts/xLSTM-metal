@@ -14,6 +14,7 @@ from kernel_development.soft_cap.mlx_fast_kernels.softcap import SoftCapMLXFastK
 
 metal_soft_cap = SoftCapMLXFastKernel()
 
+
 def soft_cap_mlx(x, cap):
     """
 
@@ -60,4 +61,4 @@ def bench_once(n=1_000_000, cap=15.0, dtype=mx.float32):
 if __name__ == "__main__":
     for n in (1_000_0, 1_000_00, 1_000_000):
         diff, t_mlx, t_mtl = bench_once(n=n)
-        print(f"n={n:8d}  max|Δ|={diff:.3e}  mlx={t_mlx*1e3:.2f} ms  metal={t_mtl*1e3:.2f} ms")
+        print(f"n={n:8d}  max|Δ|={diff:.3e}  mlx={t_mlx * 1e3:.2f} ms  metal={t_mtl * 1e3:.2f} ms")

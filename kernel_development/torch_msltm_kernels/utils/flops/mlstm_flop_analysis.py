@@ -104,9 +104,9 @@ def get_mlstm_v2_fw_7B_flops(sequence_length: int, chunk_size: int, batch_size: 
 
 ## plotting
 def get_flops_array_for_sizes(
-    model_size_keys: list[str],
-    flop_computation_dict: dict[str, FLOPsComputation],
-    flop_type: str = "total_other_flops",
+        model_size_keys: list[str],
+        flop_computation_dict: dict[str, FLOPsComputation],
+        flop_type: str = "total_other_flops",
 ) -> list[int]:
     """
 
@@ -127,11 +127,11 @@ def get_flops_array_for_sizes(
 
 
 def plot_mlstm_v1_v2_flop_comparison(
-    sequence_length: int,
-    batch_size: int,
-    chunk_size: int,
-    model_size_keys: list[str],
-    plot_only_total_flops: bool = True,
+        sequence_length: int,
+        batch_size: int,
+        chunk_size: int,
+        model_size_keys: list[str],
+        plot_only_total_flops: bool = True,
 ):
     """
 
@@ -229,9 +229,9 @@ def plot_mlstm_v1_v2_flop_comparison(
 
 
 def make_flop_table(
-    model_size_keys: list[str],
-    mlstm_flops_v1: dict[str, FLOPsComputation],
-    mlstm_flops_v2: dict[str, FLOPsComputation],
+        model_size_keys: list[str],
+        mlstm_flops_v1: dict[str, FLOPsComputation],
+        mlstm_flops_v2: dict[str, FLOPsComputation],
 ):
     """
 
@@ -289,7 +289,7 @@ def make_flop_table(
 
 
 def make_chunkwise_flop_chunksize_sweep(
-    seq_len, chunk_sizes: list[int], dqk, dv, Nh, factor_exp, factor_max, factor_mask
+        seq_len, chunk_sizes: list[int], dqk, dv, Nh, factor_exp, factor_max, factor_mask
 ):
     """
 
@@ -341,7 +341,7 @@ def make_chunkwise_flop_chunksize_sweep(
 
 
 def make_chunkwise_flop_sequence_length_sweep(
-    seq_lengths: list[int], chunk_size, dqk, dv, Nh, factor_exp, factor_max, factor_mask
+        seq_lengths: list[int], chunk_size, dqk, dv, Nh, factor_exp, factor_max, factor_mask
 ):
     """
 

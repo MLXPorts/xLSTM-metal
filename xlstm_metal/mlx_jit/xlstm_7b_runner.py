@@ -26,12 +26,12 @@ class xLSTM7BRunner:
     """
 
     def __init__(
-        self,
-        embedding_dim: int = 4096,
-        num_heads: int = 8,
-        num_blocks: int = 32,
-        vocab_size: int = 50304,
-        output_logit_soft_cap: float = 30.0
+            self,
+            embedding_dim: int = 4096,
+            num_heads: int = 8,
+            num_blocks: int = 32,
+            vocab_size: int = 50304,
+            output_logit_soft_cap: float = 30.0
     ):
         """
         Initialize xLSTM-7B runner.
@@ -97,9 +97,9 @@ class xLSTM7BRunner:
         self.state = None
 
     def forward(
-        self,
-        input_ids: mx.array,
-        state: Optional[dict] = None
+            self,
+            input_ids: mx.array,
+            state: Optional[dict] = None
     ) -> tuple[mx.array, dict]:
         """
         Forward pass through the model.
@@ -121,11 +121,11 @@ class xLSTM7BRunner:
         return logits_capped, new_state
 
     def generate_next_token(
-        self,
-        input_ids: mx.array,
-        temperature: float = 1.0,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None
+            self,
+            input_ids: mx.array,
+            temperature: float = 1.0,
+            top_k: Optional[int] = None,
+            top_p: Optional[float] = None
     ) -> int:
         """
         Generate next token given input token IDs.
@@ -169,14 +169,14 @@ class xLSTM7BRunner:
             # Compute probabilities and cumulative sum
             sorted_probs = mx.softmax(sorted_logits, axis=-1)
             cumulative_probs = mx.cumsum(sorted_probs, axis=-1)
-            
+
             # Find how many tokens to keep (at least 1)
             keep_mask = cumulative_probs <= top_p
             num_keep = max(1, int(mx.sum(keep_mask).item()))
-            
+
             # Get threshold (logit value at cutoff)
             threshold = sorted_logits[num_keep - 1]
-            
+
             # Keep only tokens above threshold
             next_token_logits = mx.where(
                 next_token_logits >= threshold,
@@ -191,13 +191,13 @@ class xLSTM7BRunner:
         return int(next_token)
 
     def generate(
-        self,
-        prompt_ids: List[int],
-        max_tokens: int = 100,
-        temperature: float = 1.0,
-        top_k: Optional[int] = None,
-        top_p: Optional[float] = None,
-        stop_tokens: Optional[List[int]] = None
+            self,
+            prompt_ids: List[int],
+            max_tokens: int = 100,
+            temperature: float = 1.0,
+            top_k: Optional[int] = None,
+            top_p: Optional[float] = None,
+            stop_tokens: Optional[List[int]] = None
     ) -> List[int]:
         """
         Generate tokens autoregressively.

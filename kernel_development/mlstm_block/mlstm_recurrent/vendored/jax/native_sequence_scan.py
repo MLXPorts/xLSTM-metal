@@ -11,26 +11,26 @@ from .triton_step import mlstm_recurrent_step__triton_fw
 
 
 def _mlstm_recurrent_sequence_loop_scan_fw(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHV)
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_initial: jax.Array | None = None,  # (B, NH)
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    state_dtype: jnp.dtype | None = None,
-    mlstm_step_fn: Callable = mlstm_recurrent_step__native_fw,
-    **kwargs,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHV)
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_initial: jax.Array | None = None,  # (B, NH)
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        state_dtype: jnp.dtype | None = None,
+        mlstm_step_fn: Callable = mlstm_recurrent_step__native_fw,
+        **kwargs,
 ) -> (
-    jax.Array
-    | tuple[
-        jax.Array,  # (B, NH, S, DHV)
-        tuple[jax.Array, jax.Array, jax.Array],
-        # (matC_state_last (B, NH, DHQK, DHV), vecN_state_last (B, NH, DHQK), vecM_state_last (B, NH, 1))
-    ]
+        jax.Array
+        | tuple[
+            jax.Array,  # (B, NH, S, DHV)
+            tuple[jax.Array, jax.Array, jax.Array],
+            # (matC_state_last (B, NH, DHQK, DHV), vecN_state_last (B, NH, DHQK), vecM_state_last (B, NH, 1))
+        ]
 ):
     """
     Forward pass of the mLSTM cell in recurrent form on a full sequence.
@@ -117,18 +117,18 @@ def _mlstm_recurrent_sequence_loop_scan_fw(
 
 
 def mlstm_recurrent_sequence__native_fw(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array | None = None,
-    n_initial: jax.Array | None = None,
-    m_initial: jax.Array | None = None,
-    return_last_states: bool = False,
-    state_dtype: jnp.dtype | None = None,
-    eps: float = 1e-6,
-    **kwargs,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array | None = None,
+        n_initial: jax.Array | None = None,
+        m_initial: jax.Array | None = None,
+        return_last_states: bool = False,
+        state_dtype: jnp.dtype | None = None,
+        eps: float = 1e-6,
+        **kwargs,
 ) -> jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]:
     """
     Forward pass of the mLSTM cell in recurrent form on a full sequence using native JAX implementation.
@@ -157,22 +157,21 @@ def mlstm_recurrent_sequence__native_fw(
                                                   vecN_initial=n_initial, scaM_initial=m_initial,
                                                   return_last_states=return_last_states, eps=eps,
                                                   state_dtype=state_dtype)
-    
 
 
 def mlstm_recurrent_sequence__triton_step_fused_fw(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array | None = None,
-    n_initial: jax.Array | None = None,
-    m_initial: jax.Array | None = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    state_dtype: jnp.dtype | None = None,
-    **kwargs,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array | None = None,
+        n_initial: jax.Array | None = None,
+        m_initial: jax.Array | None = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        state_dtype: jnp.dtype | None = None,
+        **kwargs,
 ) -> jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]:
     """
     Forward pass of the mLSTM cell in recurrent form on a full sequence using the fused Triton step
@@ -209,5 +208,5 @@ def mlstm_recurrent_sequence__triton_step_fused_fw(
         scaM_initial=m_initial,
         return_last_states=return_last_states,
         eps=eps,
-        state_dtype=state_dtype,        
+        state_dtype=state_dtype,
     )

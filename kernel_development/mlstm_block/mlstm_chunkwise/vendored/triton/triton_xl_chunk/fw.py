@@ -18,42 +18,43 @@ from kernel_development.mlstm_block.mlstm_chunkwise.vendored.triton.xl_chunk.ker
 
 @contiguous_noctx
 def mlstm_chunkwise_fw(
-    matQ: torch.Tensor,  # (B, NH, S, DHQK)
-    matK: torch.Tensor,  # (B, NH, S, DHQK)
-    matV: torch.Tensor,  # (B, NH, S, DHHV)
-    vecI: torch.Tensor,  # (B, NH, S)
-    vecF: torch.Tensor,  # (B, NH, S)
-    matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    scaM_initial: torch.Tensor = None,  # (B, NH, 1)
-    qk_scale: float = None,
-    return_last_states: bool = False,
-    return_all_states: bool = False,
-    chunk_size: int = 128,
-    chunk_size_inter: int | None = None,
-    chunk_size_intra: int | None = None,
-    siz_b_L_parallel: int | None = None,
-    siz_b_L_loop: int | None = None,
-    siz_b_DH_parallel: int | None = None,
-    siz_b_DH_loop: int | None = None,
-    num_warps_intra: int | None = None,
-    num_warps_inter: int | None = None,
-    num_stages_intra: int | None = None,
-    num_stages_inter: int | None = None,
-    output_dtype: torch.dtype = torch.float32,
-    eps: float = 0.0,
+        matQ: torch.Tensor,  # (B, NH, S, DHQK)
+        matK: torch.Tensor,  # (B, NH, S, DHQK)
+        matV: torch.Tensor,  # (B, NH, S, DHHV)
+        vecI: torch.Tensor,  # (B, NH, S)
+        vecF: torch.Tensor,  # (B, NH, S)
+        matC_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        scaM_initial: torch.Tensor = None,  # (B, NH, 1)
+        qk_scale: float = None,
+        return_last_states: bool = False,
+        return_all_states: bool = False,
+        chunk_size: int = 128,
+        chunk_size_inter: int | None = None,
+        chunk_size_intra: int | None = None,
+        siz_b_L_parallel: int | None = None,
+        siz_b_L_loop: int | None = None,
+        siz_b_DH_parallel: int | None = None,
+        siz_b_DH_loop: int | None = None,
+        num_warps_intra: int | None = None,
+        num_warps_inter: int | None = None,
+        num_stages_intra: int | None = None,
+        num_stages_inter: int | None = None,
+        output_dtype: torch.dtype = torch.float32,
+        eps: float = 0.0,
 ) -> tuple[
     torch.Tensor,  # matH_out (B, NH, S, DHHV)
     torch.Tensor,  # vecN_out (B, NH, S)
     torch.Tensor,  # vecM_out (B, NH, S)
     None
     | (
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]
     ),  # last_states (matC_states (B, NH, DHQK, DHHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH))
     None
     | (
-        tuple[torch.Tensor, torch.Tensor, torch.Tensor]
-    ),  # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
+            tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+    ),
+    # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
 ]:
     """
 
@@ -87,7 +88,7 @@ def mlstm_chunkwise_fw(
     DHHV = matV.shape[-1]
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     kernel_chunk_params = get_xl_chunk_kernel_params(
         sequence_length=S,
@@ -99,7 +100,7 @@ def mlstm_chunkwise_fw(
     )
 
     save_states_every_nth_chunk = (
-        kernel_chunk_params.chunk_size_intra // kernel_chunk_params.chunk_size_inter
+            kernel_chunk_params.chunk_size_intra // kernel_chunk_params.chunk_size_inter
     )
 
     #! materialize the  C_k, n_k, m_k states for each chunk

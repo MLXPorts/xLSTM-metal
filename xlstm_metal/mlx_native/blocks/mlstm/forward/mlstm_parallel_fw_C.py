@@ -13,6 +13,7 @@ from typing import Tuple, Optional
 
 import mlx.core as mx
 
+
 def mlstm_chunkwise_parallel_fw_C(
         q: mx.array,  # (B, NH, S, QK_DH)
         k: mx.array,  # (B, NH, S, QK_DH)
@@ -99,5 +100,6 @@ def mlstm_chunkwise_parallel_fw_C(
     # Reshape output
     h = matH_out.reshape(B, NH, S, V_DH)
     return h
+
 
 __all__ = ['mlstm_chunkwise_parallel_fw_C']

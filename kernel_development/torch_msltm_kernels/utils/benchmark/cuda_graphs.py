@@ -40,7 +40,8 @@ def compile_with_cuda_graphs(fn: Callable[..., Any], warmups: int = 3) -> torch.
     return graph
 
 
-def compile_kwargs_with_cuda_graphs(fn: Callable[[Any], Any], inputs: dict, warmups: int = 3, clone_outputs: bool = False) -> tuple[torch.cuda.CUDAGraph, Callable[[Any], Any]]:
+def compile_kwargs_with_cuda_graphs(fn: Callable[[Any], Any], inputs: dict, warmups: int = 3,
+                                    clone_outputs: bool = False) -> tuple[torch.cuda.CUDAGraph, Callable[[Any], Any]]:
     """
     Compile the provided function with CUDA graphs.
 

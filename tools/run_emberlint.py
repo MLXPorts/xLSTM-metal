@@ -14,7 +14,8 @@ except ModuleNotFoundError:
 
 
 def main():
-    ap = argparse.ArgumentParser(description="Run emberlint on a path and summarize precision casts and tensor conversions")
+    ap = argparse.ArgumentParser(
+        description="Run emberlint on a path and summarize precision casts and tensor conversions")
     ap.add_argument("path", help="File or directory to analyze")
     args = ap.parse_args()
 
@@ -42,6 +43,7 @@ def main():
                 print(f"\n{r['file']}")
                 for c in r["tensor_conversions"]:
                     print(f"  CONV {c['type']} at {c['location']}")
+
 
 if __name__ == "__main__":
     main()

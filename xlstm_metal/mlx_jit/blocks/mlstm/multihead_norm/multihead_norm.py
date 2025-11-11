@@ -1,6 +1,7 @@
 import mlx.core as mx
 import mlx.nn as nn
 
+
 class MultiHeadLayerNorm(nn.Module):
     """
     Multi-Head Layer Normalization
@@ -100,12 +101,12 @@ class MultiHeadRMSNorm(nn.Module):
     """
 
     def __init__(
-        self,
-        num_heads: int,
-        head_dim: int,
-        eps: float = 1e-6,
-        use_weight: bool = True,
-        force_float32_reductions: bool = True
+            self,
+            num_heads: int,
+            head_dim: int,
+            eps: float = 1e-6,
+            use_weight: bool = True,
+            force_float32_reductions: bool = True
     ):
         super().__init__()
         self.num_heads = num_heads

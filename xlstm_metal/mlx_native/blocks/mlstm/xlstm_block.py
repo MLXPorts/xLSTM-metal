@@ -106,9 +106,9 @@ class xLSTMBlock(nn.Module):
         )
 
     def __call__(
-        self,
-        x: mx.array,
-        state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
+            self,
+            x: mx.array,
+            state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Optional[Tuple[mx.array, mx.array, mx.array]]]:
         """
         Forward pass matching canonical xLSTMBlock.

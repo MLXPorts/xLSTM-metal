@@ -25,9 +25,11 @@ sequenceDiagram
 
 ## Streams
 
-- Use a dedicated GPU stream (e.g., `s_gpu = mx.new_stream(mx.gpu)`) and run prefill/decode under `with mx.stream(s_gpu)`.
+- Use a dedicated GPU stream (e.g., `s_gpu = mx.new_stream(mx.gpu)`) and run prefill/decode under
+  `with mx.stream(s_gpu)`.
 - Synchronize only when needed for host decisions or I/O.
-- For post‑stream hooks (logging, UI, checkpoints), use `tools/mlx_streams.on_stream_complete` or `after_eval` to avoid blocking other streams.
+- For post‑stream hooks (logging, UI, checkpoints), use `tools/mlx_streams.on_stream_complete` or `after_eval` to avoid
+  blocking other streams.
 
 ## Kernels & Numerics
 

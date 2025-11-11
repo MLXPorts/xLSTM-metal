@@ -15,18 +15,18 @@ from kernel_development.torch_msltm_kernels.utils.kernels import is_power_of_2
 
 
 def mlstm_chunkwise__parallel_fw_H(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    matC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
-    vecN_states: jax.Array,  # (B, NH, (NC+1) * DHQK)
-    scaMinter_states: jax.Array,  # (B, NH, (NC+1))
-    vecI: jax.Array,  # (B, NH, NC, L)
-    vecB: jax.Array,  # (B, NH, NC, L)
-    qk_scale: float | None = None,
-    CHUNK_SIZE: int = 64,
-    NUM_CHUNKS: int = 1,
-    EPS: float = 1e-6,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        matC_states: jax.Array,  # (B, NH, (NC+1) * DHQK, DHHV)
+        vecN_states: jax.Array,  # (B, NH, (NC+1) * DHQK)
+        scaMinter_states: jax.Array,  # (B, NH, (NC+1))
+        vecI: jax.Array,  # (B, NH, NC, L)
+        vecB: jax.Array,  # (B, NH, NC, L)
+        qk_scale: float | None = None,
+        CHUNK_SIZE: int = 64,
+        NUM_CHUNKS: int = 1,
+        EPS: float = 1e-6,
 ) -> tuple[jax.Array, jax.Array]:  # matH_out (B, NH, S, DHHV), vecN_out (B, NH, S)
     """
     Execute the parallel forward kernel for the H computation in the mLSTM chunkwise formulation.
@@ -62,7 +62,7 @@ def mlstm_chunkwise__parallel_fw_H(
     assert is_power_of_2(L), "Chunk size must be a power of 2."
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     siz_b_DHQK = min(64, triton.next_power_of_2(DHQK))
     siz_b_DHHV = min(64, triton.next_power_of_2(DHHV))

@@ -61,10 +61,10 @@ class WiredxLSTM(nn.Module):
     """
 
     def __init__(
-        self,
-        wiring: AutoWiring,
-        load_weights: bool = False,
-        model_dir: Optional[Union[str, Path]] = None,
+            self,
+            wiring: AutoWiring,
+            load_weights: bool = False,
+            model_dir: Optional[Union[str, Path]] = None,
     ):
         super().__init__()
 
@@ -131,10 +131,10 @@ class WiredxLSTM(nn.Module):
             self.lm_head = None
 
     def __call__(
-        self,
-        input_ids: mx.array,
-        state: Optional[List[Tuple]] = None,
-        return_last_states: bool = False
+            self,
+            input_ids: mx.array,
+            state: Optional[List[Tuple]] = None,
+            return_last_states: bool = False
     ) -> Union[mx.array, Tuple[mx.array, List[Tuple]]]:
         """
         Forward pass through the model.
@@ -239,10 +239,10 @@ class WiredxLSTM(nn.Module):
 
     @classmethod
     def from_pretrained(
-        cls,
-        model_dir: Union[str, Path],
-        load_weights: bool = True,
-        **kwargs
+            cls,
+            model_dir: Union[str, Path],
+            load_weights: bool = True,
+            **kwargs
     ) -> "WiredxLSTM":
         """
         Create model from pretrained checkpoint directory.
@@ -282,7 +282,7 @@ class WiredxLSTM(nn.Module):
             'wiring_config': self.wiring.get_config() if hasattr(self.wiring, 'get_config') else None,
             'num_blocks': self.wiring.structure['num_blocks'],
             'block_types': {idx: self.wiring.get_block_info(idx)['type']
-                          for idx in range(self.wiring.structure['num_blocks'])},
+                            for idx in range(self.wiring.structure['num_blocks'])},
             'embedding_dim': self.config['embedding_dim'],
             'vocab_size': self.config['vocab_size'],
             'has_embedding': self.wiring.structure['has_embedding'],

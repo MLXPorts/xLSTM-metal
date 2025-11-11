@@ -44,6 +44,7 @@ PYTHONPATH=. pytest -v tests/test_xlstm.py
 ```
 
 **What's Tested:**
+
 - Token generation determinism (with fixed seeds)
 - Batch prefill/decode shape correctness
 - State management across blocks
@@ -92,6 +93,7 @@ mx.random.seed(42)
 ### Numerical Precision
 
 For large vocabulary tests (32k-50k tokens):
+
 - Allow tiny numeric jitter in logits (±1e-4)
 - Use argmax decode to compare token sequences
 - Token-level equality is the primary criterion
@@ -99,6 +101,7 @@ For large vocabulary tests (32k-50k tokens):
 ### Test Data
 
 Keep test cases small and fast:
+
 - Use small sequence lengths (≤ 64 tokens)
 - Use reduced vocab sizes when possible
 - Mock large models with minimal configurations
@@ -152,6 +155,7 @@ assert len(state) == num_blocks
 ## Continuous Integration
 
 Tests run automatically on:
+
 - Pull requests to main branch
 - Commits to feature branches
 - Release tags

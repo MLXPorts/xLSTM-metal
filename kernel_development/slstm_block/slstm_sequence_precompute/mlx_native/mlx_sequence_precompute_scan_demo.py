@@ -13,7 +13,7 @@ import mlx.nn as nn
 
 
 class TinySLSTM(nn.Module):
-    def __init__(self, d_model=256, proj_factor=4/3):
+    def __init__(self, d_model=256, proj_factor=4 / 3):
         super().__init__()
         hidden = d_model
         proj = int(proj_factor * hidden)
@@ -21,7 +21,7 @@ class TinySLSTM(nn.Module):
         self.W_f = nn.Linear(d_model, hidden)
         self.W_z = nn.Linear(d_model, hidden)
         self.W_o = nn.Linear(d_model, hidden)
-        self.up = nn.Linear(hidden, 2*proj)
+        self.up = nn.Linear(hidden, 2 * proj)
         self.down = nn.Linear(proj, d_model)
 
     def step(self, x, state):
@@ -32,11 +32,15 @@ class TinySLSTM(nn.Module):
         :return:
         """
         c, n, h, m = state
-        i = self.W_i(x); f = self.W_f(x)
-        z = self.W_z(x); o = self.W_o(x)
+        i = self.W_i(x)
+        f = self.W_f(x)
+        z = self.W_z(x)
+        o = self.W_o(x)
         m = mx.maximum(f + m, i)
-        i = mx.exp(i - m); f = mx.exp(f - m + m)
-        z = mx.tanh(z); o = mx.sigmoid(o)
+        i = mx.exp(i - m)
+        f = mx.exp(f - m + m)
+        z = mx.tanh(z)
+        o = mx.sigmoid(o)
         c = f * c + i * z
         n = f * n + i
         h = o * (c / mx.maximum(n, mx.array(1.0)))
@@ -51,7 +55,10 @@ class TinySLSTM(nn.Module):
         :return:
         """
         B, S, D = x.shape
-        c = mx.zeros((B, D)); n = mx.ones((B, D)); h = mx.zeros((B, D)); m = mx.zeros((B, D))
+        c = mx.zeros((B, D))
+        n = mx.ones((B, D))
+        h = mx.zeros((B, D));
+        m = mx.zeros((B, D))
         outs = []
         for t in range(S):
             y, (c, n, h, m) = self.step(x[:, t, :], (c, n, h, m))
@@ -66,14 +73,25 @@ class TinySLSTM(nn.Module):
         """
         B, S, D = x.shape
         # Precompute all projections once
-        I = self.W_i(x); F = self.W_f(x); Z = self.W_z(x); O = self.W_o(x)
-        c = mx.zeros((B, D)); n = mx.ones((B, D)); h = mx.zeros((B, D)); m = mx.zeros((B, D))
+        I = self.W_i(x);
+        F = self.W_f(x)
+        Z = self.W_z(x);
+        O = self.W_o(x)
+        c = mx.zeros((B, D));
+        n = mx.ones((B, D));
+        h = mx.zeros((B, D));
+        m = mx.zeros((B, D))
         outs = []
         for t in range(S):
-            i = I[:, t, :]; f = F[:, t, :]; z = Z[:, t, :]; o = O[:, t, :]
+            i = I[:, t, :];
+            f = F[:, t, :];
+            z = Z[:, t, :];
+            o = O[:, t, :]
             m = mx.maximum(f + m, i)
-            i = mx.exp(i - m); f = mx.exp(f - m + m)
-            z = mx.tanh(z); o = mx.sigmoid(o)
+            i = mx.exp(i - m);
+            f = mx.exp(f - m + m)
+            z = mx.tanh(z);
+            o = mx.sigmoid(o)
             c = f * c + i * z
             n = f * n + i
             h = o * (c / mx.maximum(n, mx.array(1.0)))
@@ -91,16 +109,20 @@ def bench(model, x):
     :return:
     """
     # Warmup
-    _ = model.forward_stepwise(x); mx.eval(_)
-    _ = model.forward_precompute(x); mx.eval(_)
+    _ = model.forward_stepwise(x);
+    mx.eval(_)
+    _ = model.forward_precompute(x);
+    mx.eval(_)
     iters = 5
     t0 = time.time()
     for _ in range(iters):
-        y = model.forward_stepwise(x); mx.eval(y)
+        y = model.forward_stepwise(x);
+        mx.eval(y)
     t_step = (time.time() - t0) / iters
     t1 = time.time()
     for _ in range(iters):
-        y = model.forward_precompute(x); mx.eval(y)
+        y = model.forward_precompute(x);
+        mx.eval(y)
     t_prec = (time.time() - t1) / iters
     return t_step, t_prec
 
@@ -111,6 +133,5 @@ if __name__ == "__main__":
     x = mx.random.normal((B, S, D))
     model = TinySLSTM(D)
     t_step, t_prec = bench(model, x)
-    print(f"Stepwise:    {t_step*1e3:.2f} ms  (per-step Linear ops)")
-    print(f"Precompute:  {t_prec*1e3:.2f} ms  (sequence-wide Linear then scan)")
-
+    print(f"Stepwise:    {t_step * 1e3:.2f} ms  (per-step Linear ops)")
+    print(f"Precompute:  {t_prec * 1e3:.2f} ms  (sequence-wide Linear then scan)")

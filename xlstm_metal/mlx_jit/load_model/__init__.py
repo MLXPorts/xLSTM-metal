@@ -6,7 +6,7 @@ from .safetensors_loader import load_safetensors_into_wired_model
 
 __all__ = [
     'load_config',
-    'get_mlstm_config', 
+    'get_mlstm_config',
     # 'load_weights_into_model',
     'load_safetensors_into_wired_model',
 ]

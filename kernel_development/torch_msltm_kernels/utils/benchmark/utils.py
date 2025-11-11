@@ -5,7 +5,8 @@ from pathlib import Path
 
 
 def setup_output_folder(
-    output_dir: str = "./outputs_kernel_benchmarks", name_suffix: str | None = None, log_level: int | str | None = None,
+        output_dir: str = "./outputs_kernel_benchmarks", name_suffix: str | None = None,
+        log_level: int | str | None = None,
 ) -> Path:
     """
 

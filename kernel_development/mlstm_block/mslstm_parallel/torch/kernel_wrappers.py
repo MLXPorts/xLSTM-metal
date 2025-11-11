@@ -10,24 +10,24 @@ LOGGER = logging.getLogger(__name__)
 
 
 def wrap_chunkwise__arbitrary_sequence_length(
-    mlstm_chunkwise_kernel: Callable,
-    mlstm_sequence_kernel: Callable,
-    mlstm_step_kernel: Callable,
-    q: torch.Tensor,  # (B, NH, S, DHQK)
-    k: torch.Tensor,  # (B, NH, S, DHQK)
-    v: torch.Tensor,  # (B, NH, S, DHHV)
-    f: torch.Tensor,  # (B, NH, S)
-    i: torch.Tensor,  # (B, NH, S)
-    c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    n_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    m_initial: torch.Tensor = None,  # (B, NH, 1)
-    return_last_states: bool = True,
-    eps: float = 1e-6,
-    autocast_kernel_dtype: torch.dtype = torch.bfloat16,
-    chunk_size: int = 64,
-    enable_logging: bool = False,
+        mlstm_chunkwise_kernel: Callable,
+        mlstm_sequence_kernel: Callable,
+        mlstm_step_kernel: Callable,
+        q: torch.Tensor,  # (B, NH, S, DHQK)
+        k: torch.Tensor,  # (B, NH, S, DHQK)
+        v: torch.Tensor,  # (B, NH, S, DHHV)
+        f: torch.Tensor,  # (B, NH, S)
+        i: torch.Tensor,  # (B, NH, S)
+        c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        n_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        m_initial: torch.Tensor = None,  # (B, NH, 1)
+        return_last_states: bool = True,
+        eps: float = 1e-6,
+        autocast_kernel_dtype: torch.dtype = torch.bfloat16,
+        chunk_size: int = 64,
+        enable_logging: bool = False,
 ) -> (
-    torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+        torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):  # matH (B, NH, S, DHHV), tuple[matC_state_last (B, NH, DHQK, DHHV), vecN_states_last (B, NH, DHQK), scaMinter_states_last (B, NH, 1)]
     """This function computes the last hidden state and matH outputs of the mLSTM, independently of the sequence length.
 
@@ -171,7 +171,7 @@ def wrap_chunkwise__arbitrary_sequence_length(
 
     else:
         assert (
-            S == 1
+                S == 1
         ), f"Received empty sequence (S={S}), require at least single element in the sequence."
         # process the sequence length in a single step
         # while this case is also captured by the regular mode above,
@@ -202,22 +202,22 @@ def wrap_chunkwise__arbitrary_sequence_length(
 
 
 def wrap_chunkwise__pad_zeros(
-    mlstm_chunkwise_kernel: Callable,
-    q: torch.Tensor,  # (B, NH, S, DHQK)
-    k: torch.Tensor,  # (B, NH, S, DHQK)
-    v: torch.Tensor,  # (B, NH, S, DHHV)
-    f: torch.Tensor,  # (B, NH, S)
-    i: torch.Tensor,  # (B, NH, S)
-    c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
-    n_initial: torch.Tensor = None,  # (B, NH, DHQK)
-    m_initial: torch.Tensor = None,  # (B, NH, 1)
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    autocast_kernel_dtype: torch.dtype = torch.bfloat16,
-    chunk_size: int = 64,
-    **kwargs,
+        mlstm_chunkwise_kernel: Callable,
+        q: torch.Tensor,  # (B, NH, S, DHQK)
+        k: torch.Tensor,  # (B, NH, S, DHQK)
+        v: torch.Tensor,  # (B, NH, S, DHHV)
+        f: torch.Tensor,  # (B, NH, S)
+        i: torch.Tensor,  # (B, NH, S)
+        c_initial: torch.Tensor = None,  # (B, NH, DHQK, DHHV)
+        n_initial: torch.Tensor = None,  # (B, NH, DHQK)
+        m_initial: torch.Tensor = None,  # (B, NH, 1)
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        autocast_kernel_dtype: torch.dtype = torch.bfloat16,
+        chunk_size: int = 64,
+        **kwargs,
 ) -> (
-    torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
+        torch.Tensor | tuple[torch.Tensor, tuple[torch.Tensor, torch.Tensor, torch.Tensor]]
 ):
     """
 

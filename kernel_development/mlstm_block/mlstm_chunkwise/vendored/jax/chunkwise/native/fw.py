@@ -25,24 +25,25 @@ import jax
 import jax.numpy as jnp
 from einops import rearrange
 
+
 # TODO for optimal performance in jax minimize the reshapes and rearranges, do not concatenate the states, but stack them
 # along a new dimension
 
 
 def mlstm_chunkwise__recurrent_fw_C(
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecB: jax.Array,  # (B, NH, NC, L) # cumsum(logsigmoid(f))
-    vecI: jax.Array,  # (B, NH, NC, L)
-    matC_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
-    vecN_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK)
-    scaMinter_states: jax.Array | None = None,  # (B, NH, (NC + 1))
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaMinter_initial: jax.Array | None = None,  # (B, NH)
-    qk_scale: float = None,
-    chunk_size: int = 64,
-    num_chunks: int = 1,
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecB: jax.Array,  # (B, NH, NC, L) # cumsum(logsigmoid(f))
+        vecI: jax.Array,  # (B, NH, NC, L)
+        matC_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK, DHHV)
+        vecN_states: jax.Array | None = None,  # (B, NH, (NC + 1) * DHQK)
+        scaMinter_states: jax.Array | None = None,  # (B, NH, (NC + 1))
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaMinter_initial: jax.Array | None = None,  # (B, NH)
+        qk_scale: float = None,
+        chunk_size: int = 64,
+        num_chunks: int = 1,
 ) -> tuple[
     jax.Array, jax.Array, jax.Array
 ]:  # matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1))
@@ -75,7 +76,7 @@ def mlstm_chunkwise__recurrent_fw_C(
     _dtype = matK.dtype
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     # initialize the states tensors
     # if matC_states is None:
@@ -112,8 +113,8 @@ def mlstm_chunkwise__recurrent_fw_C(
         scaG_k = scaG[:, :, k]
         scaM_inter_k_next = jnp.maximum(scaG_k + scaM_inter_k, scaA_max_k)
         # C_k update
-        matK_chunk = matK[:, :, k * chunk_size : (k + 1) * chunk_size, :]  # * qk_scale
-        matV_chunk = matV[:, :, k * chunk_size : (k + 1) * chunk_size, :]
+        matK_chunk = matK[:, :, k * chunk_size: (k + 1) * chunk_size, :]  # * qk_scale
+        matV_chunk = matV[:, :, k * chunk_size: (k + 1) * chunk_size, :]
         vecA_k = vecA[:, :, k, :]
 
         vecAbar_k = jnp.exp(vecA_k - scaM_inter_k_next[..., None])[:, :, :, None]
@@ -149,19 +150,19 @@ def mlstm_chunkwise__recurrent_fw_C(
 
 
 def mlstm_chunkwise__parallel_fw_H(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    # these states must be all states up to the last chunk, i.e. :-1
-    matC_states: jax.Array,  # (B, NH, NC * DHQK, DHHV)
-    vecN_states: jax.Array,  # (B, NH, NC * DHQK)
-    scaMinter_states: jax.Array,  # (B, NH, NC)
-    vecI: jax.Array,  # (B, NH, NC, L)
-    vecB: jax.Array,  # (B, NH, NC, L)
-    qk_scale: float,
-    chunk_size: int = 64,
-    num_chunks: int = 1,
-    eps: float = 1e-6,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        # these states must be all states up to the last chunk, i.e. :-1
+        matC_states: jax.Array,  # (B, NH, NC * DHQK, DHHV)
+        vecN_states: jax.Array,  # (B, NH, NC * DHQK)
+        scaMinter_states: jax.Array,  # (B, NH, NC)
+        vecI: jax.Array,  # (B, NH, NC, L)
+        vecB: jax.Array,  # (B, NH, NC, L)
+        qk_scale: float,
+        chunk_size: int = 64,
+        num_chunks: int = 1,
+        eps: float = 1e-6,
 ) -> tuple[jax.Array, jax.Array, jax.Array]:  # matH_out (B, NH, S, DHHV), vecN_out (B, NH, S), vecM_out (B, NH, S)
     """This function computes the output of the mLSTM chunkwise formulation. 
     It is the second part of the chunkwise mLSTM forward pass and combines the inter chunk contributions with 
@@ -185,7 +186,6 @@ def mlstm_chunkwise__parallel_fw_H(
         tuple[jax.Array, jax.Array, jax.Array]: The output of the mLSTM, the maximum state of the n vector and the maximum state of the m vector. 
             Shape (B, NH, S, DHHV), (B, NH, S), (B, NH, S).
     """
-
 
     NC, L = num_chunks, chunk_size
     matC_k_states = rearrange(matC_states, "b nh (nc dhqk) dhv -> b nh nc dhqk dhv", nc=NC)
@@ -252,31 +252,32 @@ def mlstm_chunkwise__parallel_fw_H(
 
 
 def mlstm_chunkwise_fw(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_initial: jax.Array | None = None,  # (B, NH)
-    qk_scale: float = None,
-    return_last_states: bool = False,
-    return_all_states: bool = False,
-    chunk_size: int = 64,
-    eps: float = 1e-6,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_initial: jax.Array | None = None,  # (B, NH)
+        qk_scale: float = None,
+        return_last_states: bool = False,
+        return_all_states: bool = False,
+        chunk_size: int = 64,
+        eps: float = 1e-6,
 ) -> tuple[
     jax.Array,  # matH_out (B, NH, S, DHHV)
     jax.Array,  # vecN_out (B, NH, S)
     jax.Array,  # vecM_out (B, NH, S)
     None
     | (
-        tuple[jax.Array, jax.Array, jax.Array]
+            tuple[jax.Array, jax.Array, jax.Array]
     ),  # last_states (matC_states (B, NH, DHQK, DHHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH))
     None
     | (
-        tuple[jax.Array, jax.Array, jax.Array]
-    ),  # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
+            tuple[jax.Array, jax.Array, jax.Array]
+    ),
+    # all_states (matC_states (B, NH, (NC+1) * DHQK, DHHV), vecN_states (B, NH, (NC+1) * DHQK), scaMinter_states (B, NH, (NC+1)))
 ]:
     """
     Computes the forward pass of the mLSTM chunkwise formulation. 
@@ -313,7 +314,7 @@ def mlstm_chunkwise_fw(
     vecB = jnp.cumsum(vecF_logsig, axis=-1)
 
     if qk_scale is None:
-        qk_scale = DHQK**-0.5
+        qk_scale = DHQK ** -0.5
 
     #! materialize the  C_k, n_k, m_k states for each chunk
     matC_k_states, vecN_k_states, scaMinter_k_states = mlstm_chunkwise__recurrent_fw_C(
@@ -370,20 +371,20 @@ def mlstm_chunkwise_fw(
 
 
 def mlstm_chunkwise(
-    matQ: jax.Array,  # (B, NH, S, DHQK)
-    matK: jax.Array,  # (B, NH, S, DHQK)
-    matV: jax.Array,  # (B, NH, S, DHHV)
-    vecI: jax.Array,  # (B, NH, S)
-    vecF: jax.Array,  # (B, NH, S)
-    matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
-    vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
-    scaM_initial: jax.Array | None = None,  # (B, NH)
-    qk_scale: float = None,
-    return_last_states: bool = False,
-    chunk_size: int = 64,
-    eps: float = 1e-6,
+        matQ: jax.Array,  # (B, NH, S, DHQK)
+        matK: jax.Array,  # (B, NH, S, DHQK)
+        matV: jax.Array,  # (B, NH, S, DHHV)
+        vecI: jax.Array,  # (B, NH, S)
+        vecF: jax.Array,  # (B, NH, S)
+        matC_initial: jax.Array | None = None,  # (B, NH, DHQK, DHHV)
+        vecN_initial: jax.Array | None = None,  # (B, NH, DHQK)
+        scaM_initial: jax.Array | None = None,  # (B, NH)
+        qk_scale: float = None,
+        return_last_states: bool = False,
+        chunk_size: int = 64,
+        eps: float = 1e-6,
 ) -> (
-    jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]
+        jax.Array | tuple[jax.Array, tuple[jax.Array, jax.Array, jax.Array]]
 ):  # matH_out (B, NH, S, DHHV), optional(last_states (matC_states (B, NH, DHQK, DHHV), vecN_states (B, NH, DHQK), scaMinter_states (B, NH)))
     """
     Computes the forward pass of the mLSTM chunkwise formulation. 

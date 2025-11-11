@@ -1,4 +1,3 @@
-
 """
 Performance benchmark comparing MLX and PyTorch xLSTM implementations
 """
@@ -28,15 +27,15 @@ def benchmark_mlx(configs):
             head_num=config['head_num'],
             dropout=0.0
         )
-        
+
         batch_size = config['batch_size']
         seq_len = config['seq_len']
-        
+
         # Warm-up
         tokens = mx.random.randint(0, config['vocab_size'], (batch_size, seq_len))
         _ = model(tokens)
         mx.eval(tokens)
-        
+
         # Benchmark
         times = []
         for _ in range(10):
@@ -45,11 +44,11 @@ def benchmark_mlx(configs):
             logits = model(tokens)
             mx.eval(logits)  # Force evaluation
             times.append(time.time() - start)
-        
+
         avg_time = np.mean(times[2:])  # Skip first two for stability
         std_time = np.std(times[2:])
         throughput = (batch_size * seq_len) / avg_time
-        
+
         results.append({
             'Config': config_name,
             'Framework': 'MLX',
@@ -59,7 +58,7 @@ def benchmark_mlx(configs):
             'Std Time (s)': f"{std_time:.4f}",
             'Throughput (tok/s)': f"{throughput:.0f}"
         })
-    
+
     return results
 
 
@@ -67,13 +66,13 @@ def benchmark_pytorch(configs):
     """Benchmark PyTorch implementation"""
     import torch
     from xlstm_pytorch import create_xlstm_model
-    
+
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     results = []
-    
+
     for config_name, config in configs.items():
         print(f"\nBenchmarking PyTorch ({device}) - {config_name}...")
-        
+
         model = create_xlstm_model(
             vocab_size=config['vocab_size'],
             num_layers=config['num_layers'],
@@ -120,15 +119,15 @@ def benchmark_pytorch(configs):
             'Std Time (s)': f"{std_time:.4f}",
             'Throughput (tok/s)': f"{throughput:.0f}"
         })
-    
+
     return results
 
 
 def memory_benchmark():
     """Benchmark memory usage"""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Memory Usage Benchmark")
-    print("="*60)
+    print("=" * 60)
 
     results = []
 
@@ -204,9 +203,9 @@ def memory_benchmark():
 
 def main():
     """Run benchmarks"""
-    print("="*60)
+    print("=" * 60)
     print("xLSTM Performance Benchmark")
-    print("="*60)
+    print("=" * 60)
 
     # Define test configurations
     configs = {
@@ -245,9 +244,9 @@ def main():
     all_results = []
 
     # Benchmark MLX
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("MLX Benchmarks")
-    print("="*60)
+    print("=" * 60)
     try:
         mlx_results = benchmark_mlx(configs)
         all_results.extend(mlx_results)
@@ -255,9 +254,9 @@ def main():
         print(f"MLX benchmark failed: {e}")
 
     # Benchmark PyTorch
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("PyTorch Benchmarks")
-    print("="*60)
+    print("=" * 60)
     try:
         pytorch_results = benchmark_pytorch(configs)
         all_results.extend(pytorch_results)
@@ -266,17 +265,17 @@ def main():
 
     # Display results
     if all_results:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Performance Results")
-        print("="*60)
+        print("=" * 60)
         print(tabulate(all_results, headers='keys', tablefmt='grid'))
 
     # Memory benchmark
     memory_benchmark()
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("Benchmark Complete!")
-    print("="*60)
+    print("=" * 60)
 
     return 0
 

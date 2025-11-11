@@ -17,17 +17,17 @@ from .fw import mlstm_parallel_fw
 
 
 def mlstm_parallel__native_autograd(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array = None,
-    n_initial: jax.Array = None,
-    m_initial: jax.Array = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    **kwargs,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array = None,
+        n_initial: jax.Array = None,
+        m_initial: jax.Array = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        **kwargs,
 ) -> jax.Array:
     """
     Apply the mLSTM parallel formulation in native JAX.
@@ -64,9 +64,10 @@ def mlstm_parallel__native_autograd(
     )
     return matH
 
+
 def _mlstm_parallel_fwbw_generator(
-    autocast_kernel_dtype: jnp.dtype = jnp.bfloat16,
-    eps: float = 1e-6,
+        autocast_kernel_dtype: jnp.dtype = jnp.bfloat16,
+        eps: float = 1e-6,
 ) -> Callable[
     [jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array],
     tuple[jax.Array, jax.Array, jax.Array, jax.Array],
@@ -95,11 +96,11 @@ def _mlstm_parallel_fwbw_generator(
 
     @jax.custom_gradient
     def forward(
-        matQ: jax.Array,  # (B, NH, S, DHQK)
-        matK: jax.Array,  # (B, NH, S, DHQK)
-        matV: jax.Array,  # (B, NH, S, DHV)
-        vecI: jax.Array,  # (B, NH, S)
-        vecF: jax.Array,  # (B, NH, S)
+            matQ: jax.Array,  # (B, NH, S, DHQK)
+            matK: jax.Array,  # (B, NH, S, DHQK)
+            matV: jax.Array,  # (B, NH, S, DHV)
+            vecI: jax.Array,  # (B, NH, S)
+            vecF: jax.Array,  # (B, NH, S)
     ) -> tuple[jax.Array, jax.Array, jax.Array, jax.Array]:
         """
 
@@ -134,7 +135,7 @@ def _mlstm_parallel_fwbw_generator(
         )
 
         def backward(
-            grad_list: tuple[jax.Array, jax.Array, jax.Array],
+                grad_list: tuple[jax.Array, jax.Array, jax.Array],
         ) -> tuple[
             jax.Array, jax.Array, jax.Array, jax.Array, jax.Array, jax.Array | None, jax.Array | None, jax.Array | None
         ]:
@@ -199,18 +200,18 @@ def _get_parallel_fwbw_kernel(autocast_kernel_dtype: jnp.dtype, **kwargs) -> Cal
 
 
 def mlstm_parallel__native_custbw(
-    q: jax.Array,
-    k: jax.Array,
-    v: jax.Array,
-    i: jax.Array,
-    f: jax.Array,
-    c_initial: jax.Array = None,
-    n_initial: jax.Array = None,
-    m_initial: jax.Array = None,
-    return_last_states: bool = False,
-    eps: float = 1e-6,
-    autocast_kernel_dtype: jnp.dtype = jnp.float32,
-    **kwargs,
+        q: jax.Array,
+        k: jax.Array,
+        v: jax.Array,
+        i: jax.Array,
+        f: jax.Array,
+        c_initial: jax.Array = None,
+        n_initial: jax.Array = None,
+        m_initial: jax.Array = None,
+        return_last_states: bool = False,
+        eps: float = 1e-6,
+        autocast_kernel_dtype: jnp.dtype = jnp.float32,
+        **kwargs,
 ) -> jax.Array:
     """
     Apply the mLSTM parallel formulation in native JAX.
