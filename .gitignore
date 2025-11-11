@@ -38,3 +38,4 @@ runs/
 docs/summaries/
 scripts/ann_compare/adapters/metalfaiss_adapter.py
 scripts/ann_compare/adapters/faiss_python_adapter.py
+/.claude/

@@ -105,7 +105,7 @@ class Wiring:
             return "inter"
         return "motor" if neuron_id < self.output_dim else "inter"
 
-    def add_synapse(self, src: int, dest: int, polarity: int) -> None:
+    def add_synapse(self, src: int, dest: int, polarity: int = 1) -> None:
         """
 
         :param src:
@@ -120,7 +120,7 @@ class Wiring:
             raise ValueError("Synapse polarity must be -1 or +1")
         _set_matrix_entry(self.adjacency_matrix, src, dest, polarity)
 
-    def add_sensory_synapse(self, src: int, dest: int, polarity: int) -> None:
+    def add_sensory_synapse(self, src: int, dest: int, polarity: int = 1) -> None:
         """
 
         :param src:
@@ -292,30 +292,48 @@ class Wiring:
         plt.axis("off")
         return legend_patches
 
-    def print_diagram(self, include_sensory: bool = True) -> None:
-        """Print a simple textual wiring diagram (src -> dest [polarity])."""
-        print("\nWIRING DIAGRAM")
-        print("--------------")
+    def print_diagram(self, include_sensory: bool = True, style: str = "unicode") -> None:
+        """Print a textual wiring diagram with simple ASCII/Unicode glyphs."""
+
+        style = style.lower()
+        if style not in {"unicode", "ascii"}:
+            raise ValueError("style must be 'unicode' or 'ascii'")
+
+        arrow_exc = " ──▶ " if style == "unicode" else " --> "
+        arrow_inh = " ──┤ " if style == "unicode" else " -x> "
+        bullet = "•" if style == "unicode" else "*"
+        header_top = "┏━━━━━━━━━━━━━━━━━━━━━━┓" if style == "unicode" else "===================="
+        header_mid = "┃ WIRING DIAGRAM      ┃" if style == "unicode" else "== WIRING DIAGRAM =="
+        header_bot = "┗━━━━━━━━━━━━━━━━━━━━━━┛" if style == "unicode" else "===================="
+
+        def format_line(src_label: str, dest_label: str, polarity: int) -> str:
+            arrow = arrow_exc if polarity > 0 else arrow_inh
+            tag = "exc" if polarity > 0 else "inh"
+            return f"  {bullet} {src_label}{arrow}{dest_label} ({tag})"
+
+        print("\n" + header_top)
+        print(header_mid)
+        print(header_bot)
 
         if include_sensory and self.sensory_adjacency_matrix is not None and self.input_dim:
-            print("Sensory connections:")
+            print("Sensory → Neuron:")
             sensory = self.sensory_adjacency_matrix.tolist()
             for src in range(self.input_dim):
                 for dest in range(self.units):
                     val = sensory[src][dest]
                     if val != 0:
-                        polarity = "+" if val > 0 else "-"
-                        print(f"  sensory_{src} -> neuron_{dest} [{polarity}]")
+                        print(format_line(f"sensory_{src:02d}", f"neuron_{dest:02d}", val))
 
-        print("Neural connections:")
+        print("Neuron → Neuron:")
         adj = self.adjacency_matrix.tolist()
         connections: List[str] = []
         for src in range(self.units):
             for dest in range(self.units):
                 val = adj[src][dest]
                 if val != 0:
-                    polarity = "+" if val > 0 else "-"
-                    connections.append(f"  neuron_{src} -> neuron_{dest} [{polarity}]")
+                    connections.append(
+                        format_line(f"neuron_{src:02d}", f"neuron_{dest:02d}", val)
+                    )
         if connections:
             for line in connections:
                 print(line)

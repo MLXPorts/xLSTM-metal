@@ -44,7 +44,8 @@ class xLSTMRunner:
         MLX:     runner = xLSTMRunner.from_pretrained("NX-AI/xLSTM-7b")
     """
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, show_wiring: bool = False,
+                 wiring_style: str = "unicode"):
         """
         Initialize xLSTM runner from model directory.
 
@@ -70,7 +71,8 @@ class xLSTMRunner:
         # Build NCPS wiring/model
         print(f"Creating NCPS auto-wiring ({self.num_blocks} blocks, {self.embedding_dim}d)...")
         self.wiring = create_auto_wiring(str(self.model_path), self.config)
-        self.wiring.print_diagram(include_sensory=False)
+        if show_wiring:
+            self.wiring.print_diagram(include_sensory=False, style=wiring_style)
 
         print("Creating WiredxLSTM model...")
         self.model = WiredxLSTM(
@@ -89,7 +91,9 @@ class xLSTMRunner:
             cls,
             model_id: str,
             cache_dir: Optional[str] = None,
-            force_download: bool = False
+            force_download: bool = False,
+            show_wiring: bool = False,
+            wiring_style: str = "unicode"
     ):
         """
         Load xLSTM model from HuggingFace Hub or local directory.
@@ -123,7 +127,7 @@ class xLSTMRunner:
         # Check if it's a local path
         if model_path.exists():
             print(f"Loading from local directory: {model_id}")
-            return cls(model_id)
+            return cls(model_id, show_wiring=show_wiring, wiring_style=wiring_style)
 
         # Try to download from HuggingFace Hub
         try:
@@ -137,7 +141,7 @@ class xLSTMRunner:
                 allow_patterns=["*.json", "*.safetensors", "*.model", "*.txt"]
             )
             print(f"✓ Model downloaded to: {downloaded_path}")
-            return cls(downloaded_path)
+            return cls(downloaded_path, show_wiring=show_wiring, wiring_style=wiring_style)
 
         except ImportError:
             raise ImportError(
@@ -223,7 +227,7 @@ class xLSTMRunner:
 
         # Apply top-p (nucleus) filtering
         if top_p is not None:
-            sorted_indices = mx.argsort(next_token_logits, axis=-1)[::-1]
+            sorted_indices = mx.argsort(next_token_logits)[::-1]
             sorted_logits = mx.take(next_token_logits, sorted_indices)
             sorted_probs = mx.softmax(sorted_logits, axis=-1)
             cumulative_probs = mx.cumsum(sorted_probs, axis=-1)
@@ -235,7 +239,7 @@ class xLSTMRunner:
             first_position = positions == 0
             keep_mask_sorted = mx.where(
                 first_position,
-                mx.ones_like(keep_mask_sorted, dtype=mx.bool_),
+                mx.ones_like(keep_mask_sorted),
                 keep_mask_sorted
             )
 

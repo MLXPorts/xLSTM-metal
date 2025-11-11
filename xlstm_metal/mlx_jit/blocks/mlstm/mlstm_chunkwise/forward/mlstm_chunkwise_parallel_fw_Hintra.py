@@ -465,24 +465,33 @@ def mlstm_chunkwise_parallel_fw_Hintra_metal(
                        siz_b_DHQK, siz_b_DHHV, qk_scale_bits, eps_bits, min_max_bits],
                       dtype=mx.uint32)
 
-    # Prepare strides
+    # Prepare strides (strict MLX arithmetic - using mx operations directly)
+    NC_plus_1 = mx.add(mx.array(NC, dtype=mx.int32), mx.array(1, dtype=mx.int32))
+    
+    NH_arr = mx.array(NH, dtype=mx.int32)
+    S_arr = mx.array(S, dtype=mx.int32)
+    DHQK_arr = mx.array(DHQK, dtype=mx.int32)
+    DHHV_arr = mx.array(DHHV, dtype=mx.int32)
+    NC_arr = mx.array(NC, dtype=mx.int32)
+    L_arr = mx.array(L, dtype=mx.int32)
+    
     strides = mx.array([
-        NH * S * DHQK,  # str_matQK_B_NH
+        mx.multiply(mx.multiply(NH_arr, S_arr), DHQK_arr),  # str_matQK_B_NH
         DHQK,  # str_matQK_S
         1,  # str_matQK_DHQK
-        NH * S * DHHV,  # str_matHV_B_NH
+        mx.multiply(mx.multiply(NH_arr, S_arr), DHHV_arr),  # str_matHV_B_NH
         DHHV,  # str_matHV_S
         1,  # str_matHV_DHHV
-        (NC + 1) * DHQK * DHHV,  # str_matCstates_B_NH
+        mx.multiply(mx.multiply(NC_plus_1, DHQK_arr), DHHV_arr),  # str_matCstates_B_NH
         DHHV,  # str_matCstates_NCDHQK
         1,  # str_matCstates_DHHV
-        (NC + 1) * DHQK,  # str_vecNstates_B_NH
+        mx.multiply(NC_plus_1, DHQK_arr),  # str_vecNstates_B_NH
         1,  # str_vecNstates_NCDHQK
-        NC + 1,  # str_scaMinterstates_B_NH
-        NH * NC * L,  # str_vecBI_B_NH
+        NC_plus_1,  # str_scaMinterstates_B_NH
+        mx.multiply(mx.multiply(NH_arr, NC_arr), L_arr),  # str_vecBI_B_NH
         L,  # str_vecBI_NC
         1,  # str_vecBI_L
-        NH * S,  # str_vecMN_B_NH
+        mx.multiply(NH_arr, S_arr),  # str_vecMN_B_NH
         1,  # str_vecMN_S
     ], dtype=mx.uint32)
 
@@ -492,9 +501,21 @@ def mlstm_chunkwise_parallel_fw_Hintra_metal(
     vecMout = mx.zeros((B, NH, S), dtype=matQ.dtype)
 
     # Launch pre-compiled kernel: grid over (DHHV/siz_b_DHHV, L/siz_b_LQ, NC * B*NH)
-    num_tiles_DHHV = (DHHV + siz_b_DHHV - 1) // siz_b_DHHV
-    num_tiles_LQ = (L + siz_b_LQ - 1) // siz_b_LQ
-    grid = (num_tiles_DHHV, num_tiles_LQ, NC * B * NH)
+    one = mx.array(1, dtype=mx.int32)
+    siz_b_DHHV_arr = mx.array(siz_b_DHHV, dtype=mx.int32)
+    siz_b_LQ_arr = mx.array(siz_b_LQ, dtype=mx.int32)
+    B_arr = mx.array(B, dtype=mx.int32)
+    
+    DHHV_plus_size = mx.add(DHHV_arr, siz_b_DHHV_arr)
+    DHHV_plus_size_minus_1 = mx.subtract(DHHV_plus_size, one)
+    num_tiles_DHHV = mx.floor_divide(DHHV_plus_size_minus_1, siz_b_DHHV_arr)
+    
+    L_plus_size = mx.add(L_arr, siz_b_LQ_arr)
+    L_plus_size_minus_1 = mx.subtract(L_plus_size, one)
+    num_tiles_LQ = mx.floor_divide(L_plus_size_minus_1, siz_b_LQ_arr)
+    
+    grid_z = mx.multiply(mx.multiply(NC_arr, B_arr), NH_arr)
+    grid = (num_tiles_DHHV, num_tiles_LQ, grid_z)
     threadgroup = (siz_b_DHHV, siz_b_LQ, 1)
 
     outputs = _get_kernel()(

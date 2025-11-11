@@ -75,8 +75,9 @@ def metal_causal_conv1d_depthwise(
         bias = mx.zeros((C,), dtype=x.dtype)
 
     total = B * S * C
-    grid = (int(total), 1, 1)
-    threadgroup = (min(int(total), 256), 1, 1)
+    # Metal kernel dispatch requires Python tuple[int, int, int]
+    grid = (total, 1, 1)
+    threadgroup = (min(total, 256), 1, 1)
 
     kernel = _compile_kernel()
     y, = kernel(

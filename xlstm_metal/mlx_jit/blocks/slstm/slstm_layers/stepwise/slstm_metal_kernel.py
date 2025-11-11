@@ -193,10 +193,11 @@ def slstm_step_metal(
     n_flat = n_state.reshape(-1)
     m_flat = m_state.reshape(-1)
 
-    # Prepare params: [B, NH, H, eps]
-    # eps needs to be reinterpreted as uint32 for Metal
+    # Prepare params: [B, NH, H, eps] with eps packed as uint32 bits
     eps_bits = mx.array([eps], dtype=mx.float32).view(mx.uint32)[0]
-    params = mx.array([B, NH, H, int(eps_bits.item())], dtype=mx.uint32)
+    base_params = mx.array([B, NH, H], dtype=mx.uint32)
+    eps_param = mx.reshape(eps_bits, (1,))
+    params = mx.concatenate([base_params, eps_param], axis=0)
 
     # Configure grid: use fixed threadgroup size
     # grid and threadgroup must match for single-threadgroup kernels

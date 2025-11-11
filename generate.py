@@ -34,6 +34,10 @@ def main():
     parser.add_argument("--top-k", type=int, help="Top-k sampling")
     parser.add_argument("--top-p", type=float, help="Nucleus sampling")
     parser.add_argument("--interactive", "-i", action="store_true", help="Interactive mode")
+    parser.add_argument("--show-wiring", action="store_true",
+                        help="Print wiring diagram (debug)")
+    parser.add_argument("--wiring-style", choices=["unicode", "ascii"], default="unicode",
+                        help="Diagram style when using --show-wiring")
     parser.add_argument("--info", action="store_true", help="Show model info")
 
     args = parser.parse_args()
@@ -43,7 +47,11 @@ def main():
 
     # Load model
     print(f"Loading model: {args.model}")
-    runner = xLSTMRunner(args.model)
+    runner = xLSTMRunner(
+        args.model,
+        show_wiring=args.show_wiring,
+        wiring_style=args.wiring_style,
+    )
 
     # Initialize tokenizer
     tokenizer_config = TokenizerConfig(model_path=args.model)

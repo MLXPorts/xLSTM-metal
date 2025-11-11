@@ -53,6 +53,7 @@ class mLSTMParallelKernelCell(nn.Module):
         self.v_dim_per_head = v_dim_per_head
         self.chunk_size = chunk_size
         self.eps = eps
+        self.qk_scale = mx.rsqrt(mx.array(self.qk_dim_per_head, dtype=mx.float32))
 
     def __call__(
             self,
@@ -88,18 +89,23 @@ class mLSTMParallelKernelCell(nn.Module):
         n_initial = state[1] if state else None
         m_initial = state[2] if state else None
 
-        # Pad sequence to multiple of chunk_size
-        NC = (S + self.chunk_size - 1) // self.chunk_size
+        # Pad sequence to multiple of chunk_size (strict MLX arithmetic)
+        S_t = mx.array(S, dtype=mx.int32)
+        chunk_size_t = mx.array(self.chunk_size, dtype=mx.int32)
+        one_t = mx.array(1, dtype=mx.int32)
+        NC_t = mx.floor_divide(mx.subtract(mx.add(S_t, chunk_size_t), one_t), chunk_size_t)
+        NC = NC_t  # Keep as MLX array
         L = self.chunk_size
 
-        if S % L != 0:
-            pad_len = NC * L - S
+        if S % L != 0:  # Python ints for control flow - acceptable
+            pad_len_t = mx.subtract(mx.multiply(NC_t, chunk_size_t), S_t)
+            pad_len = pad_len_t  # Keep as MLX array for mx.pad
             q = mx.pad(q, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
             k = mx.pad(k, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
             v = mx.pad(v, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
             i_preact = mx.pad(i_preact, [(0, 0), (0, 0), (0, pad_len)])
             f_preact = mx.pad(f_preact, [(0, 0), (0, 0), (0, pad_len)])
-            S_padded = NC * L
+            S_padded = mx.multiply(NC_t, chunk_size_t)  # Keep as MLX array
         else:
             S_padded = S
 
@@ -129,9 +135,6 @@ class mLSTMParallelKernelCell(nn.Module):
         vecF_logsig = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(vecF_chunked)))))
         vecB = mx.cumsum(vecF_logsig, axis=-1)
 
-        # Query scaling factor
-        qk_scale = 1.0 / (self.qk_dim_per_head ** 0.5)
-
         # Parallel kernel (intra-chunk)
         matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(matQ=q.astype(mx.float32),
                                                                              matK=k.astype(mx.float32),
@@ -142,7 +145,7 @@ class mLSTMParallelKernelCell(nn.Module):
                                                                                  mx.float32),
                                                                              vecI=vecI_chunked.astype(mx.float32),
                                                                              vecB=vecB.astype(mx.float32), NC=NC, L=L,
-                                                                             qk_scale=qk_scale, eps=self.eps)
+                                                                             qk_scale=self.qk_scale, eps=self.eps)
 
         # Force evaluation
         mx.eval(matHout)

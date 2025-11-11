@@ -138,7 +138,7 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
     if not block_ids:
         raise ValueError("No blocks found in checkpoint")
 
-    num_blocks = max(block_ids) + 1
+    num_blocks = len(block_ids)
 
     # Per-layer dims and head structure from first block
     block_0_prefix = "backbone.blocks.0"
@@ -193,6 +193,9 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
         "embedding_dim": d_model,
         "vocab_size": vocab_size,
         "num_blocks": num_blocks,
+        "qk_dim": qk_dim,
+        "v_dim": v_out,
+        "ffn_hidden_dim": ffn_hidden,
         "qk_dim_factor": qk_dim_factor,
         "v_dim_factor": v_dim_factor,
         "ffn_proj_factor": ffn_proj_factor,
