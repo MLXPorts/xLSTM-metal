@@ -2,16 +2,20 @@
 
 ## Overview
 
-The GEMM (General Matrix Multiply) kernels in this project implement high-performance matrix multiplication operations using MLX's `fast.metal_kernel` API. These kernels are foundational for xLSTM operations and demonstrate advanced Metal optimization techniques.
+The GEMM (General Matrix Multiply) kernels in this project implement high-performance matrix multiplication operations
+using MLX's `fast.metal_kernel` API. These kernels are foundational for xLSTM operations and demonstrate advanced Metal
+optimization techniques.
 
 ## Kernel Variants
 
 ### 1. `gemm_av`: Matrix-Matrix Multiply
+
 **Operation**: `C = A × V` where A is (m,n) and V is (n,k) → C is (m,k)
 
 **Use Case**: Forward pass projections in neural networks
 
-### 2. `gemm_at_b`: Transposed Matrix Multiply  
+### 2. `gemm_at_b`: Transposed Matrix Multiply
+
 **Operation**: `Z = Aᵀ × B` where A is (m,n) and B is (m,k) → Z is (n,k)
 
 **Use Case**: Gradient computation and weight updates in backpropagation
@@ -21,6 +25,7 @@ The GEMM (General Matrix Multiply) kernels in this project implement high-perfor
 ### Core Design Philosophy
 
 Following MLX's `fast.metal_kernel` contract:
+
 - **Body-only Metal source**: MLX auto-generates kernel signatures
 - **Dynamic shapes via buffers**: Pass [m, n, k] through buffer to avoid recompilation
 - **2D tiling with cooperative loading**: Multiple threads load shared data
@@ -37,13 +42,15 @@ threadgroup float Vsub[T][T + PAD];  // Tile from V
 // Each thread accumulates one output element
 ```
 
-**Key Insight**: Tiles stored in threadgroup shared memory (32KB limit) with optional +1 padding to reduce bank conflicts.
+**Key Insight**: Tiles stored in threadgroup shared memory (32KB limit) with optional +1 padding to reduce bank
+conflicts.
 
 ## Optimization Techniques
 
 ### 1. Threadgroup Shared Memory (32KB)
 
 **Without Tiling** (Naive):
+
 ```metal
 // Each thread reads from global memory for every multiply
 float result = 0.0f;
@@ -53,6 +60,7 @@ for (int i = 0; i < n; i++) {
 ```
 
 **With Tiling**:
+
 ```metal
 // Load tile into shared memory once
 threadgroup float Asub[16][16];
@@ -69,7 +77,8 @@ for (uint p = 0; p < 16; p++) {
 }
 ```
 
-**Impact**: 
+**Impact**:
+
 - Reduces global memory accesses by 16x (for 16x16 tiles)
 - Shared memory bandwidth: ~400 GB/s vs ~200 GB/s global memory
 - Each value loaded once, reused 16 times
@@ -91,7 +100,8 @@ threadgroup_barrier(mem_flags::mem_threadgroup);  // Synchronize before read
 ```
 
 **From GEMM_TILING_ATTEMPTS.md**:
-> Early AT_B loaders allowed multiple threads to write the same threadgroup tile address, causing races and incorrect results.
+> Early AT_B loaders allowed multiple threads to write the same threadgroup tile address, causing races and incorrect
+> results.
 
 **Fix**: Carefully map thread indices to ensure unique (ty, tx) pairs write unique tile locations.
 
@@ -117,10 +127,12 @@ for (int t = 0; t < ntiles; ++t) {
 ```
 
 **Why Two Barriers**:
+
 1. **Barrier 1**: Ensure all loads complete before any thread reads (prevents reading uninitialized data)
 2. **Barrier 2**: Ensure all reads complete before overwriting in next iteration (prevents read-after-write hazards)
 
-**Visibility Guarantee**: Barriers with `mem_flags::mem_threadgroup` ensure memory operations are visible across SIMD groups within the threadgroup.
+**Visibility Guarantee**: Barriers with `mem_flags::mem_threadgroup` ensure memory operations are visible across SIMD
+groups within the threadgroup.
 
 ### 4. Padding to Avoid Bank Conflicts
 
@@ -129,12 +141,14 @@ const uint PAD = 1;  // Optional padding
 threadgroup float Asub[T][T + PAD];  // Extra column to shift addresses
 ```
 
-**Bank Conflict Problem**: 
+**Bank Conflict Problem**:
+
 - Shared memory organized in banks (typically 32)
 - When multiple threads access same bank simultaneously → serialization
 - Pattern: stride-16 or stride-32 accesses can all hit same bank
 
 **Solution**: Add +1 padding to shift column addresses
+
 - `Asub[0][16]` and `Asub[1][16]` now in different banks
 - Controlled by `XLSTM_GEMM_PAD=1` environment variable
 
@@ -152,6 +166,7 @@ float result = fma(a, b, c);  // c + (a * b) with single rounding
 ```
 
 **Benefits**:
+
 - 2x throughput (1 instruction vs 2)
 - Better numerical precision (one rounding step instead of two)
 - Lower register pressure
@@ -160,9 +175,11 @@ float result = fma(a, b, c);  // c + (a * b) with single rounding
 
 **Critical Understanding** from GEMM_TILING_ATTEMPTS.md:
 
-> We initially treated `grid` as the number of threadgroups rather than total threads (MLX uses dispatchThreads semantics). This under-dispatched work.
+> We initially treated `grid` as the number of threadgroups rather than total threads (MLX uses dispatchThreads
+> semantics). This under-dispatched work.
 
 **Correct Pattern**:
+
 ```python
 T = 16  # Tile size
 m, n, k = A.shape[0], A.shape[1], V.shape[1]
@@ -177,6 +194,7 @@ threadgroup = (T, T, 1)
 ```
 
 **Result**:
+
 - `threadgroup_position_in_grid` enumerates tile indices
 - `thread_position_in_threadgroup` covers local tile coordinates
 - Each thread computes one output element
@@ -225,6 +243,7 @@ for (int t = 0; t < ntiles; ++t) {
 ### Tile Size Selection
 
 **M3 Optimized** (from code):
+
 ```python
 if "m3" in device_name.lower():
     gemm_av:  TM=32, T=8   (32x8 tiles)
@@ -236,6 +255,7 @@ else:
 ```
 
 **Rationale**:
+
 - M3 GPU has different cache/shared memory characteristics
 - Asymmetric tiles (32x8) can better match execution units
 - Needs empirical benchmarking per device
@@ -273,10 +293,12 @@ if align_execw and (exec_width * exec_width) <= 1024:
 ### Memory Bandwidth Analysis
 
 **Naive Implementation** (no tiling):
+
 - Loads: 2 × m × n × k (each element of A and V accessed k or m times)
 - Bandwidth: ~20 GB/s (poor reuse, random access pattern)
 
 **Tiled Implementation** (16x16 tiles):
+
 - Loads: 2 × m × n × k / T (each element loaded once per T multiplications)
 - Bandwidth: ~150-200 GB/s (coalesced loads, shared memory reuse)
 
@@ -298,18 +320,22 @@ For T=8:  4 FLOPs/byte (memory-bound)
 ## Lessons from GEMM_TILING_ATTEMPTS.md
 
 ### Mistake 1: Grid Semantics
+
 **Wrong**: Treated grid as threadgroup count
 **Right**: Grid = total threads in MLX
 
 ### Mistake 2: Data Races
+
 **Wrong**: Multiple threads writing same shared memory location
 **Right**: Unique writer per (ty, tx) coordinate
 
 ### Mistake 3: Missing Barriers
+
 **Wrong**: Single barrier or no barriers
 **Right**: Two barriers per iteration (after load, after compute)
 
 ### Mistake 4: Non-contiguous Memory
+
 **Wrong**: Assumed arbitrary strides
 **Right**: Use `ensure_row_contiguous=True` and validate layout
 
@@ -338,12 +364,14 @@ def check(shape=(64, 128, 32), tiles=(16, 16)):
 ## Integration with xLSTM
 
 These GEMM kernels are used in:
+
 - **mLSTM memory updates**: Matrix outer products and projections
 - **sLSTM state transitions**: Linear transformations
 - **Attention mechanisms**: Q×Kᵀ and attention×V
 - **FFN layers**: Weight matrix multiplications
 
 **Why Custom Kernels**:
+
 - MLX's built-in matmul is optimized for general cases
 - xLSTM has specific patterns (e.g., frequent Aᵀ×B in gradients)
 - Custom kernels allow fusion opportunities (e.g., GEMM + activation)
@@ -351,15 +379,15 @@ These GEMM kernels are used in:
 
 ## Comparison to Variable Quantization Kernel
 
-| Aspect | GEMM Kernels | Variable Quantization |
-|--------|--------------|----------------------|
-| **Memory Pattern** | Coalesced loads/stores | Coalesced vectorized (float4) |
-| **Shared Memory** | Essential (32KB) | Optional (4KB blocks) |
-| **Barriers** | 2 per K-tile iteration | 2 per block (load/store) |
-| **Arithmetic Intensity** | High (8 FLOPs/byte for T=16) | Low (0.5 FLOPs/byte) |
-| **Bottleneck** | Balanced compute/memory | Pure memory bandwidth |
-| **Optimization Focus** | Tile reuse | Memory coalescing |
-| **Speedup vs Naive** | 7-10x | 26x |
+| Aspect                   | GEMM Kernels                 | Variable Quantization         |
+|--------------------------|------------------------------|-------------------------------|
+| **Memory Pattern**       | Coalesced loads/stores       | Coalesced vectorized (float4) |
+| **Shared Memory**        | Essential (32KB)             | Optional (4KB blocks)         |
+| **Barriers**             | 2 per K-tile iteration       | 2 per block (load/store)      |
+| **Arithmetic Intensity** | High (8 FLOPs/byte for T=16) | Low (0.5 FLOPs/byte)          |
+| **Bottleneck**           | Balanced compute/memory      | Pure memory bandwidth         |
+| **Optimization Focus**   | Tile reuse                   | Memory coalescing             |
+| **Speedup vs Naive**     | 7-10x                        | 26x                           |
 
 ## Key Takeaways
 
@@ -395,5 +423,6 @@ These GEMM kernels are used in:
 
 ---
 
-**Status**: Production-ready kernels used in xLSTM implementation. Validated against MLX reference implementation with <1e-5 relative error across all tested shapes.
+**Status**: Production-ready kernels used in xLSTM implementation. Validated against MLX reference implementation with <
+1e-5 relative error across all tested shapes.
 

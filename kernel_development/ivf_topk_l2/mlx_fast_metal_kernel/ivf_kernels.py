@@ -235,7 +235,8 @@ _KERNEL_TOPK_MERGE = mx.fast.metal_kernel(name="ivf_topk_merge", input_names=["v
                                           output_names=["out_vals", "out_ids"], header=_HEADER, source=_SRC_TOPK_MERGE)
 
 
-def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
+def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[
+    mx.array, mx.array]:
     """Computes the top-k L2 distances and corresponding IDs for a single query vector.
 
     This function uses a Metal kernel to compute the L2 distances between a single
@@ -295,7 +296,8 @@ def ivf_list_topk_l2(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optio
     return vals, out_ids
 
 
-def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
+def ivf_list_topk_l2_batch(Q: mx.array, X: mx.array, ids: mx.array, k: int, tpb: Optional[int] = None) -> Tuple[
+    mx.array, mx.array]:
     """Computes the top-k L2 distances and corresponding IDs for a batch of query vectors.
 
     This function uses a Metal kernel to compute the L2 distances between a batch
@@ -372,7 +374,8 @@ def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tupl
     """
     P, kk = int(vals_parts.shape[0]), int(vals_parts.shape[1])
     shape = mx.array([P, kk, int(k)], dtype=mx.uint32)
-    grid=(1,1,1); threadgroup=(32,1,1)
+    grid = (1, 1, 1)
+    threadgroup = (32, 1, 1)
     (vals, ids) = _KERNEL_TOPK_MERGE(
         inputs=[vals_parts, ids_parts, shape],
         output_shapes=[(k,), (k,)],
@@ -383,7 +386,8 @@ def device_topk_merge(vals_parts: mx.array, ids_parts: mx.array, k: int) -> Tupl
     return vals, ids
 
 
-def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
+def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096,
+                             tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
     """Computes top-k L2 distances for a single query by processing the data in chunks.
 
     This function is a variant of `ivf_list_topk_l2` that processes the input
@@ -436,7 +440,8 @@ def ivf_list_topk_l2_chunked(Q: mx.array, X: mx.array, ids: mx.array, k: int, ro
     return best_vals, best_ids
 
 
-def ivf_list_topk_l2_chunked_device_merge(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096, tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
+def ivf_list_topk_l2_chunked_device_merge(Q: mx.array, X: mx.array, ids: mx.array, k: int, rows_per_chunk: int = 4096,
+                                          tpb: Optional[int] = None) -> Tuple[mx.array, mx.array]:
     """Computes top-k L2 distances for a single query with chunking and device-side merge.
 
     This function is a variant of `ivf_list_topk_l2` that processes the input

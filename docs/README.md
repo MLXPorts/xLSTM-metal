@@ -15,7 +15,9 @@ New to xLSTM-Metal? Start here:
 ### Core Architecture
 
 **Primary Implementation:**
-- **[MLX Architecture](porting/mlx_metal/XLSTM_MLX_ARCHITECTURE.md)** - Complete system architecture, MAD wiring, kernel design
+
+- **[MLX Architecture](porting/mlx_metal/XLSTM_MLX_ARCHITECTURE.md)** - Complete system architecture, MAD wiring, kernel
+  design
 - **[MLX Inference](porting/mlx_metal/MLX_INFERENCE_ARCHITECTURE.md)** - Inference pipeline and generation
 - **[MAD Wiring Integration](components/mad/MAD_WIRING_INTEGRATION.md)** - MAD system design
 - **[mLSTM MAD Architecture](components/mad/MAD_MLSTM_ARCHITECTURE.md)** - mLSTM block implementation
@@ -23,12 +25,15 @@ New to xLSTM-Metal? Start here:
 ### Implementation Guides
 
 **MLX/Metal (Primary):**
+
 - **[MLX Guide](porting/mlx_metal/mlx_guide.md)** - Complete MLX implementation guide
-- **[MLX Numerics and DType Guide](porting/mlx_metal/MLX_NUMERICS_AND_DTYPE_GUIDE.md)** - Numerical stability and precision
+- **[MLX Numerics and DType Guide](porting/mlx_metal/MLX_NUMERICS_AND_DTYPE_GUIDE.md)** - Numerical stability and
+  precision
 - **[MLX Runtime Config](porting/mlx_metal/MLX_RUNTIME_CONFIG.md)** - Runtime configuration options
 - **[MLX Tuning Guide](porting/mlx_metal/MLX_TUNING_GUIDE.md)** - Performance optimization
 
 **Kernel Development:**
+
 - **[MLX Kernel Patterns](components/kernels/MLX_KERNEL_PATTERNS.md)** - Common kernel patterns
 - **[MLX Metal Shader Integration](components/kernels/MLX_METAL_SHADER_INTEGRATION.md)** - Metal shader development
 - **[MLX Metal Kernel Guide](components/kernels/MLX_Metal_Kernel_Guide.md)** - Kernel implementation guide
@@ -41,9 +46,12 @@ New to xLSTM-Metal? Start here:
 ### Reference Implementations
 
 **Canonical xLSTM:**
-- **[Canonical Implementation Notes](porting/CANONICAL_XLSTM_IMPLEMENTATION_NOTES.md)** - Reference implementation details
+
+- **[Canonical Implementation Notes](porting/CANONICAL_XLSTM_IMPLEMENTATION_NOTES.md)** - Reference implementation
+  details
 
 **PyTorch Reference (for comparison):**
+
 - **[PyTorch MPS Inference](porting/pytorch_mps/PYTORCH_MPS_INFERENCE_ARCHITECTURE.md)** - PyTorch MPS implementation
 - **[PyTorch MLX Conv1D Differences](porting/pytorch_mps/PYTORCH_MLX_CONV1D_DIFFERENCES.md)** - Format differences
 
@@ -152,4 +160,5 @@ When contributing to documentation:
 
 ---
 
-**Note**: This documentation describes the MLX-first implementation. PyTorch references are provided for comparison but are not the primary implementation path.
+**Note**: This documentation describes the MLX-first implementation. PyTorch references are provided for comparison but
+are not the primary implementation path.

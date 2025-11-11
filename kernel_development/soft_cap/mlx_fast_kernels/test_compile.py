@@ -5,6 +5,7 @@ import mlx.core as mx
 import numpy as np
 from softcap import SoftCapMLXFastKernel
 
+
 def test_early_compilation():
     """Test that .compile() can be called early and returns cached kernel."""
     print("Test 1: Early compilation pattern")
@@ -43,6 +44,7 @@ def test_early_compilation():
     assert abs(y_list[3] - (-5.0)) < 0.01
     print(f"  ✓ Numerical correctness: {y_list}")
 
+
 def test_lazy_compilation():
     """Test that calling without compile() still works (lazy compilation)."""
     print("\nTest 2: Lazy compilation pattern")
@@ -71,6 +73,7 @@ def test_lazy_compilation():
     assert abs(y_list[2] - 2.0) < 0.01
     print(f"  ✓ Numerical correctness: {y_list}")
 
+
 if __name__ == "__main__":
     print("=" * 60)
     print("Soft Cap Kernel Compilation Tests")
@@ -82,4 +85,3 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("All tests passed!")
     print("=" * 60)
-

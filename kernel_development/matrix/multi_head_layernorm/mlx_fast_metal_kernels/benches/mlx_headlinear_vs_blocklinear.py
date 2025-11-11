@@ -25,7 +25,7 @@ def block_diag(weights):
     c = 0
     for w in weights:
         rr, cc = w.shape
-        out[r:r+rr, c:c+cc] = w
+        out[r:r + rr, c:c + cc] = w
         r += rr
         c += cc
     return out
@@ -43,7 +43,7 @@ def head_split_linear(x, W_list):
     Di = F // H
     outs = []
     for h in range(H):
-        xh = x[:, h*Di:(h+1)*Di]
+        xh = x[:, h * Di:(h + 1) * Di]
         Wh = W_list[h]
         outs.append(xh @ mx.transpose(Wh))
     return mx.concatenate(outs, axis=-1)
@@ -60,7 +60,7 @@ def run_once(B=32, H=8, Di=64, Do=64, dtype=mx.float32):
     :return:
     """
     mx.random.seed(0)
-    x = mx.random.normal((B, H*Di), dtype=dtype)
+    x = mx.random.normal((B, H * Di), dtype=dtype)
     W_list = [mx.random.normal((Do, Di), dtype=dtype) for _ in range(H)]
 
     # Correctness
@@ -102,7 +102,6 @@ if __name__ == "__main__":
     for B, H, Di, Do in configs:
         diff, t_build, t_big, t_heads = run_once(B, H, Di, Do)
         print(f"B={B} H={H} Di={Di} Do={Do}  max|Δ|={diff:.3e}")
-        print(f"  block-diag build: {t_build*1e3:.2f} ms")
-        print(f"  big GEMM       : {t_big*1e3:.2f} ms")
-        print(f"  per-head GEMMs : {t_heads*1e3:.2f} ms")
-
+        print(f"  block-diag build: {t_build * 1e3:.2f} ms")
+        print(f"  big GEMM       : {t_big * 1e3:.2f} ms")
+        print(f"  per-head GEMMs : {t_heads * 1e3:.2f} ms")

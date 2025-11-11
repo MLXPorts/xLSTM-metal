@@ -3,6 +3,7 @@
 This comprehensive guide covers Metal kernel implementation for xLSTM operations across MLX and PyTorch frameworks.
 
 ## Table of Contents
+
 1. [MLX Metal Kernels](#mlx-metal-kernels)
 2. [PyTorch MPS Backend](#pytorch-mps-backend)
 3. [PyTorch Custom Metal Extensions](#pytorch-custom-metal-extensions)
@@ -16,6 +17,7 @@ This comprehensive guide covers Metal kernel implementation for xLSTM operations
 ## MLX Metal Kernels
 
 ### Key Concepts:
+
 1. **Use @mx.custom_function decorator** for clean interfaces
 2. **Metal kernels provide function body only** - MLX generates signatures
 3. **Input naming**: `inp0`, `inp1`, etc. with `inp0_shape[0]` for dimensions
@@ -83,6 +85,7 @@ soft_cap.compile()  # Explicit early compilation
 ```
 
 **Why this pattern matters**:
+
 - `mx.fast.metal_kernel()` compiles Metal source to GPU code
 - Compilation has overhead (parsing, optimization, GPU program creation)
 - Without `.compile()`, kernel recompiles on every module import or function call
@@ -94,20 +97,23 @@ soft_cap.compile()  # Explicit early compilation
 ## PyTorch MPS Backend
 
 ### Architecture:
+
 - PyTorch uses **Metal Performance Shaders (MPS)** for GPU acceleration on Apple Silicon
 - Located in `aten/src/ATen/native/mps/` in PyTorch repo
 - Uses `.mm` (Objective-C++) files, NOT `.metal` files
 - Metal shader code is embedded as string literals
 
 ### Key Differences vs iOS app projects:
-| Aspect | iOS app projects | PyTorch MPS |
-|--------|-------------------|-------------|
-| File Extension | `.metal` | `.mm` (Objective-C++) |
-| Shader Code | Separate files | String literals in C++ |
-| Compilation | `xcrun metal` | Runtime via `newLibraryWithSource` |
-| Loading | Bundle resources | Dynamic compilation |
+
+| Aspect         | iOS app projects | PyTorch MPS                        |
+|----------------|------------------|------------------------------------|
+| File Extension | `.metal`         | `.mm` (Objective-C++)              |
+| Shader Code    | Separate files   | String literals in C++             |
+| Compilation    | `xcrun metal`    | Runtime via `newLibraryWithSource` |
+| Loading        | Bundle resources | Dynamic compilation                |
 
 ### PyTorch MPS Pattern:
+
 ```objective-c
 // In a .mm file
 const char* metal_kernel_source = R"METAL(
@@ -138,6 +144,7 @@ id<MTLLibrary> library = [device newLibraryWithSource:code
 ### Build System Requirements:
 
 1. **File Structure**:
+
 ```
 pytorch_metal_extension/
 ├── setup.py
@@ -148,6 +155,7 @@ pytorch_metal_extension/
 ```
 
 2. **setup.py Configuration**:
+
 ```python
 from setuptools import setup, Extension
 from torch.utils.cpp_extension import BuildExtension
@@ -168,6 +176,7 @@ setup(
 ```
 
 3. **Compilation Commands**:
+
 ```bash
 # For standalone .metal files (if needed)
 xcrun metal -c kernel.metal -o kernel.air
@@ -179,18 +188,19 @@ python setup.py install
 
 ### Common Build Issues:
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `.mm` file not recognized | setuptools limitation | Use `-x objective-c++` flag |
+| Issue                         | Cause                 | Solution                                        |
+|-------------------------------|-----------------------|-------------------------------------------------|
+| `.mm` file not recognized     | setuptools limitation | Use `-x objective-c++` flag                     |
 | `torch/extension.h` not found | Missing include paths | Add `torch.utils.cpp_extension.include_paths()` |
-| Metal frameworks not linked | Missing link flags | Add `-framework Metal` etc. |
-| torch not available in setup | PEP 517 isolation | Use runtime compilation approach |
+| Metal frameworks not linked   | Missing link flags    | Add `-framework Metal` etc.                     |
+| torch not available in setup  | PEP 517 isolation     | Use runtime compilation approach                |
 
 ---
 
 ## PyTorch JIT and Metal
 
 ### Current State (2024):
+
 - **TorchScript**: Incompatible with dynamic RNN shapes
 - **torch.compile**: Early prototype for Metal, limited to <64 buffers
 - **Eager mode**: Most stable for Metal/MPS operations
@@ -208,6 +218,7 @@ def complex_lstm(x, hidden_states):
 ```
 
 ### JIT Compilation Issues:
+
 ```python
 # TorchScript fails on dynamic shapes
 traced = torch.jit.trace(model, example_input)  # Shape mismatch errors
@@ -217,6 +228,7 @@ compiled = torch.compile(model, dynamic=True, backend="inductor")
 ```
 
 ### Metal Buffer Exhaustion:
+
 - Metal has a hard limit of 64 buffers per kernel
 - torch.compile can generate kernels exceeding this limit
 - Solution: HPC limb technique (see below)
@@ -226,11 +238,13 @@ compiled = torch.compile(model, dynamic=True, backend="inductor")
 ## HPC Limb Technique
 
 ### Purpose:
+
 1. **Work around Metal's 64-buffer limit**
 2. **Emulate float64 precision** (Metal only supports float32/float16)
 3. **Reduce memory usage** with packed representations
 
 ### Implementation:
+
 ```metal
 #define NUM_LIMBS 8u          // 8 × 16-bit = 128-bit precision
 #define LIMB_RADIX 65536.0f   // 2^16
@@ -257,6 +271,7 @@ for (uint l = 0; l < NUM_LIMBS; l++) {
 ```
 
 ### Benefits:
+
 - Reduces buffer count from 64+ to ~12
 - Provides 128-bit precision on hardware with only float32
 - Enables complex computations within Metal constraints
@@ -267,13 +282,13 @@ for (uint l = 0; l < NUM_LIMBS; l++) {
 
 ### xLSTM-Specific Optimizations:
 
-| Operation | Metal Pattern | Notes |
-|-----------|--------------|-------|
-| **Soft capping** | `cap * tanh(x / cap)` | Prevents gradient explosion |
-| **Matrix memory** | Outer products for mLSTM | Use einsum-like patterns |
-| **Sequential deps** | Single-threaded sections | Can't parallelize time steps |
-| **Causal conv** | Masked operations | Only past/current visible |
-| **RMSNorm** | Parallel reduction | Use threadgroup shared memory |
+| Operation           | Metal Pattern            | Notes                         |
+|---------------------|--------------------------|-------------------------------|
+| **Soft capping**    | `cap * tanh(x / cap)`    | Prevents gradient explosion   |
+| **Matrix memory**   | Outer products for mLSTM | Use einsum-like patterns      |
+| **Sequential deps** | Single-threaded sections | Can't parallelize time steps  |
+| **Causal conv**     | Masked operations        | Only past/current visible     |
+| **RMSNorm**         | Parallel reduction       | Use threadgroup shared memory |
 
 ### Performance Tips:
 
@@ -315,7 +330,8 @@ memcpy(result_cpu.data_ptr(), [output_buffer contents]...);  // GPU -> CPU copy
 return result_cpu.to(input.device());  // CPU -> GPU copy
 ```
 
-**Why this seemed necessary**: 
+**Why this seemed necessary**:
+
 - Using wrong storage API (`tensor.data_ptr()` vs `tensor.storage().data()`)
 - Incorrect casting (`__bridge` vs `__builtin_bit_cast`)
 - Missing knowledge of PyTorch's internal MPS patterns
@@ -357,19 +373,22 @@ torch::Tensor softcap_direct(torch::Tensor input, float cap_value) {
 ### Performance Comparison
 
 **Benchmark Results** (10,000 element tensor, 100 iterations):
+
 - **Direct access**: 0.019s
-- **CPU copying**: 0.081s  
+- **CPU copying**: 0.081s
 - **Speedup**: **4.2x faster**
 
 ### Why Both MLX and PyTorch Support Direct Access
 
 **MLX Pattern**:
+
 ```python
 # MLX: Direct array passing to Metal kernel
 kernel(inputs=[x, cap_array], ...)  # No copying!
 ```
 
 **PyTorch Pattern**:
+
 ```cpp
 // PyTorch: Direct MTLBuffer access (internal method)
 id<MTLBuffer> buf = __builtin_bit_cast(id<MTLBuffer>, tensor.storage().data());
@@ -393,16 +412,18 @@ id<MTLBuffer> buf = __builtin_bit_cast(id<MTLBuffer>, tensor.storage().data());
 
 ### The Real API Difference
 
-| Framework | Buffer Access Method |
-|-----------|---------------------|
-| **MLX** | `array.data<T>()` returns Metal buffer directly |
+| Framework   | Buffer Access Method                                         |
+|-------------|--------------------------------------------------------------|
+| **MLX**     | `array.data<T>()` returns Metal buffer directly              |
 | **PyTorch** | `__builtin_bit_cast(id<MTLBuffer>, tensor.storage().data())` |
 
-**Key Insight**: MLX appears simpler because it's designed from the ground up for Metal. PyTorch requires bit casting through its storage abstraction layer, but **both achieve the same result** - direct GPU buffer access.
+**Key Insight**: MLX appears simpler because it's designed from the ground up for Metal. PyTorch requires bit casting
+through its storage abstraction layer, but **both achieve the same result** - direct GPU buffer access.
 
 ### When CPU Copying Actually Makes Sense
 
 Use CPU copying only when:
+
 1. **Debugging** - Explicit data flow is easier to debug
 2. **Complex tensor layouts** - Non-contiguous tensors with complex strides
 3. **API compatibility** - Working with legacy code that expects CPU data
@@ -412,22 +433,25 @@ Use CPU copying only when:
 
 ### Bottom Line: The Kludgy Workaround is Unnecessary
 
-**The truth**: Both MLX and PyTorch support direct GPU buffer access without CPU copying. The key is using the correct storage API and bit casting pattern that PyTorch's internal MPS operations use.
+**The truth**: Both MLX and PyTorch support direct GPU buffer access without CPU copying. The key is using the correct
+storage API and bit casting pattern that PyTorch's internal MPS operations use.
 
 **Performance impact**: Direct access is 4.2x faster than CPU copying.
 
-**Takeaway**: If you can pass tensors back and forth in MLX without CPU copying, you can do the same in PyTorch - you just need to use the right internal pattern.
+**Takeaway**: If you can pass tensors back and forth in MLX without CPU copying, you can do the same in PyTorch - you
+just need to use the right internal pattern.
 
 ### Relationship to HPC Limb Technique
 
 ⚠️ **Important**: The HPC limb technique solves a **completely different problem** from buffer access:
 
-| Problem | Solution | Purpose |
-|---------|----------|---------|
-| **Buffer Access** | Direct bit casting with `__builtin_bit_cast` | Avoid CPU copying for performance |
-| **HPC Limbs** | 16-bit limb arithmetic for precision | Emulate float64 precision in Metal |
+| Problem           | Solution                                     | Purpose                            |
+|-------------------|----------------------------------------------|------------------------------------|
+| **Buffer Access** | Direct bit casting with `__builtin_bit_cast` | Avoid CPU copying for performance  |
+| **HPC Limbs**     | 16-bit limb arithmetic for precision         | Emulate float64 precision in Metal |
 
 **HPC Limb Technique Overview**:
+
 ```cpp
 // From ember-ml: 16-bit limb arithmetic for high precision
 #define NUM_LIMBS   8u          // 128-bit accumulator (8 × 16-bit)
@@ -438,10 +462,12 @@ float limb_accumulator[NUM_LIMBS];  // Higher precision than float64
 ```
 
 **When to use each**:
-- **Direct buffer access**: Always (for performance)  
+
+- **Direct buffer access**: Always (for performance)
 - **HPC limbs**: Only when you need >float32 precision in Metal kernels
 
 **They work together**:
+
 ```cpp
 torch::Tensor high_precision_operation(torch::Tensor input) {
     // 1. Direct buffer access (no CPU copying)
@@ -460,18 +486,20 @@ torch::Tensor high_precision_operation(torch::Tensor input) {
 
 ⚡ **Advanced**: ember-ml goes beyond what Metal normally supports with **orthogonal non-square matrices**:
 
-| Metal Limitation | ember-ml Solution | Benefit |
-|------------------|-------------------|---------|
-| **Square matrix bias** | Orthogonal non-square algorithm | Works with any matrix shape |
-| **Poor conditioning** | HPC limb arithmetic + orthogonalization | Numerical stability for ill-conditioned matrices |
-| **Memory constraints** | Block-based tiled computation | Handles very large matrices |
+| Metal Limitation       | ember-ml Solution                       | Benefit                                          |
+|------------------------|-----------------------------------------|--------------------------------------------------|
+| **Square matrix bias** | Orthogonal non-square algorithm         | Works with any matrix shape                      |
+| **Poor conditioning**  | HPC limb arithmetic + orthogonalization | Numerical stability for ill-conditioned matrices |
+| **Memory constraints** | Block-based tiled computation           | Handles very large matrices                      |
 
 **The Challenge**: Standard Metal operations struggle with:
+
 - **Non-square matrices** (e.g., 1000×50, 10×500)
 - **Ill-conditioned matrices** (exponentially decreasing singular values)
 - **Very rectangular matrices** (extreme aspect ratios)
 
-**ember-ml's Solution**: 
+**ember-ml's Solution**:
+
 ```cpp
 // Metal kernel for orthogonal non-square matrices
 kernel void orthogonal_nonsquare_kernel(
@@ -507,12 +535,14 @@ kernel void orthogonal_nonsquare_kernel(
 }
 ```
 
-**Test Results**: 
+**Test Results**:
+
 - **Handles extreme shapes**: 1000×10, 10×1000, even 3×100
 - **Better numerical stability** than standard QR for ill-conditioned matrices
 - **Performance**: Faster than standard implementations for large rectangular matrices
 
 **All Three Techniques Combined**:
+
 ```cpp
 torch::Tensor advanced_operation(torch::Tensor input) {
     // 1. Direct buffer access (4.2x performance boost)
@@ -535,6 +565,7 @@ This makes ember-ml capable of operations that go **beyond Metal's normal limita
 ## Best Practices Summary
 
 ### DO:
+
 - ✅ Embed Metal code as strings in .mm files for PyTorch
 - ✅ Use runtime compilation with `newLibraryWithSource`
 - ✅ Pack data with HPC limbs to avoid buffer limits
@@ -542,6 +573,7 @@ This makes ember-ml capable of operations that go **beyond Metal's normal limita
 - ✅ Use `mx.eval()` or `torch.mps.synchronize()` for debugging
 
 ### DON'T:
+
 - ❌ Create separate .metal files for PyTorch extensions
 - ❌ Exceed 64 Metal buffers per kernel
 - ❌ Assume float64 support (use HPC limbs instead)

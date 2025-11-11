@@ -1,4 +1,3 @@
-
 """
 Plot optimization results from runs/mps_opt/<run>/summary.csv.
 Usage:
@@ -48,4 +47,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

@@ -1,4 +1,3 @@
-
 """
 Regenerate and save outputs for each trial in an optimizer run.
 
@@ -51,7 +50,7 @@ def greedy_gen(model: xLSTMLarge, x: torch.Tensor, max_len: int) -> torch.Tensor
     for i in range(1, max_len):
         logits, state = model(next_tok, state)
         next_tok = torch.argmax(logits[:, -1:, :], dim=-1)
-        gen[:, i:i+1] = next_tok
+        gen[:, i:i + 1] = next_tok
     return gen
 
 

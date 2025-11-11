@@ -1,4 +1,3 @@
-
 """
 "xltop": lightweight terminal monitor for xLSTM on Apple/MPS.
 
@@ -47,6 +46,7 @@ except Exception:
     torch = None  # type: ignore
 
 from pathlib import Path
+
 # Ensure repo root on sys.path for direct invocation
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -72,7 +72,7 @@ def fmt_gb(x: Optional[float]) -> str:
     """
     if x is None:
         return "-"
-    return f"{x/1024.0:6.2f} GB"
+    return f"{x / 1024.0:6.2f} GB"
 
 
 def get_recommended_mps_gb() -> Optional[float]:
@@ -594,14 +594,18 @@ def main():
     :return:
     """
     ap = argparse.ArgumentParser()
-    ap.add_argument("--no-curses", action="store_true", help="Disable curses UI and print a snapshot (or loop with --poll)")
+    ap.add_argument("--no-curses", action="store_true",
+                    help="Disable curses UI and print a snapshot (or loop with --poll)")
     ap.add_argument("--poll", type=float, default=0.0, help="Polling interval for --no-curses mode (0 = one-shot)")
     ap.add_argument("--once", action="store_true", help="Alias for --no-curses --poll 0 (single snapshot)")
     ap.add_argument("--count", type=int, default=0, help="For --poll modes, stop after N iterations (0 = infinite)")
     ap.add_argument("--json", action="store_true", help="Emit a single JSON snapshot and exit")
-    ap.add_argument("--json-stream", action="store_true", help="Emit NDJSON snapshots at --poll interval; use --count to limit")
-    ap.add_argument("--stdin-commands", action="store_true", help="Read simple commands from stdin (kill <pid>, ray stop, empty_cache, interval <sec>)")
-    ap.add_argument("--stats-path", type=str, default=None, help="Optional decode stats CSV (from runner --stats-log) to display tok/s")
+    ap.add_argument("--json-stream", action="store_true",
+                    help="Emit NDJSON snapshots at --poll interval; use --count to limit")
+    ap.add_argument("--stdin-commands", action="store_true",
+                    help="Read simple commands from stdin (kill <pid>, ray stop, empty_cache, interval <sec>)")
+    ap.add_argument("--stats-path", type=str, default=None,
+                    help="Optional decode stats CSV (from runner --stats-log) to display tok/s")
     args = ap.parse_args()
 
     global _CLI_STATS_PATH

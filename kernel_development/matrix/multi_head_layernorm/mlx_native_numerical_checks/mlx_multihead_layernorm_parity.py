@@ -43,7 +43,7 @@ def groupnorm_like(x, num_heads, eps=1e-6):
 if __name__ == "__main__":
     mx.random.seed(0)
     B, NH, DH = 32, 8, 96
-    x = mx.random.normal((B, NH*DH))
+    x = mx.random.normal((B, NH * DH))
     y_mh = mh_layernorm(x, NH)
     y_gn = groupnorm_like(x, NH)
     # Compare per-head stats
@@ -53,8 +53,7 @@ if __name__ == "__main__":
     var = mx.var(yh, axis=-1)
     print("MultiHead LN stats (mean,var over DH):")
     print(f"  mean≈0: {float(mx.mean(mx.abs(mean))):.3e}")
-    print(f"  var≈1:  {float(mx.mean(mx.abs(var-1))):.3e}")
+    print(f"  var≈1:  {float(mx.mean(mx.abs(var - 1))):.3e}")
     # Similarity to GroupNorm baseline
     diff = float(mx.max(mx.abs(y_mh - y_gn)))
     print(f"Max |Δ| vs GroupNorm: {diff:.3e}")
-

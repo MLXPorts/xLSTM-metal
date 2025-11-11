@@ -4,7 +4,8 @@ PyTorch implementation of soft cap using custom Metal kernels via JIT compilatio
 
 ## Overview
 
-This module provides a Metal-accelerated soft cap operation for PyTorch tensors on Apple Silicon (MPS backend). The soft cap function is: `output = cap_value * tanh(input / cap_value)`.
+This module provides a Metal-accelerated soft cap operation for PyTorch tensors on Apple Silicon (MPS backend). The soft
+cap function is: `output = cap_value * tanh(input / cap_value)`.
 
 ## Implementation
 
@@ -49,6 +50,7 @@ python test_softcap.py
 ```
 
 **Expected Output**:
+
 ```
 ======================================================================
 PyTorch Metal Soft Cap Test
@@ -80,6 +82,7 @@ All tests passed!
 ### JIT Compilation
 
 On first import, PyTorch's `cpp_extension.load()`:
+
 1. Compiles `mlstm_metal_backend.mm` with Metal frameworks
 2. Links against PyTorch libraries
 3. Caches result in `~/.cache/torch_extensions/`
@@ -105,7 +108,8 @@ kernel void soft_cap_kernel(
 
 ### Buffer Mapping
 
-The backend uses `getMTLBufferStorage()` to extract Metal buffers directly from PyTorch MPS tensors, avoiding CPU transfers:
+The backend uses `getMTLBufferStorage()` to extract Metal buffers directly from PyTorch MPS tensors, avoiding CPU
+transfers:
 
 ```cpp
 id<MTLBuffer> getMTLBufferStorage(const torch::Tensor& tensor) {
@@ -122,29 +126,33 @@ id<MTLBuffer> getMTLBufferStorage(const torch::Tensor& tensor) {
 
 ## Comparison to MLX Version
 
-| Feature | PyTorch Metal | MLX Fast Kernel |
-|---------|---------------|-----------------|
-| Backend | PyTorch MPS | MLX Metal |
-| Compilation | JIT (first use) | Ahead-of-time via `.compile()` |
-| Buffer Access | Direct via `__builtin_bit_cast` | MLX managed |
-| Framework | PyTorch ecosystem | MLX ecosystem |
-| Use Case | PyTorch models on MPS | MLX models |
+| Feature       | PyTorch Metal                   | MLX Fast Kernel                |
+|---------------|---------------------------------|--------------------------------|
+| Backend       | PyTorch MPS                     | MLX Metal                      |
+| Compilation   | JIT (first use)                 | Ahead-of-time via `.compile()` |
+| Buffer Access | Direct via `__builtin_bit_cast` | MLX managed                    |
+| Framework     | PyTorch ecosystem               | MLX ecosystem                  |
+| Use Case      | PyTorch models on MPS           | MLX models                     |
 
 ## Troubleshooting
 
 ### "MPS not available"
+
 - Ensure you have PyTorch with MPS support installed
 - Run on macOS with Apple Silicon
 
 ### "Metal backend source not found"
+
 - Verify `pytorch_mm/mlstm_metal_backend.mm` exists
 - Check file paths in `softcap.py`
 
 ### Compilation Errors
+
 - Install Xcode Command Line Tools: `xcode-select --install`
 - Check Metal framework availability
 
 ### "function 'soft_cap_kernel' not found"
+
 - Ensure `mlstm_kernels.metal` contains `soft_cap_kernel` function
 - Check shader source is being read correctly
 

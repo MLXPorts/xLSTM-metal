@@ -2,9 +2,11 @@
 
 ## Executive Summary
 
-M2-BERT (Monarch Mixer BERT) is another architecture that uses **sequential block execution** with **within-layer parallelism**. Like MAD, LFM2, and xLSTM, it does NOT have block-to-block parallelism.
+M2-BERT (Monarch Mixer BERT) is another architecture that uses **sequential block execution** with **within-layer
+parallelism**. Like MAD, LFM2, and xLSTM, it does NOT have block-to-block parallelism.
 
-**Key Innovation**: Uses **Monarch matrices** (block-diagonal structure) and **Hyena filters** (FFT-based long convolutions) for sub-quadratic complexity.
+**Key Innovation**: Uses **Monarch matrices** (block-diagonal structure) and **Hyena filters** (FFT-based long
+convolutions) for sub-quadratic complexity.
 
 **Parallelism Type**: GPU-level within layers (block-diagonal multiply, FFT channel batching)
 
@@ -80,6 +82,7 @@ class M2BERTLayer(nn.Module):
 From `M2BERT_FULL_MODEL_COMPLETE.md`:
 
 **M2-BERT-80M**:
+
 - **Total parameters**: 81.3M (26% fewer than BERT-base)
 - **Layers**: 12
 - **Hidden size**: 768
@@ -88,13 +91,13 @@ From `M2BERT_FULL_MODEL_COMPLETE.md`:
 
 **Parameter Breakdown**:
 
-| Component | Parameters | % of Total |
-|-----------|-----------|------------|
-| Embeddings | 23,841,024 | 29.3% |
-| One M2BERTLayer | 4,690,944 | 5.8% |
-| 12 Layers | 56,291,328 | 69.2% |
-| LayerNorm | 15,872 | <0.1% |
-| **Total** | **81,302,016** | **100%** |
+| Component       | Parameters     | % of Total |
+|-----------------|----------------|------------|
+| Embeddings      | 23,841,024     | 29.3%      |
+| One M2BERTLayer | 4,690,944      | 5.8%       |
+| 12 Layers       | 56,291,328     | 69.2%      |
+| LayerNorm       | 15,872         | <0.1%      |
+| **Total**       | **81,302,016** | **100%**   |
 
 ---
 
@@ -139,6 +142,7 @@ def blockdiag_multiply_reference(x, weight):
 **Parallelism**: Each block computed independently → GPU batched operations
 
 **Parameter Reduction**:
+
 - Standard: 768 × 768 = 589,824 params
 - Monarch (4 blocks): 4 × 192 × 192 = 147,456 params (4x reduction)
 
@@ -149,6 +153,7 @@ def blockdiag_multiply_reference(x, weight):
 **Implementation**: `monarch_mixer_mlx.py` + `hyena_filter_mlx.py`
 
 Architecture:
+
 ```
 Input
   ↓
@@ -164,6 +169,7 @@ Output Projection
 ```
 
 **FFT Convolution**:
+
 ```python
 def fftconv_ref(u, k, D, dropout=0.0, gelu=True):
     """
@@ -209,6 +215,7 @@ def fftconv_ref(u, k, D, dropout=0.0, gelu=True):
 ```
 
 **Parallelism**:
+
 1. FFT is inherently parallel (O(L log L))
 2. Channel batching allows parallel processing of channel subsets
 3. All on GPU
@@ -246,6 +253,7 @@ num_layers = 12
 | Attention | ❌ No (quadratic dependencies) | ✅ Yes (heads) |
 
 **Implementation**:
+
 ```python
 CHANNEL_BATCH_SIZE = 64  # Process 64 channels at a time
 
@@ -266,6 +274,7 @@ y = mx.concatenate(outputs, axis=1)
 ```
 
 **Result**:
+
 - ✅ Perfect numerical correctness (max error = 0.0e+00)
 - ✅ Memory efficient (~50MB per layer vs ~500MB)
 - ✅ Minimal overhead (~5-10% latency from batching loop)
@@ -281,6 +290,7 @@ From ember-ml's high-precision computing implementation:
 5. **Limb-based arithmetic**: For extended precision (8 limbs)
 
 Example Metal kernel structure:
+
 ```metal
 #define NUM_LIMBS 8
 #define TILE_SIZE 256
@@ -365,28 +375,29 @@ def blockdiag_multiply_gemm(x, weight):
 ### What M2-BERT Has (Within-Layer)
 
 1. **Block-Diagonal Parallelism**
-   - Each Monarch block computed independently
-   - GPU batched operations across blocks
-   - 4x parameter reduction with maintained capacity
+    - Each Monarch block computed independently
+    - GPU batched operations across blocks
+    - 4x parameter reduction with maintained capacity
 
 2. **Channel Batching (FFT Convolution)**
-   - Process 64 channels at a time
-   - Full FFT convolution per batch
-   - Memory-efficient (avoids Metal's 499MB limit)
+    - Process 64 channels at a time
+    - Full FFT convolution per batch
+    - Memory-efficient (avoids Metal's 499MB limit)
 
 3. **FFT Parallelism**
-   - Inherently parallel algorithm (O(L log L))
-   - GPU-optimized FFT primitives
-   - Sub-quadratic complexity vs O(L²) attention
+    - Inherently parallel algorithm (O(L log L))
+    - GPU-optimized FFT primitives
+    - Sub-quadratic complexity vs O(L²) attention
 
 4. **xLSTM GEMM Kernels**
-   - Metal-accelerated matrix multiply
-   - 2-3x faster than reference
-   - Shared with xLSTM project
+    - Metal-accelerated matrix multiply
+    - 2-3x faster than reference
+    - Shared with xLSTM project
 
 ### What M2-BERT Does NOT Have
 
 ❌ **Block-to-Block Parallelism** - Layers execute sequentially:
+
 ```python
 # Sequential iteration (same as MAD/LFM2/xLSTM!)
 for layer in self.layers:
@@ -415,44 +426,47 @@ for layer in self.layers:
    ```
 
 2. **Metal FFT Convolution**
-   - Channel batching pattern for memory efficiency
-   - HPC16x8 threadgroup memory management
-   - Custom Metal kernels for 2-5x speedup
+    - Channel batching pattern for memory efficiency
+    - HPC16x8 threadgroup memory management
+    - Custom Metal kernels for 2-5x speedup
 
 3. **Block-Diagonal Matrices**
-   - Potential for parameter-efficient variants
-   - Could reduce mLSTM projection sizes
-   - Monarch pattern for Q/K/V projections
+    - Potential for parameter-efficient variants
+    - Could reduce mLSTM projection sizes
+    - Monarch pattern for Q/K/V projections
 
 4. **xLSTM GEMM Kernel Reuse**
-   - M2-BERT already uses our kernels!
-   - Proven 2-3x speedup
-   - Could integrate bidirectionally
+    - M2-BERT already uses our kernels!
+    - Proven 2-3x speedup
+    - Could integrate bidirectionally
 
 ### Implementation Strategy
 
 **Phase 1: Core Architecture** (matches previous analysis)
+
 1. Fix dtype issue in mLSTM kernel
 2. Create BlockRegistry (mLSTM, sLSTM, FFN types)
 3. Implement config-driven backbone (LFM2 `layer_types` pattern)
 
 **Phase 2: M2-BERT Integration**
+
 4. Add Hyena block type
-   - Use M2-BERT's `MonarchMixerSequenceMixing`
-   - Integrate FFT channel batching
-   - Add to BlockRegistry
+    - Use M2-BERT's `MonarchMixerSequenceMixing`
+    - Integrate FFT channel batching
+    - Add to BlockRegistry
 
 5. Create Metal FFT utilities
-   - Standalone `metal_fft_conv.py` (like M2-BERT)
-   - HPC16x8 threadgroup patterns
-   - Custom kernels for 2-5x speedup
+    - Standalone `metal_fft_conv.py` (like M2-BERT)
+    - HPC16x8 threadgroup patterns
+    - Custom kernels for 2-5x speedup
 
 6. Optional: Monarch matrix projections
-   - Block-diagonal Q/K/V for mLSTM
-   - 4x parameter reduction
-   - Experimental variant
+    - Block-diagonal Q/K/V for mLSTM
+    - 4x parameter reduction
+    - Experimental variant
 
 **Phase 3: Cross-Pollination**
+
 7. Share xLSTM GEMM kernels with M2-BERT team
 8. Integrate M2-BERT's Hyena improvements back to xLSTM
 9. Unified Metal kernel library
@@ -464,22 +478,26 @@ for layer in self.layers:
 M2-BERT confirms the universal pattern:
 
 **ALL modern architectures use:**
+
 - ✅ Sequential block execution
 - ✅ Within-layer parallelism (GPU-level)
 - ✅ Residual connections with pre-normalization
 
 **Parallelism hierarchy:**
+
 1. **GPU-level**: Threadgroups, SIMD, tiling (Metal kernels)
 2. **Algorithm-level**: FFT (O(L log L)), block-diagonal, multi-head
 3. **Batching-level**: Channel batching, expert routing
 4. **NOT block-to-block**: Sequential dependencies prevent this
 
 **Key takeaway**: Don't try to parallelize block execution - focus on optimizing within-layer computation through:
+
 - Efficient kernels (Metal, custom GEMM)
 - Smart memory management (channel batching, tiling)
 - Algorithmic efficiency (FFT vs direct convolution, sub-quadratic attention)
 
 **For xLSTM-MAD-NCPS**, the path forward is:
+
 1. Keep simple sequential backbone (like MAD/LFM2/M2-BERT)
 2. Add heterogeneous block types (Hyena, Mamba, NCPS mixers)
 3. Optimize within-layer computation (Metal kernels, FFT)
@@ -490,18 +508,22 @@ M2-BERT confirms the universal pattern:
 ## Files Referenced
 
 **M2-BERT Implementation**:
+
 - `m2_training/src/mm_mlx/m2bert_model_mlx.py` - Main model
 - `m2_training/src/mm_mlx/monarch_mixer_mlx.py` - Hyena sequence mixing
 - `m2_training/src/mm_mlx/hyena_filter_mlx.py` - FFT convolution
 - `m2_training/src/mm_mlx/blockdiag_multiply_mlx.py` - Block-diagonal multiply (uses xLSTM kernels!)
 
 **Documentation**:
+
 - `m2_training/M2BERT_FULL_MODEL_COMPLETE.md` - Architecture overview
 - `m2_training/METAL_FFT_SOLUTION.md` - Channel batching solution
 
 **xLSTM Kernel Integration**:
+
 - `/Volumes/emberstuff/xLSTM/experimental_kernels/mlx_fast_kernels/gemm_kernels.py`
 
 **HPC16x8 Reference**:
+
 - `/Volumes/stuff/Projects/ember-ml-kotlin/ember_ml/backend/mlx/linearalg/hpc16x8_ops.py`
 - `/Volumes/stuff/Projects/ember-ml-kotlin/ember_ml/backend/mlx/linearalg/svd_ops.py`

@@ -11,8 +11,8 @@ declare a directed graph that the runtime validates and executes.
 - It is not LangFlow (a GUI project). We use the term FlowLang to refer to our text-based DSLs and the
   JavaScript/TypeScript-based flow modules documented here.
 - Author flows as either:
-  - Minimal line-oriented files (e.g., `.flow` with `block` and `link` lines), or
-  - JavaScript/TypeScript modules that construct a graph programmatically and return a JSON `FlowGraph`.
+    - Minimal line-oriented files (e.g., `.flow` with `block` and `link` lines), or
+    - JavaScript/TypeScript modules that construct a graph programmatically and return a JSON `FlowGraph`.
 
 Quick links:
 

@@ -58,11 +58,11 @@ def run_once(B=64, NH=8, DH=128):
     mx.eval(y_k)
     t_k = time.time() - t1
     # Parity
-    diff = float(mx.max(mx.abs(y_k.reshape(B, NH*DH) - y_mlx)))
+    diff = float(mx.max(mx.abs(y_k.reshape(B, NH * DH) - y_mlx)))
     return diff, t_mlx, t_k
 
 
 if __name__ == "__main__":
     for DH in (64, 96, 128, 192):
         diff, t_mlx, t_k = run_once(DH=DH)
-        print(f"B=64 NH=8 DH={DH:3d}  max|Δ|={diff:.3e}  mlx={t_mlx*1e3:.2f} ms  kernel={t_k*1e3:.2f} ms")
+        print(f"B=64 NH=8 DH={DH:3d}  max|Δ|={diff:.3e}  mlx={t_mlx * 1e3:.2f} ms  kernel={t_k * 1e3:.2f} ms")

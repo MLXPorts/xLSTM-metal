@@ -1,4 +1,3 @@
-
 """
 MLX xLSTM Benchmarks
 
@@ -49,11 +48,11 @@ def profiles() -> Dict[str, Dict[str, int]]:
     """
     return {
         # quick sanity
-        "small":  {"layers": 6,  "model_dim": 512,  "head_dim": 64,  "heads": 8,  "vocab": 256},
+        "small": {"layers": 6, "model_dim": 512, "head_dim": 64, "heads": 8, "vocab": 256},
         # moderate scale
         "medium": {"layers": 16, "model_dim": 1536, "head_dim": 128, "heads": 12, "vocab": 32000},
         # heavier scale (adjust to your hardware)
-        "large":  {"layers": 24, "model_dim": 3072, "head_dim": 128, "heads": 24, "vocab": 50257},
+        "large": {"layers": 24, "model_dim": 3072, "head_dim": 128, "heads": 24, "vocab": 50257},
     }
 
 
@@ -80,7 +79,10 @@ def time_prefill_and_decode(model, seq_len: int, new_tokens: int) -> Tuple[float
     # Synthetic byte tokens for simplicity; tokenizer choice doesn't affect compute scale much
     tokens = mx.random.randint(0, 256, (1, seq_len))
     # Prefill
-    t0 = time.time(); logits, state = model(tokens, return_hidden=True); mx.eval(logits); t1 = time.time()
+    t0 = time.time()
+    logits, state = model(tokens, return_hidden=True)
+    mx.eval(logits)
+    t1 = time.time()
     # Decode
     last_logits = logits[:, -1, :]
     t_decode_start = time.time()
@@ -149,7 +151,7 @@ def main():
     ap.add_argument("--gemm-pad", type=int, default=None)
     ap.add_argument("--gemm-align-execw", type=int, default=None)
     ap.add_argument("--gemm-double-buffer", type=int, default=None)
-    ap.add_argument("--qr-dot-mode", type=str, default=None, choices=["auto","simd","simple"]) 
+    ap.add_argument("--qr-dot-mode", type=str, default=None, choices=["auto", "simd", "simple"])
     ap.add_argument("--ivf-tpb", type=int, default=None)
     ap.add_argument("--make-charts", type=int, default=1)
     args = ap.parse_args()
@@ -180,7 +182,11 @@ def main():
             if prof not in profs:
                 raise ValueError(f"Unknown profile: {prof}")
             cfg = profs[prof].copy()
-            layers = cfg["layers"]; model_dim = cfg["model_dim"]; head_dim = cfg["head_dim"]; heads = cfg["heads"]; vocab = cfg["vocab"]
+            layers = cfg["layers"]
+            model_dim = cfg["model_dim"]
+            head_dim = cfg["head_dim"]
+            heads = cfg["heads"]
+            vocab = cfg["vocab"]
 
             # Construct model
             model = create_xlstm_model(
@@ -209,13 +215,20 @@ def main():
                 # Warm-up
                 _ = time_prefill_and_decode(model, seq_len=int(args.seq_len), new_tokens=4)
                 # Repeats
-                prefill_times = []; decode_times = []; total_times = []
+                prefill_times = []
+                decode_times = []
+                total_times = []
                 for _ in range(int(args.repeats)):
-                    p_s, d_s, tot_s = time_prefill_and_decode(model, seq_len=int(args.seq_len), new_tokens=int(args.new_tokens))
-                    prefill_times.append(p_s); decode_times.append(d_s); total_times.append(tot_s)
+                    p_s, d_s, tot_s = time_prefill_and_decode(model, seq_len=int(args.seq_len),
+                                                              new_tokens=int(args.new_tokens))
+                    prefill_times.append(p_s)
+                    decode_times.append(d_s)
+                    total_times.append(tot_s)
                 # Median
                 import statistics as stats
-                p = float(stats.median(prefill_times)); d = float(stats.median(decode_times)); tot = float(stats.median(total_times))
+                p = float(stats.median(prefill_times))
+                d = float(stats.median(decode_times))
+                tot = float(stats.median(total_times))
                 prefill_tok_s = int(args.seq_len) / max(1e-9, p)
                 decode_tok_s = int(args.new_tokens) / max(1e-9, d)
                 w.writerow([

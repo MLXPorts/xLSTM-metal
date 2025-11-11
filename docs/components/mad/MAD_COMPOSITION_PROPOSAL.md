@@ -8,7 +8,9 @@ Author: Based on Sepp Hochreiter's MAD and LFM2 architectures
 
 ## Executive Summary
 
-LFM2 (Liquid Foundation Model 2) and MAD (Mechanistic Architecture Design) were both created by Sepp Hochreiter's research group. LFM2 uses a simple but powerful `layer_types` pattern for heterogeneous block composition that we should adopt and extend for MAD.
+LFM2 (Liquid Foundation Model 2) and MAD (Mechanistic Architecture Design) were both created by Sepp Hochreiter's
+research group. LFM2 uses a simple but powerful `layer_types` pattern for heterogeneous block composition that we should
+adopt and extend for MAD.
 
 ## Current State
 
@@ -28,6 +30,7 @@ layers = ['mlstm', 'swiglu', 'chunkwise-mlstm', 'swiglu']
 ```
 
 **Limitations:**
+
 - Sequential only (no parallelism, no branching)
 - No explicit weight sharing
 - No fork/join patterns
@@ -58,6 +61,7 @@ class Lfm2Config(PretrainedConfig):
 ```
 
 **Example config:**
+
 ```python
 layer_types = [
     "full_attention",  # Layer 0
@@ -117,6 +121,7 @@ class Lfm2Model(LlamaModel):
 ```
 
 **Key insight:** The parent `LlamaModel.__init__` calls:
+
 ```python
 self.layers = nn.ModuleList(
     [LlamaDecoderLayer(config, layer_idx) for layer_idx in range(config.num_hidden_layers)]
@@ -198,6 +203,7 @@ class LanguageModel(nn.Module):
 ```
 
 **Benefits:**
+
 - ✅ Per-layer backend selection (MLX, PyTorch, torch.compile)
 - ✅ Per-layer hyperparameters
 - ✅ Heterogeneous sequences (mlstm, attention, conv, etc.)
@@ -205,6 +211,7 @@ class LanguageModel(nn.Module):
 - ✅ Aligns with LFM2's proven pattern
 
 **Limitations:**
+
 - Still sequential only
 - No weight sharing
 - No parallelism
@@ -250,6 +257,7 @@ architecture:
 ```
 
 **Visualization:**
+
 ```
 Input
   ↓
@@ -308,6 +316,7 @@ class Block(nn.Module):
 ```
 
 **Benefits:**
+
 - ✅ Fork/join patterns
 - ✅ Parallelism (multiple paths)
 - ✅ Weight sharing (reference same brick multiple times)
@@ -315,6 +324,7 @@ class Block(nn.Module):
 - ✅ Graph-based architecture design
 
 **Challenges:**
+
 - More complex than layer_types
 - Cache management for parallel paths
 - Hidden state merging semantics
@@ -331,6 +341,7 @@ class Block(nn.Module):
 5. Same author group (Hochreiter)
 
 **Then consider Phase 2** if needed:
+
 - Only if evaluation shows parallelism is critical
 - Only if weight sharing patterns emerge
 - After Phase 1 is validated numerically
@@ -338,6 +349,7 @@ class Block(nn.Module):
 ## Implementation Plan
 
 ### Step 1: Extend MAD Config
+
 ```python
 # mad/config.py
 class MADConfig:
@@ -358,6 +370,7 @@ class MADConfig:
 ```
 
 ### Step 2: Create MADBlock
+
 ```python
 # mad/model/blocks.py
 class MADBlock(nn.Module):
@@ -367,6 +380,7 @@ class MADBlock(nn.Module):
 ```
 
 ### Step 3: Update LanguageModel
+
 ```python
 # mad/model/language_model.py
 class LanguageModel(nn.Module):
@@ -380,11 +394,13 @@ class LanguageModel(nn.Module):
 ### Step 4: Test Sequences
 
 **Test 1: Homogeneous (baseline)**
+
 ```python
 layer_types = [{'type': 'mlstm', 'backend': 'mlx'}] * 12
 ```
 
 **Test 2: Alternating (like LFM2)**
+
 ```python
 layer_types = [
     {'type': 'mlstm', 'backend': 'mlx'},
@@ -393,6 +409,7 @@ layer_types = [
 ```
 
 **Test 3: Hybrid backend**
+
 ```python
 layer_types = [
     {'type': 'mlstm', 'backend': 'mlx'},
@@ -402,6 +419,7 @@ layer_types = [
 ```
 
 **Test 4: xLSTM[7:1] pattern (canonical)**
+
 ```python
 layer_types = [
     {'type': 'mlstm', 'backend': 'mlx'},  # mLSTM
@@ -417,14 +435,14 @@ layer_types = [
 
 ## Key Differences from LFM2
 
-| Aspect | LFM2 | MAD (Proposed) |
-|--------|------|----------------|
-| Layer types | 2 (attention, conv) | N (mlstm, swiglu, attention, hyena, ...) |
-| Backend | Single (PyTorch) | Multi (MLX, PyTorch, torch.compile) |
-| Per-layer params | Limited | Full (num_heads, chunk_size, etc.) |
-| State management | Hybrid cache | Per-layer hidden state |
-| Primary use | Foundation model | Architecture evaluation |
-| Extension | No (production) | Yes (research) |
+| Aspect           | LFM2                | MAD (Proposed)                           |
+|------------------|---------------------|------------------------------------------|
+| Layer types      | 2 (attention, conv) | N (mlstm, swiglu, attention, hyena, ...) |
+| Backend          | Single (PyTorch)    | Multi (MLX, PyTorch, torch.compile)      |
+| Per-layer params | Limited             | Full (num_heads, chunk_size, etc.)       |
+| State management | Hybrid cache        | Per-layer hidden state                   |
+| Primary use      | Foundation model    | Architecture evaluation                  |
+| Extension        | No (production)     | Yes (research)                           |
 
 ## Conclusion
 
@@ -436,6 +454,7 @@ LFM2's `layer_types` pattern is the right foundation for MAD composition extensi
 4. **Extensible** to Phase 2 (bricks) if needed
 
 Next steps:
+
 1. Implement Phase 1 (layer_types)
 2. Define xLSTM canonical sequences (7:1, 1:1 patterns)
 3. Test numerical parity against xlstm-large
@@ -444,6 +463,7 @@ Next steps:
 ---
 
 **References:**
+
 - LFM2: `/Users/sydneybach/miniconda3/lib/python3.12/site-packages/transformers/models/lfm2/`
 - MAD paper: Appendix (iso-state normalization, architecture zoo)
 - xlstm-large: [canonical checkpoint for validation]

@@ -27,12 +27,14 @@ get_available_mlstm_kernels()
 ### Key Observations
 
 **1. Multiple Backend Options:**
+
 - `chunkwise--*`: Sequential between chunks, parallel within chunks
 - `parallel--*`: Fully parallel formulation (via parallel scan!)
 - `native_*`: Pure PyTorch implementation
 - `triton_*`: Triton CUDA kernels (highly optimized)
 
 **2. The "xl_chunk" Variant:**
+
 ```python
 chunkwise_kernel="chunkwise--triton_xl_chunk"  # xl_chunk == TFLA kernels
 ```
@@ -40,6 +42,7 @@ chunkwise_kernel="chunkwise--triton_xl_chunk"  # xl_chunk == TFLA kernels
 This is the **Tiled Flash Linear Attention** implementation - the most optimized chunkwise kernel.
 
 **3. Three Kernel Types:**
+
 - **Training kernel** (`chunkwise_kernel`): For forward/backward passes
 - **Sequence kernel** (`sequence_kernel`): For processing full sequences
 - **Step kernel** (`step_kernel`): For autoregressive generation (one token at a time)
@@ -61,6 +64,7 @@ xlstm_config = xLSTMLargeConfig(
 ```
 
 **Key parameters:**
+
 - `mode="inference"`: Optimized for generation (vs "train")
 - `return_last_states=True`: Return hidden states for multi-step generation
 - Different kernels for different use cases (flexibility!)
@@ -104,17 +108,20 @@ xLSTMLarge(
 ### Critical Observations
 
 **1. Gate Dimensions:**
+
 ```python
 (igate_preact): Linear(in_features=512, out_features=4, bias=True)
 (fgate_preact): Linear(in_features=512, out_features=4, bias=True)
 ```
 
 **Gates are per-head!** With 4 heads:
+
 - Input gate: 4 outputs (1 per head)
 - Forget gate: 4 outputs (1 per head)
 - This enables **independent exponential scaling per head**
 
 **2. Output Gate is Different:**
+
 ```python
 (ogate_preact): Linear(in_features=512, out_features=512, bias=False)
 ```
@@ -122,6 +129,7 @@ xLSTMLarge(
 Output gate is **per-feature**, not per-head. This is sigmoid-activated, not exponential.
 
 **3. Pre-Normalization (Megatron-style):**
+
 ```python
 (norm_mlstm): RMSNorm()  # BEFORE mlstm_layer
 (mlstm_layer): mLSTMLayer(...)
@@ -131,6 +139,7 @@ Output gate is **per-feature**, not per-head. This is sigmoid-activated, not exp
 This confirms the Megatron BERT fix we discussed.
 
 **4. FFN Structure (SwiGLU variant):**
+
 ```python
 (proj_up_gate): Linear(...)  # Gate projection
 (proj_up): Linear(...)       # Value projection
@@ -152,6 +161,7 @@ out_chunkwise, last_state = xlstm(input)
 ```
 
 **What happens internally:**
+
 - Split sequence into chunks of 64 tokens (default `chunk_size=64`)
 - Process chunks: 256 / 64 = 4 chunks
 - **Parallel within each chunk** (uses TFLA/Triton kernels)
@@ -168,6 +178,7 @@ for i in range(256):
 ```
 
 **What happens internally:**
+
 - Uses `step_kernel` (optimized for single-step)
 - Maintains state across calls
 - No chunking needed (already single token)
@@ -198,6 +209,7 @@ torch.allclose(out_chunkwise, out_steps, atol=7e-2, rtol=1e-3)
 **Key insight:** Chunkwise and step-by-step are **numerically equivalent** (within tolerances).
 
 This validates that:
+
 1. Chunking is correct (no approximation)
 2. State management is correct
 3. Both paths use same underlying computation
@@ -213,6 +225,7 @@ len(state), len(state[0])
 ```
 
 **Each block's state is a tuple of 3 tensors:**
+
 1. **C_t**: Covariance matrix (memory state)
 2. **n_t**: Normalizer vector
 3. **m_t**: Running max for stabilization (the exponential scaling factor!)
@@ -242,6 +255,7 @@ list(xlstm.state_dict().keys())
 ```
 
 **Weight sharing pattern:**
+
 - `embedding.weight` (input embedding)
 - `lm_head.weight` (output embedding)
 - These are **separate** (not tied) in this implementation
@@ -278,7 +292,7 @@ class MLXmLSTMBackend:
 ### 2. Per-Head Gating is Critical
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 class mLSTMBlockMLX(mx.nn.Module):
     def __init__(self, config):
         # Gates are PER-HEAD (not per-feature!)
@@ -292,7 +306,7 @@ class mLSTMBlockMLX(mx.nn.Module):
 ### 3. State Management Pattern
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 def init_state(self, batch_size):
     """Initialize (C, n, m) state tuple"""
     C_0 = mx.zeros((batch_size, num_heads, head_dim, head_dim))
@@ -304,7 +318,7 @@ def init_state(self, batch_size):
 ### 4. Dual-Path Architecture
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 class mLSTMBlockMLX(mx.nn.Module):
     def __call__(self, x, state=None, mode='chunkwise'):
         if mode == 'chunkwise':
@@ -390,4 +404,5 @@ def metal_chunkwise_forward(q, k, v, igate, fgate, chunk_size=64):
 5. **Numerical parity**: Chunkwise and step-by-step produce same results (within 0.01)
 6. **Flexible backend**: Can swap kernels for different use cases
 
-The official implementation validates everything we've been discussing about exponential gating, parallel chunking, and stabilization. Now we just need to port it to MLX with Metal optimization!
+The official implementation validates everything we've been discussing about exponential gating, parallel chunking, and
+stabilization. Now we just need to port it to MLX with Metal optimization!

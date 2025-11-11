@@ -10,8 +10,9 @@
 **Registry:** `xlstm_metal/blocks/mlx/mlstm/metal_kernels/kernel_registry.py`
 
 **Pattern:** Singleton with lazy JIT compilation
+
 ```python
-# At module import time (fw_kernel_recurrent.py line 349):
+# At module import time (mlstm_chunkwise_recurrent_fw_C.py line 349):
 register_kernel('fw_recurrent', _compile_recurrent_kernel)
 
 # On first use (lazy compilation):
@@ -20,6 +21,7 @@ outputs = kernel(inputs=[...], grid=..., threadgroup=...)
 ```
 
 **Kernels:**
+
 - `fw_recurrent` - Single-step recurrent forward
 - `fw_parallel` - Chunkwise parallel forward
 - `bw_recurrent` - Backward pass recurrent
@@ -32,11 +34,13 @@ outputs = kernel(inputs=[...], grid=..., threadgroup=...)
 **Location:** `xlstm_metal/blocks/mlx/mlstm/kernels/`
 
 **Current implementation:**
+
 - ❌ No registry pattern
 - ❌ Direct imports: `from .kernel import mlstm_sequential`
 - ❌ Hardcoded in block.py
 
 **Functions:**
+
 - `mlstm_recurrent_step()` - Single step inference (calls Metal kernel)
 - `mlstm_sequential()` - Loop over steps (calls recurrent_step)
 - `mlstm_chunkwise()` - Parallel chunks (calls Metal parallel kernel)
@@ -81,10 +85,10 @@ xLSTM-7B Architecture:
 
 1. **32 identical blocks** (config: `num_blocks: 32`)
 2. **4 components per block:**
-   - `norm_mlstm` - Pre-normalization before mLSTM
-   - `mlstm_layer` - The mLSTM computation
-   - `norm_ffn` - Pre-normalization before FFN
-   - `ffn` - FeedForward network (SwiGLU variant)
+    - `norm_mlstm` - Pre-normalization before mLSTM
+    - `mlstm_layer` - The mLSTM computation
+    - `norm_ffn` - Pre-normalization before FFN
+    - `ffn` - FeedForward network (SwiGLU variant)
 
 3. **No sLSTM in inference!** Only mLSTM blocks (matches our earlier finding)
 
@@ -250,7 +254,7 @@ Based on the Metal kernel compilation pattern, the correct initialization order 
 
 1. **Module import time:**
    ```python
-   # fw_kernel_recurrent.py (line 349)
+   # mlstm_chunkwise_recurrent_fw_C.py (line 349)
    register_kernel('fw_recurrent', _compile_recurrent_kernel)
    ```
    This registers the COMPILER FUNCTION (not the compiled kernel).
@@ -267,6 +271,7 @@ Based on the Metal kernel compilation pattern, the correct initialization order 
    ```
 
 **This means:**
+
 - ✅ Kernels compile ONCE per process lifetime
 - ✅ Compilation is lazy (on first access)
 - ✅ Kernels are global objects (singleton registry)
@@ -287,6 +292,7 @@ The config.json specifies kernel strategies:
 ```
 
 **Translation to our system:**
+
 - `chunkwise_kernel` → Use parallel strategy (`mlstm_chunkwise`)
 - `sequence_kernel` → Use sequential strategy (`mlstm_sequential`)
 - `step_kernel` → Use recurrent strategy (`mlstm_recurrent_step`)

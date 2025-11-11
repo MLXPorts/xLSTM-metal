@@ -1,4 +1,3 @@
-
 """
 Benchmark xLSTM on Apple MPS across chunkwise backends and tuning sweeps.
 
@@ -65,7 +64,7 @@ def greedy_gen_timed(model: xLSTMLarge, prefill_tokens: torch.Tensor, max_len: i
         td1 = time.time()
         decode_time += (td1 - td0)
         next_tok = torch.argmax(logits[:, -1:, :], dim=-1)
-        gen[:, i:i+1] = next_tok
+        gen[:, i:i + 1] = next_tok
 
     return (t1 - t0), decode_time
 
@@ -203,4 +202,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

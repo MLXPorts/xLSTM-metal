@@ -1,4 +1,3 @@
-
 """
 Judge optimizer outputs with a local Ollama model (e.g., qwen3-coder:30b).
 
@@ -28,7 +27,6 @@ from pathlib import Path
 from typing import Dict
 
 import requests
-
 
 SYSTEM_INSTRUCTIONS = (
     "You are an expert evaluator for generated text from long-context RNNs. "
@@ -162,10 +160,11 @@ def main():
                 start = text.find("{")
                 end = text.rfind("}")
                 if 0 <= start < end:
-                    text = text[start:end+1]
+                    text = text[start:end + 1]
                 data = json.loads(text)
             except Exception as e:
-                data = {"coherence": None, "relevance": None, "fluency": None, "overall": None, "rationale": f"parse_error: {e}"}
+                data = {"coherence": None, "relevance": None, "fluency": None, "overall": None,
+                        "rationale": f"parse_error: {e}"}
 
             rec = {
                 "file": fp.name,

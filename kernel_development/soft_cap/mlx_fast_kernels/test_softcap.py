@@ -2,6 +2,7 @@ import mlx.core as mx
 import numpy as np
 from softcap import soft_cap
 
+
 def test_softcap():
     print("=" * 60)
     print("Soft Cap Kernel Correctness Tests")
@@ -58,6 +59,7 @@ def test_softcap():
     print("\n" + "=" * 60)
     print("All tests passed!")
     print("=" * 60)
+
 
 if __name__ == "__main__":
     test_softcap()

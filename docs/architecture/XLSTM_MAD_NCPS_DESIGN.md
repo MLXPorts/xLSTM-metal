@@ -7,6 +7,7 @@
 ## Executive Summary
 
 This document proposes a unified architecture for xLSTM that combines:
+
 - **NCPS-style cell-level wiring** for fine-grained connectivity within blocks
 - **MAD-style block composition** for heterogeneous layer stacking
 - **LIV framework** (Linear Input-Varying systems) from STAR for flexible primitives
@@ -595,7 +596,7 @@ torch_output = connector(mlx_output, {'quality_metric': perplexity})
 ### Minimal Changes to Current API
 
 ```python
-# OLD: xlstm_metal/blocks/mlx/mlstm/block.py
+# OLD: xlstm_metal/blocks/mlx/mlstm/ffn_block.py
 class mLSTMLayer(nn.Module):
     def __init__(self, config: mLSTMConfig):
         # ... monolithic implementation
@@ -625,34 +626,34 @@ class mLSTMLayer(nn.Module):
 ## Migration Path
 
 1. **Phase 1: Cell Registry** (Week 1-2)
-   - Create cell type registry
-   - Implement basic cells from existing code
-   - No wiring yet, just modular cells
+    - Create cell type registry
+    - Implement basic cells from existing code
+    - No wiring yet, just modular cells
 
 2. **Phase 2: Wiring Infrastructure** (Week 2-3)
-   - Implement LIVWiring class
-   - Add sparsity mask support
-   - Topological execution ordering
+    - Implement LIVWiring class
+    - Add sparsity mask support
+    - Topological execution ordering
 
 3. **Phase 3: HyperProfile System** (Week 3-4)
-   - Create profile loader
-   - Add PyTorch→MLX profiles
-   - Validate numerical equivalence
+    - Create profile loader
+    - Add PyTorch→MLX profiles
+    - Validate numerical equivalence
 
 4. **Phase 4: Wired Blocks** (Week 4-5)
-   - Implement WiredmLSTMBlock
-   - Create example wirings
-   - Benchmark against monolithic
+    - Implement WiredmLSTMBlock
+    - Create example wirings
+    - Benchmark against monolithic
 
 5. **Phase 5: Connectors** (Week 5-6)
-   - Implement basic Connector
-   - Add learnable routing (LFM-style)
-   - Cross-backend tests
+    - Implement basic Connector
+    - Add learnable routing (LFM-style)
+    - Cross-backend tests
 
 6. **Phase 6: STAR Integration** (Week 6+)
-   - Add genome encoding
-   - Evolutionary optimization
-   - Architecture search
+    - Add genome encoding
+    - Evolutionary optimization
+    - Architecture search
 
 ## Benefits
 

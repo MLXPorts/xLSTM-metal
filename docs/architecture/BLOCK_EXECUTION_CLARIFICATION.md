@@ -97,22 +97,27 @@ fw_kernel_parallel.metal:
 ## Three Types of "Parallel" in xLSTM
 
 ### 1. **Block-Level: SEQUENTIAL** ❌
+
 ```
 Block 0 → Block 1 → Block 2 → ... → Block 31
 ```
+
 Sequential because of state dependencies (each block needs previous block's output).
 
 ### 2. **Chunk-Level: HYBRID** ✅
+
 ```
 Chunk 0 (recurrent) → Chunk 1 (recurrent) → ... → Chunk N (recurrent)
   ↓                     ↓                           ↓
 [tokens 0-63]      [tokens 64-127]           [tokens S-64:S]
   parallel            parallel                   parallel
 ```
+
 - **Between chunks:** Sequential (state dependency)
 - **Within chunk:** Parallel (GPU processes all tokens together)
 
 ### 3. **GPU-Level: PARALLEL** ✅
+
 ```
 Metal Kernel Execution:
 ┌───────────────────────────────────────────┐
@@ -124,6 +129,7 @@ Metal Kernel Execution:
 │  └──────────┘    └──────────┘            │
 └───────────────────────────────────────────┘
 ```
+
 All threads execute in parallel on GPU cores.
 
 ## Canonical Implementation Pattern
@@ -153,6 +159,7 @@ def wrap_chunkwise_pad_zeros(...):
 ```
 
 **Translation:**
+
 - `chunkwise_kernel` = Our `mlstm_chunkwise` (uses `fw_kernel_parallel.metal`)
 - `sequence_kernel` = Our `mlstm_sequential` (loop with recurrent steps)
 - `step_kernel` = Our `mlstm_recurrent_step` (uses `fw_kernel_recurrent.metal`)
@@ -175,12 +182,14 @@ def wrap_chunkwise_pad_zeros(...):
 **There are NO multiple mLSTM blocks running in parallel.**
 
 The "parallel" you saw refers to:
+
 1. **Intra-chunk parallelism** - GPU processes all tokens in a chunk simultaneously
 2. **Metal kernel tiling** - GPU threadgroups process tiles in parallel
 
 Both are **already implemented** in our Metal kernels (`fw_kernel_parallel.metal`).
 
 The 32 blocks execute **sequentially** because:
+
 - Block N+1 needs Block N's output as input
 - RNN state flows from block to block
 - This is fundamental to the architecture

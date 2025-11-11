@@ -80,19 +80,19 @@ def pytest_collection_modifyitems(config, items):
     # Skip MLX tests if MLX is not available
     skip_mlx = pytest.mark.skip(reason="MLX not available")
     skip_pytorch = pytest.mark.skip(reason="PyTorch not available")
-    
+
     try:
         import mlx.core as mx
         mlx_available = True
     except ImportError:
         mlx_available = False
-    
+
     try:
         import torch
         pytorch_available = True
     except ImportError:
         pytorch_available = False
-    
+
     for item in items:
         if not mlx_available and "mlx" in item.keywords:
             item.add_marker(skip_mlx)

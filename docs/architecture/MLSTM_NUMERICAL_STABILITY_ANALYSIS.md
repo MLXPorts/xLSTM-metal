@@ -6,7 +6,9 @@
 
 ## Problem Statement
 
-Numerical instability has been observed in the MLX inference path for mLSTM. This document analyzes the canonical transformers implementation to identify critical numerical stability patterns and compares them with our MLX implementation.
+Numerical instability has been observed in the MLX inference path for mLSTM. This document analyzes the canonical
+transformers implementation to identify critical numerical stability patterns and compares them with our MLX
+implementation.
 
 ## Canonical Implementation (transformers/modeling_xlstm.py)
 
@@ -24,10 +26,12 @@ scaF_log = torch.nn.functional.logsigmoid(fgate)
 ```
 
 **Why this matters:**
+
 - `logsigmoid(x) = -log(1 + exp(-x))` is stable for large negative x
 - `log(sigmoid(x))` can underflow when `sigmoid(x) ≈ 0`
 
 **Our MLX Implementation** (kernel.py line 60):
+
 ```python
 # ✅ CORRECT - matches canonical
 f_log = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(f_preact)))))  # logsigmoid
@@ -45,11 +49,13 @@ scaI_act = torch.exp(igate - scaM_state_new)
 ```
 
 **Critical insight:**
+
 - Max state prevents exponential overflow
 - All exponentials are computed relative to `scaM_state_new`
 - This ensures `exp(x - scaM_state_new)` is always ≤ 1.0
 
 **Our MLX Implementation** (kernel.py lines 65-70):
+
 ```python
 # ✅ CORRECT - matches canonical
 m_new = mx.maximum(mx.add(f_log, m_state), i_preact)
@@ -74,6 +80,7 @@ qn_dotproduct = vecQ_scaled[:, :, None, :] @ vecN_state_new[:, :, :, None]
 **Critical:** Key is NOT scaled when storing! Scaling happens on query side only.
 
 **Our MLX Implementation** (kernel.py lines 91-92):
+
 ```python
 # ✅ CORRECT - matches canonical
 q_scaled = mx.multiply(q, mx.rsqrt(mx.array(QK_DH, dtype=q.dtype)))
@@ -89,12 +96,14 @@ h = h_num / h_denom
 ```
 
 **Critical numerical pattern:**
+
 - Use **absolute value** of q·n dot product
 - Lower bound by `exp(-m)` (never goes to zero)
 - Add eps only after max operation
 - Division is safe because denominator ≥ `exp(-m) + eps`
 
 **Our MLX Implementation** (kernel.py lines 96-101):
+
 ```python
 # ✅ CORRECT - matches canonical
 qn_dot = mx.sum(mx.multiply(n_new, q_scaled), axis=-1, keepdims=True)
@@ -119,6 +128,7 @@ matC_state_new = matC_state_new.to(dtype=dtype_state)
 ```
 
 **Critical insight:**
+
 - States (C, n, m) stored in float32 always
 - Computation can be bfloat16/float16
 - Cast to computation dtype only for matmul
@@ -137,6 +147,7 @@ matC_state_new = scaF_act[:, :, :, None] * matC_old + scaI_act[:, :, :, None] * 
 ```
 
 **Shape verification:**
+
 - `key`: [B, NH, DHQK]
 - `value`: [B, NH, DHV]
 - `key[:, :, :, None]`: [B, NH, DHQK, 1]
@@ -146,6 +157,7 @@ matC_state_new = scaF_act[:, :, :, None] * matC_old + scaI_act[:, :, :, None] * 
 This is `k ⊗ v`, NOT `v ⊗ k`!
 
 **Our MLX Implementation** (kernel.py lines 79-83):
+
 ```python
 # ✅ CORRECT - matches canonical
 k_expanded = k[:, :, :, None]  # [B, NH, QK_DH, 1]
@@ -161,11 +173,13 @@ c_new = mx.add(mx.multiply(f_expanded, c_state), mx.multiply(i_expanded, kv_oute
 **Problem:** We may not be properly maintaining float32 for states.
 
 **Check locations:**
+
 1. `xlstm_metal/blocks/mlx/mlstm/block.py` - mLSTMLayer initialization
 2. State initialization in `mlstm_sequential` and `mlstm_chunkwise`
 3. Gate computation dtype handling
 
 **Fix needed:**
+
 ```python
 # In state initialization:
 if c_initial is None:
@@ -184,18 +198,21 @@ c_new = c_new.astype(mx.float32)
 ### Issue 2: Epsilon Placement
 
 **Current:**
+
 ```python
 # kernel.py line 101:
 h_den = mx.add(mx.maximum(mx.abs(qn_dot), max_val), eps_a)
 ```
 
 **Verify:**
+
 - Is `eps` the same value as canonical? (canonical uses 1e-6)
 - Is `eps_a` properly typed to match computation dtype?
 
 ### Issue 3: Gate Soft-Capping
 
 **From config.json:**
+
 ```json
 "gate_soft_cap": 15.0
 ```
@@ -203,6 +220,7 @@ h_den = mx.add(mx.maximum(mx.abs(qn_dot), max_val), eps_a)
 **Check:** Are we applying soft-cap to gates BEFORE the mlstm kernel?
 
 **Expected:** In mLSTMLayer, BEFORE calling kernel:
+
 ```python
 # Apply soft-cap to gates (config.json line 25)
 if self.config.gate_soft_cap:
@@ -214,6 +232,7 @@ if self.config.gate_soft_cap:
 ### Issue 4: Sequence Length Handling
 
 **Canonical wraps with padding:**
+
 ```python
 # transformers line ~560:
 def wrap_chunkwise_pad_zeros(...):
@@ -370,32 +389,33 @@ def test_denominator_stability():
 ## Action Items
 
 1. **Immediate: Dtype Management**
-   - [ ] Audit all state initialization for float32
-   - [ ] Add explicit dtype casts in recurrent step
-   - [ ] Test with mixed precision (bfloat16 computation, float32 states)
+    - [ ] Audit all state initialization for float32
+    - [ ] Add explicit dtype casts in recurrent step
+    - [ ] Test with mixed precision (bfloat16 computation, float32 states)
 
 2. **Immediate: Gate Soft-Capping**
-   - [ ] Verify soft-cap is applied in mLSTMLayer.__call__
-   - [ ] Check config.gate_soft_cap value matches canonical (15.0)
+    - [ ] Verify soft-cap is applied in mLSTMLayer.__call__
+    - [ ] Check config.gate_soft_cap value matches canonical (15.0)
 
 3. **High Priority: Numerical Parity Tests**
-   - [ ] Implement deterministic tests (above)
-   - [ ] Test edge cases (large pos/neg, near-zero)
-   - [ ] Compare MLX vs PyTorch at every intermediate step
+    - [ ] Implement deterministic tests (above)
+    - [ ] Test edge cases (large pos/neg, near-zero)
+    - [ ] Compare MLX vs PyTorch at every intermediate step
 
 4. **Medium Priority: HyperProfile**
-   - [ ] Create MLX-from-Torch profile
-   - [ ] Load profile in mLSTMLayer initialization
-   - [ ] Apply constraints and initializers from profile
+    - [ ] Create MLX-from-Torch profile
+    - [ ] Load profile in mLSTMLayer initialization
+    - [ ] Apply constraints and initializers from profile
 
 5. **Documentation**
-   - [ ] Document numerical stability guarantees
-   - [ ] Add comments explaining each stabilization technique
-   - [ ] Create debugging guide for numerical issues
+    - [ ] Document numerical stability guarantees
+    - [ ] Add comments explaining each stabilization technique
+    - [ ] Create debugging guide for numerical issues
 
 ## References
 
-- Transformers xLSTM: `/Users/sydneybach/miniconda3/lib/python3.12/site-packages/transformers/models/xlstm/modeling_xlstm.py`
+- Transformers xLSTM:
+  `/Users/sydneybach/miniconda3/lib/python3.12/site-packages/transformers/models/xlstm/modeling_xlstm.py`
 - Our MLX kernel: `xlstm_metal/blocks/mlx/mlstm/kernel.py`
 - Config: `xlstm_7b_model/config.json`
 - Canonical notes: `docs/porting/CANONICAL_XLSTM_IMPLEMENTATION_NOTES.md`

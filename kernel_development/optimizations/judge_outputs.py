@@ -1,4 +1,3 @@
-
 """
 Judge outputs produced by the optimizer runs using the same xLSTM model as a heuristic scorer.
 
@@ -50,10 +49,10 @@ def make_input(tok: AutoTokenizer, text: str) -> torch.Tensor:
 
 @torch.no_grad()
 def score_continuation(
-    model: xLSTMLarge,
-    tok: AutoTokenizer,
-    prompt_text: str,
-    cont_text: str,
+        model: xLSTMLarge,
+        tok: AutoTokenizer,
+        prompt_text: str,
+        cont_text: str,
 ) -> Tuple[float, float, int]:
     """Teacher-forced scoring of continuation tokens given a prompt.
 
@@ -70,9 +69,9 @@ def score_continuation(
     total_logprob = 0.0
     T = cont_ids.shape[1]
     for t in range(T):
-        logits, state = model(cont_ids[:, t:t+1], state)
+        logits, state = model(cont_ids[:, t:t + 1], state)
         log_probs = torch.log_softmax(logits[:, -1, :], dim=-1)
-        token_logprob = log_probs.gather(1, cont_ids[:, t:t+1]).squeeze(1)
+        token_logprob = log_probs.gather(1, cont_ids[:, t:t + 1]).squeeze(1)
         total_logprob += float(token_logprob.mean().item())
     avg_logprob = total_logprob / max(T, 1)
     ppl = math.exp(-avg_logprob) if T > 0 else float("inf")
@@ -89,7 +88,7 @@ def distinct_ngrams(text: str, n: int) -> float:
     tokens = text.split()
     if len(tokens) < n:
         return 0.0
-    ngrams = [tuple(tokens[i:i+n]) for i in range(len(tokens)-n+1)]
+    ngrams = [tuple(tokens[i:i + n]) for i in range(len(tokens) - n + 1)]
     return len(set(ngrams)) / max(1, len(ngrams))
 
 

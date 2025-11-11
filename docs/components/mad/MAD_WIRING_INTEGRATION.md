@@ -9,6 +9,7 @@ Goal: Replace backends.py with declarative wiring for MAD blocks
 ## The Key Insight
 
 **NCPS wiring provides:**
+
 1. **Explicit connectivity** via adjacency matrices
 2. **Sparse patterns** for efficient parallel computation
 3. **Weight sharing** through shared connections
@@ -19,6 +20,7 @@ Goal: Replace backends.py with declarative wiring for MAD blocks
 ## Current MAD vs Wiring-Based MAD
 
 ### Current Approach (Sequential)
+
 ```python
 # mad/registry.py
 layers = ['mlstm', 'swiglu', 'mlstm', 'swiglu']
@@ -29,12 +31,14 @@ for layer_name in layers:
 ```
 
 **Problems:**
+
 - No parallelism
 - No weight sharing
 - Backend selection is global
 - Can't express "bricks" patterns
 
 ### Wiring-Based Approach (Graph)
+
 ```python
 # Define connectivity graph
 wiring = MADWiring(
@@ -599,6 +603,7 @@ def metal_chunkwise_forward(
 ## Summary: MAD Without backends.py
 
 **Replace:**
+
 ```python
 # backends.py (imperative backend selection)
 if backend == 'mlx':
@@ -608,6 +613,7 @@ elif backend == 'pytorch':
 ```
 
 **With:**
+
 ```python
 # wiring.py (declarative graph composition)
 wiring = MADWiring(block_specs)
@@ -617,6 +623,7 @@ output = wiring(input)  # Automatically parallelizes
 ```
 
 **Benefits:**
+
 1. **Explicit parallelism** - graph structure shows what runs in parallel
 2. **Weight sharing** - shared edges = shared weights
 3. **No backend.py** - blocks know their own implementation

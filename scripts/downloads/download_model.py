@@ -52,7 +52,7 @@ def main():
     try:
         local_dir = Path(args.output)
         local_dir.mkdir(parents=True, exist_ok=True)
-        
+
         snapshot_download(
             repo_id="NX-AI/xLSTM-7b",
             local_dir=str(local_dir),
@@ -60,28 +60,28 @@ def main():
             resume_download=args.resume or True,
             max_workers=4
         )
-        
+
         print("\n" + "=" * 70)
         print("✓ Download Complete!")
         print("=" * 70)
-        
+
         # List downloaded files
         files = sorted(local_dir.iterdir())
         print(f"\nDownloaded {len(files)} files to {local_dir}:")
-        
+
         total_size = 0
         for f in files:
             if f.is_file():
-                size_gb = f.stat().st_size / (1024**3)
+                size_gb = f.stat().st_size / (1024 ** 3)
                 total_size += size_gb
                 print(f"  {f.name:<40} {size_gb:>6.2f} GB")
-        
+
         print(f"\nTotal size: {total_size:.2f} GB")
         print(f"\nYou can now run inference with:")
         print(f"  python generate.py --model {local_dir} --prompt \"Hello world\"")
-        
+
         return 0
-        
+
     except KeyboardInterrupt:
         print("\n\nDownload interrupted. Run with --resume to continue.")
         return 1

@@ -253,6 +253,9 @@ To use:
 
 
 class Coach(ast.NodeVisitor):
+    """
+
+    """
     def __init__(self, src: str, path: pathlib.Path) -> None:
         self.src = src
         self.path = path
@@ -271,27 +274,33 @@ class Coach(ast.NodeVisitor):
     def _add(self, node: ast.AST, kind: str, code: str, msg: str, why: str = '') -> None:
         self.findings.append(Finding(self.path, getattr(node, 'lineno', 1), kind, code, msg, why))
 
-    def _is_name(self, node: ast.AST, name: str) -> bool:
+    @staticmethod
+    def _is_name(node: ast.AST, name: str) -> bool:
         return isinstance(node, ast.Name) and node.id == name
 
     def _matches_fft(self, node: ast.Call, which: str) -> bool:
         f = node.func
         if isinstance(f, ast.Attribute):
             if (isinstance(f.value, ast.Attribute)
-                and isinstance(f.value.value, ast.Name)
-                and f.attr == which
-                and ((self.alias_torch and f.value.value.id == self.alias_torch and f.value.attr == 'fft')
-                     or (self.alias_mx and f.value.value.id == self.alias_mx and f.value.attr == 'fft'))):
+                    and isinstance(f.value.value, ast.Name)
+                    and f.attr == which
+                    and ((self.alias_torch and f.value.value.id == self.alias_torch and f.value.attr == 'fft')
+                         or (self.alias_mx and f.value.value.id == self.alias_mx and f.value.attr == 'fft'))):
                 return True
         return False
 
-    def _get_kw(self, node: ast.Call, name: str) -> Optional[ast.AST]:
+    @staticmethod
+    def _get_kw(node: ast.Call, name: str) -> Optional[ast.AST]:
         for kw in node.keywords:
             if kw.arg == name:
                 return kw.value
         return None
 
     def visit_Import(self, node: ast.Import) -> None:
+        """
+
+        :param node:
+        """
         for alias in node.names:
             if alias.name == 'torch':
                 self.alias_torch = alias.asname or 'torch'
@@ -302,6 +311,10 @@ class Coach(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """
+
+        :param node:
+        """
         mod = node.module or ''
         if mod.startswith('torch'):
             self.alias_torch = 'torch'
@@ -312,6 +325,10 @@ class Coach(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit(self, node: ast.AST):
+        """
+
+        :param node:
+        """
         self.stack.append(node)
         super().visit(node)
         self.stack.pop()
@@ -327,6 +344,10 @@ class Coach(ast.NodeVisitor):
         return "Use backend tensor scalars (torch.tensor or mx.array) and backend math ops."
 
     def visit_Call(self, node: ast.Call) -> None:
+        """
+
+        :param node:
+        """
         # Track FFT usage for final summary
         if self._matches_fft(node, 'rfft'):
             self.has_fft_rfft = True
@@ -368,10 +389,11 @@ class Coach(ast.NodeVisitor):
 
             # Python numerics passed to backend ops
             if base in ((self.alias_torch or ''), (self.alias_mx or '')) and attr in (
-                'add','subtract','multiply','divide','power','pow','matmul','einsum'
+                    'add', 'subtract', 'multiply', 'divide', 'power', 'pow', 'matmul', 'einsum'
             ):
                 for arg in node.args:
-                    if isinstance(arg, ast.Constant) and isinstance(arg.value, (int, float)) and not self._inside_indexing():
+                    if isinstance(arg, ast.Constant) and isinstance(arg.value,
+                                                                    (int, float)) and not self._inside_indexing():
                         self.python_scalar_count += 1
                         self._add(
                             node, 'error', 'PYTHON-SCALAR-001',
@@ -407,6 +429,10 @@ class Coach(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_BinOp(self, node: ast.BinOp) -> None:
+        """
+
+        :param node:
+        """
         lit = (isinstance(node.left, ast.Constant) and isinstance(node.left.value, (int, float))) or \
               (isinstance(node.right, ast.Constant) and isinstance(node.right.value, (int, float)))
         if lit and not self._inside_indexing():
@@ -430,10 +456,18 @@ class Coach(ast.NodeVisitor):
             )
 
     def visit_Assign(self, node: ast.Assign) -> None:
+        """
+
+        :param node:
+        """
         self._report_assign_const(node.value, node)
         self.generic_visit(node)
 
     def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        """
+
+        :param node:
+        """
         if node.value is not None:
             self._report_assign_const(node.value, node)
         self.generic_visit(node)
@@ -474,9 +508,9 @@ def scan_path(p: pathlib.Path) -> Tuple[List[Finding], Dict[str, int]]:
 
 def print_summary(stats: Dict[str, int], findings: List[Finding]):
     """Print educational summary based on what was found"""
-    print("\n" + "="*80)
+    print("\n" + "=" * 80)
     print("EMBERCOACH SUMMARY")
-    print("="*80)
+    print("=" * 80)
     print(f"Scanned {stats['files']} files")
     print(f"Found {len(findings)} teaching moments")
 
@@ -501,10 +535,13 @@ def print_summary(stats: Dict[str, int], findings: List[Finding]):
     print("\n📖 For deep explanations:")
     print("   docs/NUMERICAL_PRECISION_GUIDE.md  (full tutorial)")
     print("   docs/NUMERIC_STABILITY_TORCH_vs_MLX.md  (findings summary)")
-    print("="*80 + "\n")
+    print("=" * 80 + "\n")
 
 
 def main():
+    """
+
+    """
     ap = argparse.ArgumentParser(
         description='EmberCoach: Teaching linter for GPU numerical precision',
         epilog='Teaches WHY precision matters and HOW to fix issues. See docs/ for details.'

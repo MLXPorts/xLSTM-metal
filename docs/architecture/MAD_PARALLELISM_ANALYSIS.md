@@ -103,6 +103,7 @@ model_layers = ['mh-hyena', 'moe-mlp', 'mh-attention', 'moe-mlp']
 ```
 
 This creates:
+
 ```
 Block 0: Multi-head Hyena
 Block 1: MoE MLP (8 experts, top-2 routing)
@@ -191,6 +192,7 @@ def parallel_forward(self, x, q, k, v):
 ```
 
 **This is NOT block-to-block parallelism!** It's choosing between:
+
 - **"quadratic"**: O(n²) memory, easier to parallelize on GPU
 - **"linear"**: O(n) memory, uses specialized CUDA kernel
 
@@ -254,6 +256,7 @@ class HyenaExpertsOperator(HyenaOperator):
 ```
 
 **Combines:**
+
 - Hyena's efficient long-range modeling
 - MoE's sparse expert capacity
 - All computed in parallel via batched operations
@@ -317,14 +320,15 @@ def make_model_fn(task, vocab_size, max_length):
 
 ## Summary: Types of Parallelism in MAD
 
-| Type | Level | Example | Implementation |
-|------|-------|---------|----------------|
-| **MoE Experts** | Within layer | 8 experts, top-2 routing | Batched matmul, sparse activation |
-| **Multi-head** | Within layer | 16 attention/hyena heads | Batched operations across heads |
+| Type                 | Level        | Example                           | Implementation                     |
+|----------------------|--------------|-----------------------------------|------------------------------------|
+| **MoE Experts**      | Within layer | 8 experts, top-2 routing          | Batched matmul, sparse activation  |
+| **Multi-head**       | Within layer | 16 attention/hyena heads          | Batched operations across heads    |
 | **Algorithm choice** | Within layer | "quadratic" vs "linear" attention | Different memory/compute tradeoffs |
-| **GPU parallelism** | Hardware | All of the above | CUDA kernels, tensor parallelism |
+| **GPU parallelism**  | Hardware     | All of the above                  | CUDA kernels, tensor parallelism   |
 
 **What MAD does NOT have:**
+
 - ❌ Block-to-block parallelism (still sequential)
 - ❌ Threading/async (Python GIL limitations)
 - ❌ Model parallelism (different from data parallelism)
@@ -347,8 +351,8 @@ def make_model_fn(task, vocab_size, max_length):
    ```
 
 2. **Multi-head mLSTM** (already have)
-   - Our `num_heads` parameter already enables parallel heads
-   - Each head has its own Q/K/V projections and state
+    - Our `num_heads` parameter already enables parallel heads
+    - Each head has its own Q/K/V projections and state
 
 3. **Hyena/Mamba Integration**
    ```python
@@ -401,9 +405,9 @@ def make_model_fn(task, vocab_size, max_length):
    ```
 
 3. **Internal NCPS wiring** (within mLSTM blocks)
-   - Wire Q/K/V projections with sparsity
-   - Wire gates with polarity
-   - Component-level flexibility
+    - Wire Q/K/V projections with sparsity
+    - Wire gates with polarity
+    - Component-level flexibility
 
 ### What NOT to Implement
 
@@ -418,6 +422,7 @@ def make_model_fn(task, vocab_size, max_length):
 Based on MAD's patterns and our needs:
 
 ### Phase 1: Core Architecture (Highest Priority)
+
 1. **Fix dtype issue in mLSTM kernel** ← BLOCKING INFERENCE
 2. **Create BlockRegistry** (mLSTM, sLSTM, FFN types)
 3. **Implement config-driven backbone** (LFM2 `layer_types` pattern)
@@ -425,11 +430,13 @@ Based on MAD's patterns and our needs:
 5. **Test with xLSTM-1B weights** (mixed mLSTM/sLSTM blocks)
 
 ### Phase 2: Component Extraction
+
 6. **Extract mLSTM components** (Q/K/V, gates, norms as separate modules)
 7. **Add strategy registry for kernels** (NCPS callable pattern)
 8. **Add HyperProfiles** (MLX↔PyTorch numerical equivalence)
 
 ### Phase 3: Extensions (Research/Future)
+
 9. **Add MoE FFN block type** (MAD pattern)
 10. **Add NCPS wiring within blocks** (sparsity masks, polarity)
 11. **Add Hyena/Mamba block types** (MAD integration)
@@ -445,9 +452,11 @@ MAD uses **three forms of parallelism**, all happening **within layers**:
 2. **Multi-head**: Parallel attention/hyena heads
 3. **Algorithm**: Choice of parallel vs sequential implementations
 
-None of these involve **block-to-block parallelism** - that would require fundamentally different architectures (e.g., DAG-based, not sequential).
+None of these involve **block-to-block parallelism** - that would require fundamentally different architectures (e.g.,
+DAG-based, not sequential).
 
 For xLSTM-MAD-NCPS, we should:
+
 - ✅ Adopt MoE patterns for flexibility
 - ✅ Keep multi-head parallelism (already have)
 - ✅ Use config-driven heterogeneous blocks (LFM2 + MAD pattern)

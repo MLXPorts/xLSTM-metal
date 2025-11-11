@@ -12,12 +12,16 @@ from softcap import SoftCapMLXFastKernel
 global_softcap = SoftCapMLXFastKernel()
 global_softcap.compile()  # ← This is the key improvement!
 
+
 def process_batch(data, cap_value=5.0):
     """Process a batch using the pre-compiled kernel."""
     return global_softcap(data, cap_value)
 
+
 # Pattern 2: Lazy compilation (compile on first use)
 lazy_softcap = SoftCapMLXFastKernel()
+
+
 # No .compile() call - will compile on first __call__
 
 def example_usage():
@@ -46,6 +50,6 @@ def example_usage():
     compiled2 = custom_kernel.compile()
     print(f"Same kernel? {compiled is compiled2}")
 
+
 if __name__ == "__main__":
     example_usage()
-

@@ -2,9 +2,11 @@
 
 ## Executive Summary
 
-After exploring three foundational infrastructure layers, we can now design a **zero-new-Metal-code TTT implementation** that leverages existing optimized kernels and SWAR techniques.
+After exploring three foundational infrastructure layers, we can now design a **zero-new-Metal-code TTT implementation**
+that leverages existing optimized kernels and SWAR techniques.
 
 **Three Layers Discovered**:
+
 1. **TTT Theory**: Tent (norms), TTT++ (encoder), LoRA adapters, distributed per-block updates
 2. **Kernel Lab**: GEMM (7-10x), LayerNorm (2-4x), quantization, QR/SVD, optimization framework
 3. **SWAR**: Packed-lane operations, arithmetic-only cross-platform, SwAR128 high-precision
@@ -18,14 +20,16 @@ After exploring three foundational infrastructure layers, we can now design a **
 ### 1. Tent (Entropy Minimization with LayerNorm Updates)
 
 **Requirements**:
+
 - Forward pass to compute predictions
 - Entropy loss calculation: `H = -∑ p(x) log p(x)`
 - Backward pass through LayerNorm only
 - Update only γ (scale) and β (bias) parameters
 
 **Existing Infrastructure**:
+
 ```python
-# xlstm_metal/blocks/mlx/mlstm/block.py uses LayerNorm
+# xlstm_metal/blocks/mlx/mlstm/ffn_block.py uses LayerNorm
 # kernel_development/matrix/multihead_layernorm/ has optimized kernel
 
 # Tent update loop
@@ -54,12 +58,14 @@ for x_test in test_stream:
 ### 2. TTT++ (Encoder Adaptation with Self-Supervised Loss)
 
 **Requirements**:
+
 - Self-supervised contrastive loss (SimCLR-style)
 - Feature-moment alignment loss
 - Backward through encoder (Q/K/V projections, input gates)
 - Update encoder weights while keeping backbone frozen
 
 **Existing Infrastructure**:
+
 ```python
 # Encoder components in mLSTMLayer:
 # - Q/K/V projections (nn.Linear with GEMM)
@@ -89,6 +95,7 @@ def ttt_plus_plus_step(model, x_test, encoder_params):
 ```
 
 **GEMM Kernel Usage**:
+
 - Q/K/V projection forward: `gemm_av` (A×V pattern)
 - Q/K/V projection backward: `gemm_at_b` (Aᵀ×B for weight gradients)
 - Similarity matrix: Standard MLX matmul (may use Metal BLAS)
@@ -100,12 +107,14 @@ def ttt_plus_plus_step(model, x_test, encoder_params):
 ### 3. LoRA Adapters (Low-Rank Decomposition)
 
 **Requirements**:
+
 - Add low-rank bypass: `W_adapted = W_frozen + B × A` where A ∈ ℝ^(d×r), B ∈ ℝ^(r×d), r ≪ d
 - Forward: `y = Wx + BAx`
 - Backward: Compute gradients w.r.t. A and B only
 - Update only adapter parameters
 
 **Existing Infrastructure**:
+
 ```python
 # kernel_development/matrix/gemm/mlx_fast_metal_kernel/gemm_kernels.py
 
@@ -138,12 +147,14 @@ class LoRAAdapter:
 ```
 
 **GEMM Kernel Performance**:
+
 - Rank 8: A (in_dim × 8), B (8 × out_dim)
 - For d=2048: A=16K params, B=16K params → 32K total vs 4M frozen
 - GEMM kernel gives 7-10x speedup on these small rank matrices
 - Critical for real-time adaptation
 
 **QR Initialization** (from kernel_development/matrix/qr_decomposition/):
+
 ```python
 # Initialize A with orthogonal columns for better conditioning
 A_init = mx.random.normal((in_dim, rank))
@@ -162,7 +173,9 @@ self.A = A_orthogonal * 0.01
 **Existing Infrastructure + SWAR**:
 
 #### 4a. Variable Quantization Kernel
+
 From `kernel_development/matrix/variable_quantization/`:
+
 ```python
 # Quantize base model to 4-bit
 W_base_quantized = quantize(W_base, bits=4)  # Uses existing kernel
@@ -183,6 +196,7 @@ def forward_qlora(x, W_base_q, scale, zero_point, A, B):
 **Problem**: Accumulating gradients for adapters while base is quantized requires careful precision handling.
 
 **SWAR Solution** (arithmetic-only for MLX cross-platform):
+
 ```python
 # From SwAR.kt arithmetic-only pattern
 def accumulate_mixed_precision_gradients(grad_fp32, grad_accum_packed):
@@ -213,12 +227,14 @@ def accumulate_mixed_precision_gradients(grad_fp32, grad_accum_packed):
 ```
 
 **Why Arithmetic-Only?**
+
 - MLX, PyTorch, Ray need cross-platform compatibility
 - Bitwise XOR/AND not available in MLX Python API
 - Arithmetic decompose/pack works identically across all backends
 - From SwAR.kt: "Kotlin multiplatform requires arithmetic-only"
 
 **Performance**:
+
 - **With SWAR**: 4x gradient memory compression, arithmetic-only overhead ~10-15%
 - **Without SWAR**: Standard fp32 accumulation, 4x memory cost
 - **Trade-off**: Acceptable for distributed TTT where memory is bottleneck
@@ -228,6 +244,7 @@ def accumulate_mixed_precision_gradients(grad_fp32, grad_accum_packed):
 **Problem**: Adapters require high-precision accumulation to avoid drift over many TTT steps.
 
 **SwAR128 Solution**:
+
 ```python
 # From SwAR128.kt - 128-bit arithmetic using 8×16-bit limbs
 class AdapterGradientAccumulator:
@@ -257,6 +274,7 @@ class AdapterGradientAccumulator:
 ```
 
 **Relevance**:
+
 - TTT may run for 100-10,000 steps on test stream
 - Standard fp32 accumulation loses precision after ~10^7 operations
 - SwAR128 extends effective precision to ~10^15 operations
@@ -280,6 +298,7 @@ From `llama.kotlin/src/nativeMain/kotlin/ai/solace/bench/SwARBench.kt`:
 4. **avgU16RoundArith** - 2×u16 rounded average: `⌊(a+b+1)/2⌋`
 
 **Test configuration**:
+
 - **Sizes**: 8, 64, 4096, 262144 elements
 - **Parallelism**: 4 chunks using Kotlin coroutines (`Dispatchers.Default`)
 - **Iterations**: 200K (small), 50K (medium), 2K (large)
@@ -290,6 +309,7 @@ From `llama.kotlin/src/nativeMain/kotlin/ai/solace/bench/SwARBench.kt`:
 #### 1. avgU8TruncArith (4×u8 Truncated Averaging)
 
 From `SwAR.kt:66-82`:
+
 ```kotlin
 fun avgU8TruncArith(a: Int, b: Int): Int {
     val au = a.toUInt(); val bu = b.toUInt()
@@ -317,6 +337,7 @@ fun avgU8TruncArith(a: Int, b: Int): Int {
 ```
 
 **Key properties**:
+
 - **Decompose**: 8 divisions to extract 4×u8 lanes from two Int32
 - **Operate**: 4 independent averages (per-lane parallelism)
 - **Pack**: 1 multiplication to reconstruct Int32
@@ -326,6 +347,7 @@ fun avgU8TruncArith(a: Int, b: Int): Int {
 #### 2. avgU8RoundArith (4×u8 Rounded Averaging)
 
 From `SwAR.kt:85-100`:
+
 ```kotlin
 fun avgU8RoundArith(a: Int, b: Int): Int {
     // Same decomposition as truncated version
@@ -348,6 +370,7 @@ fun avgU8RoundArith(a: Int, b: Int): Int {
 #### 3. avgU16TruncArith (2×u16 Truncated Averaging)
 
 From `SwAR.kt:194-201`:
+
 ```kotlin
 fun avgU16TruncArith(a: Int, b: Int): Int {
     val au = a.toUInt(); val bu = b.toUInt()
@@ -365,6 +388,7 @@ fun avgU16TruncArith(a: Int, b: Int): Int {
 ```
 
 **Trade-offs vs u8**:
+
 - **Fewer lanes**: 2×u16 vs 4×u8 (less parallelism)
 - **Higher precision**: 16-bit vs 8-bit per lane (better for gradients!)
 - **Simpler decompose**: 2 divisions vs 8 divisions (faster)
@@ -372,6 +396,7 @@ fun avgU16TruncArith(a: Int, b: Int): Int {
 #### 4. avgU16RoundArith (2×u16 Rounded Averaging)
 
 From `SwAR.kt:203-210`:
+
 ```kotlin
 fun avgU16RoundArith(a: Int, b: Int): Int {
     // Same decomposition as truncated
@@ -398,6 +423,7 @@ fun avgU16RoundArith(a: Int, b: Int): Int {
 **SwARBench operation**: `avgU16RoundArith` (2×u16 rounded)
 
 **Implementation**:
+
 ```python
 def distributed_gradient_allreduce_swar(grads_list, bits=16):
     """
@@ -440,12 +466,14 @@ def distributed_gradient_allreduce_swar(grads_list, bits=16):
 ```
 
 **Why avgU16RoundArith?**
+
 - **16-bit precision**: Better than 8-bit for gradient values
 - **Rounding**: Minimizes bias over multiple averages (N workers)
 - **2 lanes per Int32**: Less overhead than 4×u8
 - **Cross-platform**: Works identically on all Ray workers (heterogeneous hardware)
 
 **Performance** (from SwARBench):
+
 - **Small tensors** (64 elements): ~2-5 GB/s effective
 - **Medium tensors** (4096): ~10-20 GB/s effective
 - **Large tensors** (262K): ~30-50 GB/s effective
@@ -460,6 +488,7 @@ def distributed_gradient_allreduce_swar(grads_list, bits=16):
 **SwARBench operation**: `avgU8TruncArith` or `avgU16TruncArith`
 
 **Implementation**:
+
 ```python
 class SWARMomentumAccumulator:
     """
@@ -513,6 +542,7 @@ class SWARMomentumAccumulator:
 ```
 
 **Why avgU16TruncArith?**
+
 - **Truncation acceptable**: Momentum is approximate (exponential decay)
 - **16-bit sufficient**: Gradient statistics don't need full fp32 precision
 - **Fast**: Truncated division is ~5-10% faster than rounded
@@ -527,6 +557,7 @@ class SWARMomentumAccumulator:
 **SwARBench operation**: `avgU8RoundArith` (for extreme compression)
 
 **Implementation**:
+
 ```python
 def compress_gradient_for_transmission(grad, bits=8):
     """
@@ -573,11 +604,13 @@ def decompress_gradient(compressed):
 ```
 
 **Why avgU8RoundArith?**
+
 - **Maximum compression**: 8-bit = 4x compression (critical for network bandwidth)
 - **Rounding**: Preserves gradient statistics better than truncation
 - **Trade-off**: Lower precision but acceptable for communication (decompressed immediately)
 
 **Bandwidth savings**:
+
 - Standard fp32: 32 bits per gradient element
 - SWAR u8: 8 bits per element (4x reduction)
 - For xLSTM-7B with 7B params: ~28GB → ~7GB per gradient transmission
@@ -589,20 +622,22 @@ def decompress_gradient(compressed):
 
 From benchmark results (typical on M3 Max):
 
-| Operation | Size=64 | Size=4K | Size=262K | Memory/Op |
-|-----------|---------|---------|-----------|-----------|
-| avgU8TruncArith | ~3 GB/s | ~15 GB/s | ~35 GB/s | 8 bytes (read 2×Int32) |
-| avgU8RoundArith | ~2.5 GB/s | ~13 GB/s | ~32 GB/s | 8 bytes |
-| avgU16TruncArith | ~4 GB/s | ~18 GB/s | ~40 GB/s | 8 bytes |
-| avgU16RoundArith | ~3.5 GB/s | ~16 GB/s | ~38 GB/s | 8 bytes |
+| Operation        | Size=64   | Size=4K  | Size=262K | Memory/Op              |
+|------------------|-----------|----------|-----------|------------------------|
+| avgU8TruncArith  | ~3 GB/s   | ~15 GB/s | ~35 GB/s  | 8 bytes (read 2×Int32) |
+| avgU8RoundArith  | ~2.5 GB/s | ~13 GB/s | ~32 GB/s  | 8 bytes                |
+| avgU16TruncArith | ~4 GB/s   | ~18 GB/s | ~40 GB/s  | 8 bytes                |
+| avgU16RoundArith | ~3.5 GB/s | ~16 GB/s | ~38 GB/s  | 8 bytes                |
 
 **Key insights**:
+
 1. **u16 faster than u8**: Simpler decomposition (2 lanes vs 4) offsets precision advantage
 2. **Truncated faster than rounded**: ~10-15% speedup, but worse for iterative ops
 3. **Scales well**: Near-linear scaling from 64 → 262K elements
 4. **Parallel-friendly**: 4-chunk parallelism gives ~3-3.5x speedup
 
 **Comparison to native fp32**:
+
 - Native fp32 averaging: ~100-200 GB/s (Metal SIMD)
 - SWAR u16 arithmetic-only: ~15-40 GB/s
 - **Trade-off**: ~5-10x slower, but 100% cross-platform + compression
@@ -615,23 +650,25 @@ From benchmark results (typical on M3 Max):
 
 **Rationale**:
 
-| Criterion | avgU8Trunc | avgU8Round | avgU16Trunc | **avgU16Round** |
-|-----------|------------|------------|-------------|-----------------|
-| **Precision** | 8-bit (poor) | 8-bit (poor) | 16-bit (good) | **16-bit (good)** |
-| **Rounding** | ❌ Truncated | ✅ Rounded | ❌ Truncated | **✅ Rounded** |
-| **Lane count** | 4 (overhead) | 4 (overhead) | 2 (faster) | **2 (faster)** |
-| **Numerical stability** | ❌ Poor (bias) | ⚠️ Acceptable | ⚠️ Poor (bias) | **✅ Good** |
-| **Performance** | ~13 GB/s | ~13 GB/s | ~18 GB/s | **~16 GB/s** |
-| **Cross-platform** | ✅ Yes | ✅ Yes | ✅ Yes | **✅ Yes** |
+| Criterion               | avgU8Trunc    | avgU8Round    | avgU16Trunc    | **avgU16Round**   |
+|-------------------------|---------------|---------------|----------------|-------------------|
+| **Precision**           | 8-bit (poor)  | 8-bit (poor)  | 16-bit (good)  | **16-bit (good)** |
+| **Rounding**            | ❌ Truncated   | ✅ Rounded     | ❌ Truncated    | **✅ Rounded**     |
+| **Lane count**          | 4 (overhead)  | 4 (overhead)  | 2 (faster)     | **2 (faster)**    |
+| **Numerical stability** | ❌ Poor (bias) | ⚠️ Acceptable | ⚠️ Poor (bias) | **✅ Good**        |
+| **Performance**         | ~13 GB/s      | ~13 GB/s      | ~18 GB/s       | **~16 GB/s**      |
+| **Cross-platform**      | ✅ Yes         | ✅ Yes         | ✅ Yes          | **✅ Yes**         |
 
 **Why rounded is critical for TTT**:
+
 - TTT runs 100-10,000 steps on test stream
 - Truncated averaging introduces **negative bias** (always rounds down)
 - After 1,000 steps, bias accumulates to ~0.5 * 1,000 = 500 quantization levels
 - Rounded averaging has **zero expected bias** (rounds up/down equally)
 - For 16-bit quantization, unbiased accumulation critical for stability
 
-**Exception**: Use avgU8RoundArith for gradient compression during network transmission (extreme bandwidth constraints), but decompress immediately to u16 or fp32.
+**Exception**: Use avgU8RoundArith for gradient compression during network transmission (extreme bandwidth constraints),
+but decompress immediately to u16 or fp32.
 
 ---
 
@@ -719,12 +756,14 @@ class DistributedTTTCoordinator:
 ```
 
 **Key Benefits**:
+
 - **Parallelism**: Each worker updates independent blocks simultaneously
 - **Memory efficiency**: Each worker holds only 8 blocks (1/4 of model)
 - **Gradient sync**: Optional AllReduce for stability (trade latency for accuracy)
 - **Existing kernels**: All workers use optimized GEMM/LayerNorm kernels
 
 **Performance Estimate** (xLSTM-7B on 4× M3 Max):
+
 - Sequential TTT: ~150ms per step (32 blocks × ~5ms each)
 - Distributed TTT (4 workers): ~40ms per step (8 blocks × ~5ms each + 2ms sync)
 - **3.75x speedup** with near-perfect scaling
@@ -738,6 +777,7 @@ class DistributedTTTCoordinator:
 From `kernel_development/optimizations/optimize_mps.py`:
 
 **TTT Hyperparameters to Tune**:
+
 1. Learning rate (α)
 2. Adapter rank (r)
 3. Entropy loss weight
@@ -745,6 +785,7 @@ From `kernel_development/optimizations/optimize_mps.py`:
 5. Gradient accumulation steps
 
 **Integration**:
+
 ```python
 from kernel_development.optimizations.optimize_mps import BayesianOptimizer
 
@@ -796,6 +837,7 @@ best_params = optimizer.optimize(n_trials=50)
 From `kernel_development/optimizations/xltop.py`:
 
 **TTT Memory Profiling**:
+
 ```bash
 # Terminal 1: Run TTT
 python run_ttt.py --model xlstm-7b --adapters lora --rank 8
@@ -815,6 +857,7 @@ python kernel_development/optimizations/xltop.py --interval 1.0 --log ttt_memory
 ```
 
 **Key Metrics for TTT**:
+
 - **Adapter overhead**: Compare MPS allocated before/after adding adapters
 - **Gradient accumulation**: Monitor RSS growth over TTT steps
 - **Quantization savings**: Compare 4-bit vs fp16 base model memory
@@ -828,6 +871,7 @@ python kernel_development/optimizations/xltop.py --interval 1.0 --log ttt_memory
 From `kernel_development/optimizations/judge_*.py`:
 
 **TTT Quality Evaluation**:
+
 ```python
 from kernel_development.optimizations.judge_gpt4 import LLMJudge
 
@@ -868,6 +912,7 @@ print(f"TTT average improvement: {avg_improvement:.2f} points")
 ```
 
 **Metrics**:
+
 - **Coherence**: Does TTT maintain logical flow?
 - **Factuality**: Does adaptation improve domain accuracy?
 - **Relevance**: Does TTT focus on test distribution?
@@ -885,11 +930,13 @@ From `SwAR.kt` comments:
 > Arithmetic-only SWAR works **everywhere**: Kotlin/JS, Kotlin/JVM, Kotlin/Native, MLX, PyTorch
 
 **xLSTM-Metal Multi-Backend Architecture**:
+
 - **MLX**: Primary backend (M-series Apple Silicon)
 - **PyTorch**: Reference implementation for numerical validation
 - **Ray**: Distributed training across mixed hardware
 
 **Problem**: Bitwise operations not universally available:
+
 - MLX Python API: No native bitwise ops on arrays
 - PyTorch MPS: Bitwise ops exist but limited dtype support
 - Ray: Must work across heterogeneous workers
@@ -944,6 +991,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 ```
 
 **Performance**:
+
 - **Memory**: 4x compression (fp32 → 4×u8 packed)
 - **Overhead**: ~10-15% vs native fp32 (arithmetic decomposition cost)
 - **Compatibility**: 100% identical behavior across MLX/PyTorch/Ray
@@ -959,6 +1007,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Goal**: Entropy minimization with LayerNorm updates only
 
 **Implementation**:
+
 1. Add `freeze_except_norms()` utility to mark parameters
 2. Implement entropy loss function
 3. Wire up MLX autograd for norm-only backward
@@ -968,6 +1017,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **No new Metal kernels needed**: 100% existing infrastructure
 
 **Files to modify**:
+
 - `xlstm_metal/blocks/mlx/mlstm/block.py` - Add parameter freezing
 - `xlstm_metal/inference/runner.py` - Add TTT mode flag
 - New: `xlstm_metal/ttt/tent.py` - Tent implementation (~100 lines)
@@ -979,6 +1029,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Goal**: Low-rank adapter updates during test time
 
 **Implementation**:
+
 1. Create `LoRAAdapter` class using existing GEMM kernels
 2. Add QR initialization using existing QR kernel
 3. Implement adapter-only gradient computation
@@ -986,11 +1037,13 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 5. Profile memory with `xltop.py`
 
 **Existing infrastructure used**:
+
 - `gemm_av`, `gemm_at_b` for adapter forward/backward
 - `qr_decomposition` for initialization
 - `optimize_mps.py` for hyperparameter tuning
 
 **Files to create**:
+
 - `xlstm_metal/ttt/lora.py` - LoRA implementation (~200 lines)
 - `xlstm_metal/ttt/utils.py` - QR init, memory utils (~100 lines)
 
@@ -1001,6 +1054,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Goal**: Encoder adaptation with contrastive learning
 
 **Implementation**:
+
 1. Implement data augmentation pipeline (token dropout, span masking)
 2. Add contrastive loss (SimCLR-style with GEMM for similarity matrix)
 3. Add feature-moment alignment loss
@@ -1008,11 +1062,13 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 5. Evaluate with `judge_*.py` framework
 
 **Existing infrastructure used**:
+
 - GEMM for similarity matrix computation
 - Standard MLX ops for loss functions
 - `judge_gpt4.py` for output quality evaluation
 
 **Files to create**:
+
 - `xlstm_metal/ttt/ttt_plus_plus.py` - TTT++ implementation (~300 lines)
 - `xlstm_metal/ttt/augmentation.py` - Data augmentation (~150 lines)
 
@@ -1023,6 +1079,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Goal**: Multi-node block partitioning for real-time adaptation
 
 **Implementation**:
+
 1. Create `DistributedTTTBlockWorker` Ray actor
 2. Implement block partitioning logic
 3. Add asynchronous gradient aggregation (optional AllReduce)
@@ -1030,11 +1087,13 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 5. Profile scaling with `xltop.py` on each worker
 
 **Existing infrastructure used**:
+
 - Ray infrastructure from `kernel_development/`
 - All optimized kernels on each worker
 - `xltop.py` for distributed memory monitoring
 
 **Files to create**:
+
 - `xlstm_metal/ttt/distributed.py` - Distributed coordinator (~400 lines)
 - `xlstm_metal/ttt/ray_worker.py` - Worker implementation (~250 lines)
 
@@ -1045,6 +1104,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Goal**: 4-bit base + fp32 adapters with SWAR gradient compression
 
 **Implementation**:
+
 1. Quantize base model using existing variable quantization kernel
 2. Implement arithmetic-only SWAR gradient packing (cross-platform)
 3. Add SwAR128 high-precision accumulator for stability
@@ -1052,11 +1112,13 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 5. Validate numerical equivalence with PyTorch reference
 
 **Existing infrastructure used**:
+
 - Variable quantization kernel for base model
 - SWAR patterns from SwAR.kt for gradient compression
 - SwAR128 pattern for high-precision accumulation
 
 **Files to create**:
+
 - `xlstm_metal/ttt/qlora.py` - Quantized LoRA (~200 lines)
 - `xlstm_metal/ttt/swar_utils.py` - Arithmetic-only SWAR (~300 lines)
 - `xlstm_metal/ttt/swar128_accumulator.py` - High-precision accumulator (~250 lines)
@@ -1067,19 +1129,20 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 
 ### Coverage Table (Complete)
 
-| TTT Component | Implementation | Existing Infrastructure | Status |
-|--------------|----------------|------------------------|--------|
-| **Tent**: LayerNorm updates | MLX autograd + optimized LayerNorm kernel | Multi-head LayerNorm 2-4x speedup | ✅ Ready |
-| **TTT++**: Encoder adaptation | MLX autograd + GEMM kernels | `gemm_av`, `gemm_at_b` 7-10x speedup | ✅ Ready |
-| **LoRA**: Low-rank adapters | GEMM forward/backward + QR init | GEMM + QR decomposition kernels | ✅ Ready |
-| **Distributed**: Block partitioning | Ray actors with async sync | Ray infrastructure + GEMM kernels | ✅ Ready |
-| **QLoRA**: Quantized base | Variable quantization + SWAR gradients | Quantization kernel + SwAR patterns | ✅ Ready |
-| **SWAR Gradients**: AllReduce, momentum, compression | avgU16RoundArith (tested in SwARBench) | 4 production-tested arithmetic-only ops | ✅ Ready |
-| **Optimization**: Hyperparameter tuning | Bayesian optimization | `optimize_mps.py` framework | ✅ Ready |
-| **Monitoring**: Memory profiling | Live MPS/RSS tracking | `xltop.py` utility | ✅ Ready |
-| **Evaluation**: Output quality | LLM-as-judge | `judge_*.py` framework | ✅ Ready |
+| TTT Component                                        | Implementation                            | Existing Infrastructure                 | Status  |
+|------------------------------------------------------|-------------------------------------------|-----------------------------------------|---------|
+| **Tent**: LayerNorm updates                          | MLX autograd + optimized LayerNorm kernel | Multi-head LayerNorm 2-4x speedup       | ✅ Ready |
+| **TTT++**: Encoder adaptation                        | MLX autograd + GEMM kernels               | `gemm_av`, `gemm_at_b` 7-10x speedup    | ✅ Ready |
+| **LoRA**: Low-rank adapters                          | GEMM forward/backward + QR init           | GEMM + QR decomposition kernels         | ✅ Ready |
+| **Distributed**: Block partitioning                  | Ray actors with async sync                | Ray infrastructure + GEMM kernels       | ✅ Ready |
+| **QLoRA**: Quantized base                            | Variable quantization + SWAR gradients    | Quantization kernel + SwAR patterns     | ✅ Ready |
+| **SWAR Gradients**: AllReduce, momentum, compression | avgU16RoundArith (tested in SwARBench)    | 4 production-tested arithmetic-only ops | ✅ Ready |
+| **Optimization**: Hyperparameter tuning              | Bayesian optimization                     | `optimize_mps.py` framework             | ✅ Ready |
+| **Monitoring**: Memory profiling                     | Live MPS/RSS tracking                     | `xltop.py` utility                      | ✅ Ready |
+| **Evaluation**: Output quality                       | LLM-as-judge                              | `judge_*.py` framework                  | ✅ Ready |
 
-**Result**: 100% coverage with existing infrastructure. TTT implementation is **pure Python orchestration** of optimized Metal kernels.
+**Result**: 100% coverage with existing infrastructure. TTT implementation is **pure Python orchestration** of optimized
+Metal kernels.
 
 ---
 
@@ -1090,6 +1153,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Decision**: Use SwAR.kt's arithmetic-only pattern instead of bitwise SWAR
 
 **Rationale**:
+
 - MLX Python API lacks native bitwise array operations
 - PyTorch MPS bitwise ops have limited dtype support
 - Ray distributed requires cross-platform compatibility
@@ -1104,6 +1168,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Decision**: Use 128-bit fixed-point accumulator for long TTT sessions
 
 **Rationale**:
+
 - Standard fp32 loses precision after ~10^7 operations (catastrophic cancellation)
 - TTT may run for 10,000+ steps on test stream
 - SwAR128 extends effective precision to ~10^15 operations
@@ -1118,6 +1183,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 **Decision**: Use Ray to partition blocks across workers, not data parallelism
 
 **Rationale**:
+
 - xLSTM-7B has 32 blocks → natural partition point
 - Each block is independent for forward/backward
 - Data parallelism requires duplicating full model per worker
@@ -1141,6 +1207,7 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 ## Files Referenced
 
 ### Kernel Lab
+
 - `kernel_development/README.md` - Overview
 - `kernel_development/matrix/gemm/GEMM_KERNEL_ANALYSIS.md` - GEMM optimization details
 - `kernel_development/matrix/gemm/mlx_fast_metal_kernel/gemm_kernels.py` - Production GEMM
@@ -1149,16 +1216,21 @@ def dequantize_gradient_swar(grad_packed, original_scale, original_min):
 - `kernel_development/optimizations/judge_*.py` - Output evaluation
 
 ### SWAR Implementations
-- `llama.kotlin/external/staging/ember/src/commonMain/kotlin/ai/solace/klang/bitwise/SwAR.kt` - Bitwise + arithmetic-only SWAR
-- `llama.kotlin/external/staging/ember/src/commonMain/kotlin/ai/solace/klang/bitwise/SwAR128.kt` - 128-bit high-precision arithmetic
+
+- `llama.kotlin/external/staging/ember/src/commonMain/kotlin/ai/solace/klang/bitwise/SwAR.kt` - Bitwise +
+  arithmetic-only SWAR
+- `llama.kotlin/external/staging/ember/src/commonMain/kotlin/ai/solace/klang/bitwise/SwAR128.kt` - 128-bit
+  high-precision arithmetic
 - `llama.kotlin/labs/lab_swar_channels/MetalSwarAvg/Sources/main.swift` - Metal SWAR kernels
 
 ### xLSTM Architecture
+
 - `xlstm_metal/blocks/mlx/mlstm/block.py` - mLSTM block structure
 - `xlstm_metal/blocks/mlx/mlstm/kernel.py` - mLSTM Metal kernels
 - `xlstm_metal/inference/runner.py` - Inference pipeline
 
 ### Documentation Created
+
 - `docs/architecture/MAD_PARALLELISM_ANALYSIS.md` - MoE parallelism patterns
 - `docs/architecture/LFM2_AND_XLSTM_WIRING_ANALYSIS.md` - Heterogeneous block patterns
 - `docs/architecture/M2BERT_ARCHITECTURE_ANALYSIS.md` - Monarch matrices, Hyena filters

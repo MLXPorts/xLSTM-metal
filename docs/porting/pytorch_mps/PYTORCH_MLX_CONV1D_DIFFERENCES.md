@@ -3,7 +3,9 @@
 ## Critical Finding: Channel Dimension Position
 
 ### PyTorch Conv1d
+
 **Input Shape**: `(N, C_in, L)`
+
 - N = Batch size
 - C_in = Number of input channels
 - L = Sequence length
@@ -20,7 +22,9 @@ out = conv(x_torch)  # (32, 512, 97) with padding=0
 ```
 
 ### MLX Conv1d
+
 **Input Shape**: `(N, L, C)`
+
 - N = Batch size
 - L = Sequence length
 - C = Number of input channels
@@ -54,6 +58,7 @@ class CausalConv1d(nn.Module):
 ```
 
 So the canonical implementation:
+
 1. Accepts input as `(B, S, C)` (sequence-first, channels-last)
 2. Transposes to `(B, C, S)` for PyTorch Conv1d
 3. Transposes back to `(B, S, C)`
@@ -63,6 +68,7 @@ So the canonical implementation:
 For MLX, we have two choices:
 
 ### Option 1: Match Canonical API (Recommended)
+
 Accept `(B, S, C)` input, use MLX Conv1d directly (no transpose needed!)
 
 ```python
@@ -89,19 +95,21 @@ class CausalConv1dBlock:
 ```
 
 ### Option 2: Explicit Transpose (Unnecessary)
+
 Would require transpose to match PyTorch format, then transpose back - **wasteful!**
 
 ## Recommendation
 
-**Use Option 1**: MLX Conv1d already expects the format canonical xLSTM uses after transpose. We can skip the transpose entirely and use MLX Conv1d directly on `(B, S, C)` tensors!
+**Use Option 1**: MLX Conv1d already expects the format canonical xLSTM uses after transpose. We can skip the transpose
+entirely and use MLX Conv1d directly on `(B, S, C)` tensors!
 
 This is more efficient than the canonical implementation since we avoid unnecessary transposes.
 
 ## Implementation Notes
 
 1. **Causal Padding**: PyTorch uses left-padding for causal conv. MLX pads symmetrically, so we need to:
-   - Pad left with `kernel_size - 1`
-   - Crop output by `kernel_size - 1` from the right
+    - Pad left with `kernel_size - 1`
+    - Crop output by `kernel_size - 1` from the right
 
 2. **Stateful Conv (for generation)**: Need to maintain conv state for single-token generation:
    ```python

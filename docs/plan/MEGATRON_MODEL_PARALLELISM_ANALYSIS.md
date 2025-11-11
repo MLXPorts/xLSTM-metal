@@ -9,6 +9,7 @@ Relevance: Scaling xLSTM training beyond Apple Silicon single-GPU limits
 ## Executive Summary
 
 Megatron-LM demonstrates **intra-layer model parallelism** for transformers, achieving:
+
 - **8.3B parameters** on 512 GPUs (8-way model parallel × 64-way data parallel)
 - **76% scaling efficiency** vs single GPU baseline
 - **Simple implementation** - no compiler changes, just a few communication ops
@@ -17,6 +18,7 @@ Megatron-LM demonstrates **intra-layer model parallelism** for transformers, ach
 **Key insight:** Split attention heads and MLP GEMMs **within layers** rather than layers across GPUs.
 
 **Comparison to Hogwild!:**
+
 - **Hogwild!**: Lock-free data parallelism (multiple copies of model)
 - **Megatron**: Model parallelism (split single model across GPUs)
 - **Combined approach**: Both techniques work together for massive scale
@@ -24,13 +26,16 @@ Megatron-LM demonstrates **intra-layer model parallelism** for transformers, ach
 ## Core Technique: Intra-Layer Model Parallelism
 
 ### Problem
+
 Large transformers exceed single GPU memory:
+
 - Model weights
 - Optimizer state (Adam: 2× per parameter)
 - Activations
 - Gradients
 
 **Example:** 8.3B parameter model requires ~33GB just for weights (fp32) or ~16.5GB (fp16)
+
 - Add Adam state: +33GB
 - Add activations: +10-20GB
 - **Total: 60-70GB** >> 32GB V100 memory
@@ -44,11 +49,13 @@ Instead of putting different layers on different GPUs (pipeline parallelism), **
 ### 1. MLP Block Parallelization
 
 **MLP structure:**
+
 ```
 Y = Dropout(GELU(X @ A) @ B)
 ```
 
 **Column-parallel first GEMM:**
+
 ```python
 # Split A along columns: A = [A1, A2]
 # Each GPU computes independently
@@ -58,6 +65,7 @@ Y2 = GELU(X @ A2)  # GPU 2
 ```
 
 **Row-parallel second GEMM:**
+
 ```python
 # Split B along rows: B = [B1; B2]
 # Each GPU computes partial result
@@ -98,6 +106,7 @@ output = all_reduce(output_partial)
 ### 3. Communication Primitives
 
 **f operator:**
+
 ```python
 class f(torch.autograd.Function):
     def forward(ctx, x):
@@ -109,6 +118,7 @@ class f(torch.autograd.Function):
 ```
 
 **g operator:**
+
 ```python
 class g(torch.autograd.Function):
     def forward(ctx, x):
@@ -120,6 +130,7 @@ class g(torch.autograd.Function):
 ```
 
 **Total communication per layer:**
+
 - Forward: 2 all-reduce operations (MLP output + attention output)
 - Backward: 2 all-reduce operations (gradients)
 - **4 all-reduce ops per transformer layer**
@@ -129,6 +140,7 @@ class g(torch.autograd.Function):
 **Challenge:** Output embedding shares weights with input embedding, and vocabulary is large (50k tokens).
 
 **Solution:**
+
 ```python
 # Split vocabulary across GPUs
 # GPU 1: tokens 0-12,799
@@ -147,7 +159,8 @@ logits_local = hidden @ vocab_weights_local.T
 # Communicate scalar losses instead of |vocab|-dimensional logits!
 ```
 
-**Key optimization:** Communicating **losses** (b × s scalars) instead of **logits** (b × s × v) reduces communication by factor of vocab_size.
+**Key optimization:** Communicating **losses** (b × s scalars) instead of **logits** (b × s × v) reduces communication
+by factor of vocab_size.
 
 ## Scaling Results (from Paper)
 
@@ -171,18 +184,21 @@ logits_local = hidden @ vocab_weights_local.T
 | 256  | 4×             | 64×           | 79%        |
 | 512  | 8×             | 64×           | 74%        |
 
-**Key insight:** 76% efficiency at 512 GPUs is excellent - most of the loss is from data parallelism gradient sync, not model parallelism.
+**Key insight:** 76% efficiency at 512 GPUs is excellent - most of the loss is from data parallelism gradient sync, not
+model parallelism.
 
 ## Application to xLSTM on Apple Silicon
 
 ### Current Limits
 
 **Apple M2 Ultra:**
+
 - 24 cores (20 performance + 4 efficiency)
 - 192GB unified memory
 - 800 GB/s memory bandwidth
 
 **Largest model that fits:**
+
 - ~10B parameters (fp16) with activations/gradients
 - With activation checkpointing: ~15B parameters
 - Beyond this: Need model parallelism
@@ -192,6 +208,7 @@ logits_local = hidden @ vocab_weights_local.T
 **For xlstm-large (2048 dim, 48 blocks):**
 
 **Memory breakdown (8.3B parameters, similar to Megatron's largest):**
+
 ```
 Weights (fp16):          16.6 GB
 Adam state (fp32):       33.2 GB
@@ -202,6 +219,7 @@ Total:                   ~76 GB
 ```
 
 **Solution:** 4-way model parallelism
+
 - Split across 4 GPUs (e.g., 4 Apple M2 Max in cluster)
 - Each GPU: ~19 GB (fits in 32GB M2 Max)
 - Or: Use 2 Apple M2 Ultra (2 GPUs each)
@@ -209,6 +227,7 @@ Total:                   ~76 GB
 ### Implementation for MLX
 
 **MLX supports model parallelism via:**
+
 1. **Unified memory architecture** - all GPUs share memory space
 2. **Metal atomics** - for all-reduce operations
 3. **Stream chaining** - overlap communication and computation
@@ -264,6 +283,7 @@ class ModelParallelmLSTMBlock(mx.nn.Module):
 ```
 
 **MLX all-reduce implementation:**
+
 ```python
 def all_reduce_mlx(tensor, group_size=4):
     """All-reduce across model parallel GPUs using Metal atomics"""
@@ -280,14 +300,15 @@ def all_reduce_mlx(tensor, group_size=4):
 **Powerful combination:**
 
 1. **Model parallelism (Megatron):** Split model across GPUs
-   - Enables training models larger than single GPU
-   - 4-8 way parallelism typical
+    - Enables training models larger than single GPU
+    - 4-8 way parallelism typical
 
 2. **Data parallelism (Hogwild!):** Multiple model replicas
-   - Lock-free SGD updates
-   - Near-linear speedup with sparse gradients
+    - Lock-free SGD updates
+    - Near-linear speedup with sparse gradients
 
 **Example configuration:**
+
 ```
 Total GPUs: 32 (e.g., 4 Apple M2 Ultra machines × 2 GPUs × 4 replicas)
 
@@ -307,6 +328,7 @@ Effective speedup:
 **Problem:** Dropout must be consistent within model parallel group, random across data parallel groups.
 
 **Solution:**
+
 ```python
 # Global RNG (same seed across model parallel group)
 global_rng = mx.random.seed(42)
@@ -326,6 +348,7 @@ x_parallel = mx.random.dropout(x_parallel, rate=0.1, stream=local_rng)
 **Still needed with model parallelism!**
 
 Even though weights are distributed, activations can still be large:
+
 ```python
 # Checkpoint after each transformer layer
 class CheckpointedTransformerLayer(mx.nn.Module):
@@ -353,6 +376,7 @@ This ensures each GPU gets a multiple of 128 tokens for efficient matrix multipl
 ### 4. Communication Optimization
 
 **Key optimizations:**
+
 1. **Overlapping communication and computation** (pipeline microbatching)
 2. **Fusing operations** (combine multiple small all-reduces)
 3. **Gradient bucketing** (reduce communication frequency)
@@ -381,6 +405,7 @@ async def backward_with_overlap():
 **Critical finding from paper:** Original BERT architecture degrades at large scales.
 
 **Problem architecture:**
+
 ```python
 # Original BERT (doesn't scale)
 def bert_layer_original(x):
@@ -394,6 +419,7 @@ def bert_layer_original(x):
 ```
 
 **Fixed architecture:**
+
 ```python
 # Megatron BERT (scales well)
 def bert_layer_fixed(x):
@@ -411,7 +437,7 @@ def bert_layer_fixed(x):
 **Applies to xLSTM?** Yes! Our mLSTM blocks should use **pre-normalization**:
 
 ```python
-# mad/blocks/mlstm_mlx/block.py
+# mad/blocks/mlstm_mlx/ffn_block.py
 class mLSTMBlockMLX(mx.nn.Module):
     def __call__(self, x, hidden_state):
         # Pre-norm (like Megatron BERT)
@@ -433,14 +459,15 @@ class mLSTMBlockMLX(mx.nn.Module):
 
 ## Comparison: Megatron vs Other Approaches
 
-| Approach | Type | Communication | Efficiency | Code Changes |
-|----------|------|---------------|------------|--------------|
-| **Megatron** | Intra-layer | All-reduce (4/layer) | 77% @ 8-way | Minimal (~few lines) |
-| **GPipe** | Pipeline | Send/recv | ~65% (bubble) | Framework change |
-| **Mesh-TensorFlow** | General tensor | Custom | ~80% | Compiler + DSL |
-| **ZeRO** | Optimizer state | All-gather | ~90% | Library change |
+| Approach            | Type            | Communication        | Efficiency    | Code Changes         |
+|---------------------|-----------------|----------------------|---------------|----------------------|
+| **Megatron**        | Intra-layer     | All-reduce (4/layer) | 77% @ 8-way   | Minimal (~few lines) |
+| **GPipe**           | Pipeline        | Send/recv            | ~65% (bubble) | Framework change     |
+| **Mesh-TensorFlow** | General tensor  | Custom               | ~80%          | Compiler + DSL       |
+| **ZeRO**            | Optimizer state | All-gather           | ~90%          | Library change       |
 
 **Megatron advantages:**
+
 1. **Simple:** Just insert all-reduce ops
 2. **No compiler:** Works in native PyTorch/MLX
 3. **Orthogonal:** Combine with data parallelism, pipeline parallelism, ZeRO
@@ -453,6 +480,7 @@ class mLSTMBlockMLX(mx.nn.Module):
 **Model:** xLSTM-large (2048 dim, 48 blocks, ~8B parameters)
 
 **Parallelism strategy:**
+
 - 4-way model parallel (split model across 4 GPUs)
 - 2-way data parallel (2 replicas)
 
@@ -466,11 +494,13 @@ class mLSTMBlockMLX(mx.nn.Module):
 | Efficiency | 100% | 75% | **67%** |
 
 **Reasoning:**
+
 - Model parallel: 75% efficiency (similar to Megatron's 77%)
 - Data parallel: 90% efficiency (Hogwild! on sparse gradients)
 - Combined: 0.75 × 0.90 = 67.5%
 
 **Training time reduction:**
+
 - 8B model on single GPU: Impossible (OOM)
 - 8B model with 4-way MP: ~12 hours/epoch
 - 8B model with 4MP + 2DP: **~6 hours/epoch**
@@ -509,6 +539,7 @@ class MADLanguageModel(mx.nn.Module):
 ```
 
 **Benefits for MAD evaluation:**
+
 1. **Larger models:** Evaluate 10B+ parameter architectures
 2. **Faster iteration:** Train multiple large models in parallel
 3. **Fair comparison:** All architectures use same computational budget
@@ -516,24 +547,24 @@ class MADLanguageModel(mx.nn.Module):
 ## Next Steps for Implementation
 
 1. **MLX distributed primitives:**
-   - Implement `all_reduce_mlx()` via Metal atomics
-   - Support model parallel groups
-   - Add communication overlapping
+    - Implement `all_reduce_mlx()` via Metal atomics
+    - Support model parallel groups
+    - Add communication overlapping
 
 2. **Convert existing blocks to model parallel:**
-   - `mlstm_mlx/block.py` → column/row parallelism
-   - `gated_ffn_mlx/block.py` → split FFN
-   - Test numerical parity (serial vs parallel)
+    - `mlstm_mlx/block.py` → column/row parallelism
+    - `gated_ffn_mlx/block.py` → split FFN
+    - Test numerical parity (serial vs parallel)
 
 3. **Benchmark on multi-GPU setup:**
-   - Single M2 Ultra (2 GPUs) - 2-way model parallel
-   - Multiple M2 Ultra - 4-8 way model parallel
-   - Measure efficiency vs Megatron's numbers
+    - Single M2 Ultra (2 GPUs) - 2-way model parallel
+    - Multiple M2 Ultra - 4-8 way model parallel
+    - Measure efficiency vs Megatron's numbers
 
 4. **Integrate with Hogwild! trainer:**
-   - Model parallel within each data parallel group
-   - Lock-free updates across replicas
-   - Expected: 20-30× speedup on 8 GPU setup
+    - Model parallel within each data parallel group
+    - Lock-free updates across replicas
+    - Expected: 20-30× speedup on 8 GPU setup
 
 ## Key Takeaways
 
@@ -572,12 +603,14 @@ class MADLanguageModel(mx.nn.Module):
 ---
 
 **References:**
+
 - Megatron-LM: Shoeybi et al., 2019
 - Hogwild!: Niu et al., 2011
 - MLX documentation: https://ml-explore.github.io/mlx/
 - Apple Metal: https://developer.apple.com/metal/
 
 **See also:**
+
 - `docs/HOGWILD_ANALYSIS.md` - Lock-free data parallelism
 - `docs/MAD_COMPOSITION_PROPOSAL.md` - Architecture composition
 - `docs/XLSTM_ARCHITECTURE_SEQUENCES.md` - Canonical patterns

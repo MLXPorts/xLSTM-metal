@@ -1,4 +1,3 @@
-
 """
 MLX tuning helpers: per-device tile selection and default kernel modes.
 
@@ -104,4 +103,3 @@ __all__ = [
     "qr_dot_mode_default",
     "device_key",
 ]
-
