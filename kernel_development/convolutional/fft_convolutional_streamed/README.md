@@ -4,7 +4,7 @@ Metal kernel implementations copied from M2-BERT-MLX project for reference and i
 
 ## Source
 
-Copied from `/Volumes/stuff/Projects/m2-bert-mlx/bert/src/mm_mlx/`
+Copied from `m2-bert-mlx` 
 
 ## Files
 

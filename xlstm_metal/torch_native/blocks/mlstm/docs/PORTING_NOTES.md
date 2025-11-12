@@ -12,7 +12,7 @@ Apple Silicon (M3 Ultra with 128 GPU cores).
 Original Triton kernels from `mlstm_kernels` package:
 
 ```
-/Users/sydneybach/miniconda3/lib/python3.12/site-packages/mlstm_kernels/triton/chunkwise/xl_chunk/
+<local_install>/site-packages/mlstm_kernels/triton/chunkwise/xl_chunk/
 ├── fw_kernel_recurrent.py     # Inter-chunk state computation (sequential)
 ├── fw_kernel_parallel.py      # Intra-chunk output computation (parallel)
 ├── bw_kernel_recurrent.py     # Backward recurrent (training only)

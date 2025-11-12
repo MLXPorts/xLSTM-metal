@@ -178,7 +178,7 @@ The extensive docstrings added during debugging helped us:
 ## Verification
 To verify the fix is working:
 ```bash
-cd /Volumes/emberstuff/xLSTM-metal
+cd /path/to/xLSTM-metal
 
 # Test generation
 python generate.py --model xlstm_7b_model --prompt "Test prompt" --max-tokens 100
@@ -200,4 +200,3 @@ All tests should complete without errors and generate stable (non-NaN) outputs.
 ---
 
 **Status:** ✅ **RESOLVED** - Model generates text successfully without NaN errors.
-

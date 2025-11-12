@@ -24,9 +24,9 @@ accordingly. See CITATION.cff for citation entries.
 Port and Apple Silicon (MPS) Integration
 
 - This independent port to PyTorch with Metal (MPS), chunkwise scheduling, Ray integration, memory watchdog/telemetry,
-  and `xltop` tooling was implemented by Sydney Bach (The Solace Project). Upstream authors and NX‑AI were not involved
+  and `xltop` tooling was implemented by Sydney Renee (The Solace Project). Upstream authors and NX‑AI were not involved
   in the engineering of this port.
-- Maintainer/GitHub: Sydney Bach — https://github.com/SolaceHarmony
+- Maintainer/GitHub: Sydney Renee — https://github.com/SolaceHarmony
 - Project link: https://github.com/SolaceHarmony/xLSTM-Metal
 
 Affiliation & Trademark Notice

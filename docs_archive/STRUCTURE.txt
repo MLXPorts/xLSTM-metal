@@ -1,0 +1,76 @@
+docs_archive/
+├── README.md                                    # Navigation guide
+├── OLD_README.md                                # Previous version (backup)
+├── REORGANIZATION_PLAN.md                       # This reorganization plan
+│
+├── debugging/                                   # Bug investigations
+│   ├── COMPLETE_FIX_SUMMARY.md                 # Master debugging timeline
+│   ├── dtype_confusion/
+│   │   ├── FIX_DTYPE_ISSUE.md
+│   │   └── FIX_NAN_ISSUE.md
+│   └── kernel_issues/
+│       └── FIX_RMSNORM_METAL_KERNEL.md
+│
+├── lessons_learned/                             # Distilled knowledge
+│   ├── NUMERIC_STABILITY_TORCH_vs_MLX.md
+│   └── MLX_NUMERICS_LAB.md
+│
+├── architecture/                                # Design evolution
+│   ├── current/                                # What shipped (NCPS)
+│   │   ├── XLSTM_MAD_NCPS_DESIGN.md
+│   │   ├── MLSTM_NUMERICAL_STABILITY_ANALYSIS.md
+│   │   ├── BLOCK_EXECUTION_CLARIFICATION.md
+│   │   └── COMPONENT_ARCHITECTURE_ANALYSIS.md
+│   └── historical/                             # Replaced designs
+│       ├── mad_system/                         # MAD architecture (replaced by NCPS)
+│       │   ├── MAD_COMPOSITION_PROPOSAL.md
+│       │   ├── MAD_MLSTM_ARCHITECTURE.md
+│       │   ├── MAD_WIRING_INTEGRATION.md
+│       │   ├── REFACTORING_SUMMARY.md
+│       │   ├── XLSTM_7B_ARCHITECTURE_MAP.md
+│       │   ├── XLSTM_ARCHITECTURE_SEQUENCES.md
+│       │   ├── CELL_BLOCK_ARCHITECTURE.md
+│       │   └── wiring/
+│       │       └── MAD_WIRING_SYSTEM.md
+│       ├── MAD_PARALLELISM_ANALYSIS.md
+│       ├── TTT_KERNEL_MAPPING.md
+│       ├── TTT_SWAR_KERNEL_SYNTHESIS.md
+│       ├── KERNEL_LAB_AND_TTT_INTEGRATION.md
+│       └── LFM2_AND_XLSTM_WIRING_ANALYSIS.md
+│
+├── components/                                  # Implementation deep-dives
+│   ├── kernels/                                # Metal kernel guides
+│   │   ├── MLX_Metal_Kernel_Guide.md          # Comprehensive guide
+│   │   ├── MLX_KERNEL_PATTERNS.md
+│   │   ├── TRITON_KERNELS_DEEP_DIVE.md
+│   │   └── MLX_METAL_SHADER_INTEGRATION.md
+│   └── blocks/                                 # (empty, for future)
+│
+├── experiments/                                 # Prototypes never shipped
+│   └── flowlang/                               # Experimental DSL
+│       ├── FLOWLANG.md
+│       ├── FLOWLANG_SPEC.md
+│       ├── README.md
+│       └── flow-examples/
+│
+├── research/                                    # Academic analysis
+│   ├── REVERSIBLE_RNN_NOTES.md
+│   ├── HOGWILD_ANALYSIS.md
+│   ├── MEGATRON_MODEL_PARALLELISM_ANALYSIS.md
+│   ├── xLSTM_vs_LFM2_Comparison.md
+│   ├── EXTENDED_CONTEXT_PLAN.md
+│   ├── STATE_EXPANSION_PRECISION.md
+│   └── RESEARCH_NOTES.md
+│
+├── porting/                                     # Platform-specific notes
+│   ├── M2BERT_ARCHITECTURE_ANALYSIS.md         # Influenced Metal design
+│   ├── mlx_metal/
+│   ├── pytorch_mps/
+│   ├── coreml/
+│   └── ray_coroutines/
+│
+└── project_management/                          # Task tracking
+    ├── CONFIG_DRIVEN_ARCHITECTURE_VERIFIED.md
+    ├── HYPERPROFILE_PYTORCH_MLX_ANALYSIS.md
+    ├── DOCSTRING_ENRICHMENT_SUMMARY.md
+    └── RESEARCH_NOTES.md

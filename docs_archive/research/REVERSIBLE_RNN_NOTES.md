@@ -1,6 +1,6 @@
 # Register‑Efficient Reversible RNN (Pebbles) — Notes and Mapping
 
-Source: `/Volumes/stuff/Projects/_workspace/research/pebbles/`
+Source: `<workspace_root>/Projects/_workspace/research/pebbles/`
 
 - Paper/notes: Register‑Efficient Reversible RNN.md (pebble game analogy; rematerialization)
 - Code: `reversible-rnn-pytorch/` (standalone PyTorch implementation)
@@ -45,4 +45,3 @@ Pointers
 
 - `reversible_rnn_pytorch/reversible_rnn_standalone.py`: end‑to‑end experiment and plots.
 - `PAPER_IMPLEMENTATION_ANALYSIS.md`: decisions & formulas for τ, input representation, and device handling.
-

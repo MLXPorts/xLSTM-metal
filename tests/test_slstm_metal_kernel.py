@@ -45,7 +45,7 @@ def slstm_step_reference(
     Reference sLSTM step using pure MLX ops (canonical equations).
 
     This implements the exact equations from:
-    /Users/sydneybach/miniconda3/lib/python3.12/site-packages/xlstm/blocks/slstm/src/vanilla/slstm.py
+    <local_install>/site-packages/xlstm/blocks/slstm/src/vanilla/slstm.py
 
     Lines 24-34:
     - logfplusm = m + logsigmoid(fraw)

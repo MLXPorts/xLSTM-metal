@@ -15,6 +15,7 @@ import platform
 import psutil
 import subprocess
 from collections import defaultdict
+from pathlib import Path
 
 # Check for MPS
 MPS_AVAILABLE = torch.backends.mps.is_available() if hasattr(torch.backends, 'mps') else False
@@ -506,13 +507,14 @@ class BenchmarkSuite:
         print(f"Total tests run: {len(data)}")
 
         # Save results
-        with open('/Volumes/emberstuff/xLSTM/benchmark_results.json', 'w') as f:
+        results_path = Path(__file__).resolve().parents[2] / 'benchmark_results.json'
+        with results_path.open('w') as f:
             json.dump({
                 'system_info': self.system_info,
                 'benchmark_data': self.results['benchmark_data']
             }, f, indent=2)
 
-        print("📄 Results saved to benchmark_results.json")
+        print(f"📄 Results saved to {results_path}")
 
 
 if __name__ == "__main__":

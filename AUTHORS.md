@@ -1,10 +1,11 @@
 Project Authors and Maintainers
 
-- Sydney Bach (The Solace Project)
-    - Role: Author and maintainer of the PyTorch + Metal (MPS) port, Ray integration, memory watchdog/telemetry, and
-      `xltop` tooling
-    - GitHub: https://github.com/SolaceHarmony
-    - Project: https://github.com/SolaceHarmony/xLSTM-Metal
+# Authors
+
+- Sydney Renee (The Solace Project)
+    - Role: Author and maintainer of the Apple MLX/PyTorch MPS port and unique use of NCPS wiring and auto_wiring
+    - GitHub: https://github.com/MLXPorts
+    - Project: https://github.com/MLXPorts/xLSTM-metal
 
 Acknowledgements
 
