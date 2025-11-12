@@ -14,6 +14,8 @@ import mlx.core as mx
 import mlx.nn as nn
 
 from xlstm_metal.mlx_jit.blocks.mlstm.mlstm_chunkwise.mlstm_neuron import mLSTMNeuron
+from xlstm_metal.mlx_jit.blocks.rms_norm import RMSNormCell
+from xlstm_metal.mlx_jit.utils import resolve_dtype
 
 
 class mLSTMBlock(nn.Module):
@@ -82,6 +84,8 @@ class mLSTMBlock(nn.Module):
             use_bias: bool = False,
             eps: float = 1e-6,
             sparsity_mask: Optional[mx.array] = None,
+            compute_dtype: mx.Dtype = mx.float32,
+            state_dtype: mx.Dtype = mx.float32,
     ) -> None:
         super().__init__()
 
@@ -116,9 +120,11 @@ class mLSTMBlock(nn.Module):
         )
 
         # Pre-normalization for mLSTM
-        self.norm_mlstm = nn.RMSNorm(
-            embedding_dim,
-            eps=norm_eps
+        self.norm_mlstm = RMSNormCell(
+            dims=embedding_dim,
+            eps=norm_eps,
+            force_float32_reductions=norm_reduction_force_float32,
+            param_dtype=compute_dtype,
         )
 
         # mLSTM cell
@@ -130,12 +136,17 @@ class mLSTMBlock(nn.Module):
             chunk_size=chunk_size,
             use_bias=use_bias,
             eps=eps,
+            gate_soft_cap=gate_soft_cap,
+            compute_dtype=compute_dtype,
+            state_dtype=state_dtype,
         )
 
         # Pre-normalization for FFN
-        self.norm_ffn = nn.RMSNorm(
-            embedding_dim,
-            eps=norm_eps
+        self.norm_ffn = RMSNormCell(
+            dims=embedding_dim,
+            eps=norm_eps,
+            force_float32_reductions=norm_reduction_force_float32,
+            param_dtype=compute_dtype,
         )
 
         # FFN (SwiGLU pattern: proj_up_gate is the gate path)
@@ -143,8 +154,10 @@ class mLSTMBlock(nn.Module):
         self.ffn_proj_up_gate = nn.Linear(embedding_dim, self.ffn_hidden_dim, bias=use_bias)
         self.ffn_proj_down = nn.Linear(self.ffn_hidden_dim, embedding_dim, bias=use_bias)
 
-        # Store gate soft cap for proper initialization/loading
+        # Store config knobs for inspection/loading
         self.gate_soft_cap = gate_soft_cap
+        self.compute_dtype = compute_dtype
+        self.state_dtype = state_dtype
 
     @staticmethod
     def _round_up_to_multiple(value: int, multiple: int) -> int:
@@ -267,7 +280,8 @@ class mLSTMBlock(nn.Module):
             cls,
             block_index: int,
             config: Dict[str, Any],
-            sparsity_mask: Optional[mx.array] = None
+            sparsity_mask: Optional[mx.array] = None,
+            **overrides,
     ) -> "mLSTMBlock":
         """
         Create cell from config.json dict.
@@ -286,6 +300,14 @@ class mLSTMBlock(nn.Module):
             ...     config = json.load(f)
             >>> cell = mLSTMBlock.from_config(0, config)
         """
+        norm_reduction_force_float32 = config.get('norm_reduction_force_float32', True)
+        compute_dtype = overrides.get(
+            'compute_dtype', resolve_dtype(config.get('autocast_kernel_dtype', 'float32'))
+        )
+        state_dtype = overrides.get(
+            'state_dtype', resolve_dtype(config.get('inference_state_dtype', 'float32'))
+        )
+
         return cls(
             block_index=block_index,
             embedding_dim=config['embedding_dim'],
@@ -299,10 +321,12 @@ class mLSTMBlock(nn.Module):
             chunk_size=config.get('chunk_size', 64),
             kernel_mode=config.get('kernel_mode', 'metal_chunkwise'),
             norm_eps=config.get('norm_eps', 1e-6),
-            norm_reduction_force_float32=config.get('norm_reduction_force_float32', True),
+            norm_reduction_force_float32=norm_reduction_force_float32,
             use_bias=config.get('use_bias', False),
             eps=config.get('eps', 1e-6),
             sparsity_mask=sparsity_mask,
+            compute_dtype=compute_dtype,
+            state_dtype=state_dtype,
         )
 
     def get_config(self) -> Dict[str, Any]:

@@ -209,9 +209,6 @@ def slstm_step_metal(
     n_state_out = n_new_flat.reshape(B, NH, H)
     m_state_out = m_new_flat.reshape(B, NH)
 
-    # Force evaluation
-    mx.eval(h_out)
-
     return h_out, c_state_out, n_state_out, m_state_out
 
 

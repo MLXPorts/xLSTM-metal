@@ -37,7 +37,7 @@ def load_config(model_path: str) -> Dict[str, Any]:
     """
     config_path = Path(model_path)
     if config_path.is_dir():
-        config_path = config_path / "config.json"
+        config_path /= "config.json"
 
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")

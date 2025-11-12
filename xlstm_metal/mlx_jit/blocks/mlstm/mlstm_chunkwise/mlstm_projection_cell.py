@@ -8,10 +8,12 @@ and computes gate pre-activations. It contains NO recurrence logic.
 """
 
 from __future__ import annotations
-from typing import Tuple
+from typing import Optional, Tuple
 
 import mlx.core as mx
 import mlx.nn as nn
+
+from xlstm_metal.mlx_jit.blocks.soft_cap.softcap import SoftCapCell
 
 
 class mLSTMProjectionCell(nn.Module):
@@ -39,6 +41,8 @@ class mLSTMProjectionCell(nn.Module):
             qk_dim_per_head: int,
             v_dim_per_head: int,
             use_bias: bool = False,
+            gate_soft_cap: Optional[float] = None,
+            soft_cap_cell: Optional[SoftCapCell] = None,
     ):
         super().__init__()
 
@@ -46,6 +50,8 @@ class mLSTMProjectionCell(nn.Module):
         self.num_heads = num_heads
         self.qk_dim_per_head = qk_dim_per_head
         self.v_dim_per_head = v_dim_per_head
+        self.gate_soft_cap = gate_soft_cap
+        self.soft_cap = soft_cap_cell or SoftCapCell()
 
         qk_dim = num_heads * qk_dim_per_head
         v_dim = num_heads * v_dim_per_head
@@ -90,10 +96,13 @@ class mLSTMProjectionCell(nn.Module):
         v = v.reshape(B, S, self.num_heads, self.v_dim_per_head).transpose(0, 2, 1, 3)
 
         # Gate pre-activations: [B, S, NH] -> [B, NH, S]
-        # CRITICAL: Return PRE-activations (no exp/sigmoid)
-        # Kernel cells handle activation for numerical stability
-        i_preact = self.igate_proj(x).transpose(0, 2, 1)  # [B, NH, S]
-        f_preact = self.fgate_proj(x).transpose(0, 2, 1)  # [B, NH, S]
+        i_preact = self.igate_proj(x).transpose(0, 2, 1)
+        f_preact = self.fgate_proj(x).transpose(0, 2, 1)
+
+        if self.gate_soft_cap is not None:
+            cap_tensor = mx.array(self.gate_soft_cap, dtype=i_preact.dtype)
+            i_preact = mx.array(self.soft_cap(i_preact, cap_tensor), dtype=i_preact.dtype)
+            f_preact = mx.array(self.soft_cap(f_preact, cap_tensor), dtype=f_preact.dtype)
 
         return q, k, v, i_preact, f_preact
 

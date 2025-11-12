@@ -45,6 +45,8 @@ class mLSTMParallelKernelCell(nn.Module):
             v_dim_per_head: int,
             chunk_size: int = 64,
             eps: float = 1e-6,
+            compute_dtype: mx.Dtype = mx.float32,
+            state_dtype: mx.Dtype = mx.float32,
     ):
         super().__init__()
 
@@ -53,10 +55,10 @@ class mLSTMParallelKernelCell(nn.Module):
         self.v_dim_per_head = v_dim_per_head
         self.chunk_size = chunk_size
         self.eps = eps
-        self.compute_dtype = mx.float32
-        self.state_dtype = mx.float32
-        qk_dim_value = mx.array(qk_dim_per_head, dtype=mx.float32)
-        self.qk_scale = mx.divide(mx.array(1.0, dtype=mx.float32), mx.sqrt(qk_dim_value))
+        self.compute_dtype = compute_dtype
+        self.state_dtype = state_dtype
+        qk_dim_value = mx.array(qk_dim_per_head, dtype=self.compute_dtype)
+        self.qk_scale = mx.divide(mx.array(1.0, dtype=self.compute_dtype), mx.sqrt(qk_dim_value))
 
     def __call__(
             self,
@@ -140,7 +142,7 @@ class mLSTMParallelKernelCell(nn.Module):
         vecB = mx.cumsum(vecF_logsig, axis=-1)
 
         # Query scaling factor
-        qk_scale = self.qk_scale
+        qk_scale = mx.array(self.qk_scale, dtype=self.compute_dtype)
 
         # Parallel kernel (intra-chunk)
         matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(matQ=q,
@@ -153,18 +155,20 @@ class mLSTMParallelKernelCell(nn.Module):
                                                                              vecB=vecB, NC=NC, L=L,
                                                                              qk_scale=qk_scale, eps=self.eps)
 
-        # Force evaluation
-        mx.eval(matHout)
-
         # Unpad if necessary
         if S != S_padded:
             matHout = matHout[:, :, :S, :]
 
+        # Cast activations back to compute dtype for downstream layers
+        if matHout.dtype != self.compute_dtype:
+            matHout = mx.array(matHout, dtype=self.compute_dtype)
+
         # Extract final state (last chunk)
+        qk_dim = self.qk_dim_per_head
         new_state = (
-            matC_states[:, :, -1],
-            vecN_states[:, :, -1],
-            scaMinter_states[:, :, -1]
+            matC_states[:, :, -qk_dim:, :],
+            vecN_states[:, :, -qk_dim:],
+            scaMinter_states[:, :, -1],
         )
 
         return matHout, new_state

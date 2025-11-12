@@ -38,6 +38,8 @@ class mLSTMRecurrentKernelCell(nn.Module):
             qk_dim_per_head: int,
             v_dim_per_head: int,
             eps: float = 1e-6,
+            compute_dtype: mx.Dtype = mx.float32,
+            state_dtype: mx.Dtype = mx.float32,
     ):
         super().__init__()
 
@@ -45,6 +47,8 @@ class mLSTMRecurrentKernelCell(nn.Module):
         self.qk_dim_per_head = qk_dim_per_head
         self.v_dim_per_head = v_dim_per_head
         self.eps = eps
+        self.compute_dtype = compute_dtype
+        self.state_dtype = state_dtype
 
     def __call__(
             self,
@@ -76,16 +80,22 @@ class mLSTMRecurrentKernelCell(nn.Module):
         B, NH, S, DH_qk = q.shape
         DH_v = v.shape[-1]
 
+        q = mx.array(q, dtype=self.compute_dtype)
+        k = mx.array(k, dtype=self.compute_dtype)
+        v = mx.array(v, dtype=self.compute_dtype)
+        i_preact = mx.array(i_preact, dtype=self.compute_dtype)
+        f_preact = mx.array(f_preact, dtype=self.compute_dtype)
+
         # Initialize state
         if state is None:
-            C = mx.zeros((B, NH, DH_qk, DH_v))
-            n = mx.zeros((B, NH, DH_qk))
-            m = mx.zeros((B, NH))
+            C = mx.zeros((B, NH, DH_qk, DH_v), dtype=self.state_dtype)
+            n = mx.zeros((B, NH, DH_qk), dtype=self.state_dtype)
+            m = mx.zeros((B, NH), dtype=self.state_dtype)
         else:
             C, n, m = state
-            C = C.astype(mx.float32)
-            n = n.astype(mx.float32)
-            m = m.astype(mx.float32)
+            C = mx.array(C, dtype=self.state_dtype)
+            n = mx.array(n, dtype=self.state_dtype)
+            m = mx.array(m, dtype=self.state_dtype)
 
         # Sequential processing
         h_list = []

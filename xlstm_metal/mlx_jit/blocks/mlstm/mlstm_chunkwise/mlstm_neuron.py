@@ -52,6 +52,10 @@ class mLSTMNeuron(nn.Module):
             kernel_mode: str = "parallel",
             use_bias: bool = False,
             eps: float = 1e-6,
+            gate_soft_cap: Optional[float] = None,
+            compute_dtype: mx.Dtype = mx.float32,
+            state_dtype: mx.Dtype = mx.float32,
+            force_float32_reductions: bool = True,
     ):
         super().__init__()
 
@@ -62,6 +66,9 @@ class mLSTMNeuron(nn.Module):
         self.chunk_size = chunk_size
         self.kernel_mode = kernel_mode
         self.eps = eps
+        self.compute_dtype = compute_dtype
+        self.state_dtype = state_dtype
+        self.force_float32_reductions = force_float32_reductions
 
         # Validate kernel mode
         valid_modes = {"parallel", "recurrent"}
@@ -78,6 +85,7 @@ class mLSTMNeuron(nn.Module):
             qk_dim_per_head=qk_dim_per_head,
             v_dim_per_head=v_dim_per_head,
             use_bias=use_bias,
+            gate_soft_cap=gate_soft_cap,
         )
 
         # === During Cells: Kernel dispatch ===
@@ -87,6 +95,8 @@ class mLSTMNeuron(nn.Module):
             v_dim_per_head=v_dim_per_head,
             chunk_size=chunk_size,
             eps=eps,
+            compute_dtype=compute_dtype,
+            state_dtype=state_dtype,
         )
 
         self.recurrent_kernel = mLSTMRecurrentKernelCell(
@@ -94,6 +104,8 @@ class mLSTMNeuron(nn.Module):
             qk_dim_per_head=qk_dim_per_head,
             v_dim_per_head=v_dim_per_head,
             eps=eps,
+            compute_dtype=compute_dtype,
+            state_dtype=state_dtype,
         )
 
         # === After Cell: Output processing ===
@@ -103,6 +115,8 @@ class mLSTMNeuron(nn.Module):
             v_dim_per_head=v_dim_per_head,
             use_bias=use_bias,
             eps=eps,
+            force_float32_reductions=force_float32_reductions,
+            param_dtype=compute_dtype,
         )
 
     @property
@@ -137,6 +151,11 @@ class mLSTMNeuron(nn.Module):
         """
         # === Before: Project to Q/K/V and gates ===
         q, k, v, i_preact, f_preact = self.projection_cell(x)
+        q = mx.array(q, dtype=self.compute_dtype)
+        k = mx.array(k, dtype=self.compute_dtype)
+        v = mx.array(v, dtype=self.compute_dtype)
+        i_preact = mx.array(i_preact, dtype=self.compute_dtype)
+        f_preact = mx.array(f_preact, dtype=self.compute_dtype)
 
         # === During: Apply kernel (dispatch based on mode) ===
         if self.kernel_mode == "parallel":

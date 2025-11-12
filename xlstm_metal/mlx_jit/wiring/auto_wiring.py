@@ -167,7 +167,7 @@ class AutoWiring(Wiring):
             'components': self.structure['block_components'].get(block_idx, []),
         }
 
-    def create_block_cell(self, block_idx: int):
+    def create_block_cell(self, block_idx: int, **kwargs):
         """
         Create appropriate cell for this block based on detected type.
         
@@ -182,10 +182,10 @@ class AutoWiring(Wiring):
 
         if block_type == 'mlstm':
             from xlstm_metal.mlx_jit.blocks.mlstm.mlstm_block import mLSTMBlock
-            return mLSTMBlock.from_config(block_idx, self.config)
+            return mLSTMBlock.from_config(block_idx, self.config, **kwargs)
         elif block_type == 'slstm':
             from xlstm_metal.mlx_jit.blocks.slstm.slstm_block import sLSTMBlock
-            return sLSTMBlock.from_config(block_idx, self.config)
+            return sLSTMBlock.from_config(block_idx, self.config, **kwargs)
         elif block_type == 'attention':
             # TODO: Implement attention cell
             raise NotImplementedError("Attention cells not yet implemented")

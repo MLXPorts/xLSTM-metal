@@ -79,12 +79,27 @@ class WiredxLSTM(nn.Module):
         self.state_dtype = state_dtype
         self.norm_reduce_force_float32 = norm_reduce_force_float32
 
+        # Token / embedding metadata from config.json
+        self.pad_token_id = self.config.get('pad_token_id')
+        self.bos_token_id = self.config.get('bos_token_id')
+        self.eos_token_id = self.config.get('eos_token_id')
+        self.force_bos_token_insert = self.config.get('force_bos_token_insert', False)
+        self.tie_word_embeddings = self.config.get('tie_word_embeddings', False)
+        self.add_embedding_dropout = self.config.get('add_embedding_dropout', False)
+        self.embedding_dropout_prob = float(self.config.get('embedding_dropout', 0.0) or 0.0)
+        self.embedding_dropout: Optional[nn.Module] = None
+        self._embeddings_tied = False
+
         # Build architecture from wiring
         self._build_model()
 
         # Optionally load weights
         if load_weights:
             self.load_pretrained_weights()
+
+        # Default to eval() for inference configs to disable dropout noise
+        if self.config.get('mode', 'inference') == 'inference':
+            self.eval()
 
     def _build_model(self):
         """Build model architecture from wiring specification."""
@@ -95,8 +110,14 @@ class WiredxLSTM(nn.Module):
                 dims=self.config['embedding_dim']
             )
             self.embedding.weight = mx.array(self.embedding.weight, dtype=self.compute_dtype)
+
+            if self.add_embedding_dropout and self.embedding_dropout_prob > 0.0:
+                self.embedding_dropout = nn.Dropout(self.embedding_dropout_prob)
+            else:
+                self.embedding_dropout = None
         else:
             self.embedding = None
+            self.embedding_dropout = None
 
         # Build blocks based on wiring
         self.blocks = []
@@ -108,9 +129,12 @@ class WiredxLSTM(nn.Module):
 
             # Create appropriate cell based on detected type
             if block_type == 'mlstm':
-                cell = self.wiring.create_block_cell(block_idx)
-                setattr(cell, 'compute_dtype', self.compute_dtype)
-                setattr(cell, 'state_dtype', self.state_dtype)
+                cell = self.wiring.create_block_cell(
+                    block_idx,
+                    compute_dtype=self.compute_dtype,
+                    state_dtype=self.state_dtype,
+                    norm_reduction_force_float32=self.norm_reduce_force_float32,
+                )
                 self.blocks.append(cell)
             elif block_type == 'slstm':
                 # TODO: Implement sLSTM cell creation
@@ -141,6 +165,8 @@ class WiredxLSTM(nn.Module):
         else:
             self.lm_head = None
 
+        self._apply_weight_tying()
+
     def __call__(
             self,
             input_ids: mx.array,
@@ -162,6 +188,8 @@ class WiredxLSTM(nn.Module):
         # Embedding
         if self.embedding is not None:
             x = self.embedding(input_ids)  # [B, S, D]
+            if self.embedding_dropout is not None:
+                x = self.embedding_dropout(x)
         else:
             x = input_ids
 
@@ -172,10 +200,10 @@ class WiredxLSTM(nn.Module):
         # Process through blocks
         new_states = []
         for block_idx, block in enumerate(self.blocks):
-            print(f"Processing block {block_idx}...")
-            print(f"x shape: {x.shape}")
-            print(f"state shape: {state[block_idx]}")
-            print(f"block: {block}")
+            # print(f"Processing block {block_idx}...")
+            # print(f"x shape: {x.shape}")
+            # print(f"state shape: {state[block_idx]}")
+            # print(f"block: {block}")
             x, block_state = block(x, state[block_idx])
             new_states.append(block_state)
 
@@ -232,6 +260,8 @@ class WiredxLSTM(nn.Module):
         if self.lm_head is not None and 'lm_head.weight' in weights_dict:
             self.lm_head.weight = _to_compute(weights_dict['lm_head.weight'])
 
+        self._apply_weight_tying()
+
     @classmethod
     def from_pretrained(
             cls,
@@ -283,7 +313,19 @@ class WiredxLSTM(nn.Module):
             'has_embedding': self.wiring.structure['has_embedding'],
             'has_out_norm': self.wiring.structure['has_out_norm'],
             'has_lm_head': self.wiring.structure['has_lm_head'],
+            'pad_token_id': self.pad_token_id,
+            'bos_token_id': self.bos_token_id,
+            'eos_token_id': self.eos_token_id,
+            'tie_word_embeddings': self.tie_word_embeddings,
+            'add_embedding_dropout': self.add_embedding_dropout,
         }
+
+    def _apply_weight_tying(self) -> None:
+        """Tie LM head weights to embeddings when the config requests it."""
+        should_tie = bool(self.tie_word_embeddings) and self.embedding is not None and self.lm_head is not None
+        self._embeddings_tied = should_tie
+        if should_tie:
+            self.lm_head.weight = self.embedding.weight
 
 
 __all__ = ['WiredxLSTM']

@@ -70,6 +70,13 @@ class xLSTMRunner:
         self.num_blocks = self.config['num_blocks']
         self.vocab_size = self.config['vocab_size']
         self.output_logit_soft_cap = self.config['output_logit_soft_cap']
+        self.pad_token_id = self.config.get('pad_token_id')
+        self.bos_token_id = self.config.get('bos_token_id')
+        self.eos_token_id = self.config.get('eos_token_id')
+        self.force_bos_token_insert = self.config.get('force_bos_token_insert', False)
+        self.default_stop_tokens = (
+            [self.eos_token_id] if self.eos_token_id is not None else None
+        )
 
         # Build NCPS wiring/model
         print(f"Creating NCPS auto-wiring ({self.num_blocks} blocks, {self.embedding_dim}d)...")
@@ -86,6 +93,7 @@ class xLSTMRunner:
             state_dtype=self.state_dtype,
             norm_reduce_force_float32=self.norm_reduce_force_float32,
         )
+        self.model.eval()
 
         print(f"✓ xLSTM NCPS model created with {self.num_blocks} blocks, {self.embedding_dim}d")
 
@@ -219,7 +227,7 @@ class xLSTMRunner:
 
         # Apply temperature
         if temperature != 1.0:
-            next_token_logits = next_token_logits / mx.array(temperature, dtype=next_token_logits.dtype)
+            next_token_logits /= mx.array(temperature, dtype=next_token_logits.dtype)
 
         neg_inf = mx.full(next_token_logits.shape, -mx.inf, dtype=next_token_logits.dtype)
 
@@ -290,10 +298,15 @@ class xLSTMRunner:
         self.reset_state()
 
         # Convert prompt to array [1, S]
-        prompt_array = mx.array(prompt_ids, mx.int64)
+        prompt_tokens = self._prepare_prompt(prompt_ids)
+        prompt_array = mx.array(prompt_tokens, mx.int64)
         generated = prompt_array
         current_ids = mx.expand_dims(prompt_array, axis=0)
-        stop_tokens_arr = mx.array(stop_tokens) if stop_tokens else None
+        effective_stop_tokens = stop_tokens if stop_tokens is not None else self.default_stop_tokens
+        stop_tokens_arr = (
+            mx.array(effective_stop_tokens, dtype=mx.int64)
+            if effective_stop_tokens is not None else None
+        )
 
         # Generate tokens
         for _ in range(max_tokens):
@@ -342,4 +355,36 @@ class xLSTMRunner:
             'has_embedding': self.wiring.structure['has_embedding'],
             'has_out_norm': self.wiring.structure['has_out_norm'],
             'has_lm_head': self.wiring.structure['has_lm_head'],
+            'pad_token_id': self.pad_token_id,
+            'bos_token_id': self.bos_token_id,
+            'eos_token_id': self.eos_token_id,
+            'force_bos_token_insert': self.force_bos_token_insert,
         }
+
+    def _prepare_prompt(self, prompt_ids) -> List[int]:
+        """Normalize prompt IDs and enforce BOS/stop-token defaults."""
+        if prompt_ids is None:
+            tokens: List[int] = []
+        elif hasattr(prompt_ids, "tolist"):
+            tokens = prompt_ids.tolist()
+        else:
+            tokens = list(prompt_ids)
+
+        tokens = [int(t) for t in tokens]
+
+        if not tokens and self.bos_token_id is not None:
+            tokens = [int(self.bos_token_id)]
+        elif (
+            tokens
+            and self.force_bos_token_insert
+            and self.bos_token_id is not None
+            and tokens[0] != int(self.bos_token_id)
+        ):
+            tokens = [int(self.bos_token_id)] + tokens
+
+        if not tokens:
+            raise ValueError(
+                "Prompt is empty and no BOS token was available in config.json."
+            )
+
+        return tokens

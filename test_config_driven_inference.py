@@ -71,7 +71,7 @@ def test_wiring_creation(model_path, config):
     return wiring
 
 
-def test_model_instantiation(wiring, model_path):
+def test_model_instantiation(wiring, model_path, config):
     """Test 3: Verify WiredxLSTM builds blocks from wiring"""
     print("\n" + "=" * 80)
     print("TEST 3: Model Instantiation (Block Creation)")
@@ -88,6 +88,13 @@ def test_model_instantiation(wiring, model_path):
     print(f"  Block 0 type: {type(mlstm_block).__name__}")
 
     print("\n  ✓ Blocks constructed from wiring info")
+
+    assert model.pad_token_id == config.get('pad_token_id')
+    assert model.bos_token_id == config.get('bos_token_id')
+    assert model.eos_token_id == config.get('eos_token_id')
+    assert model.tie_word_embeddings == config.get('tie_word_embeddings')
+    if not config.get('add_embedding_dropout', False):
+        assert model.embedding_dropout is None
 
     return model
 
@@ -198,7 +205,7 @@ def main():
         # Run tests sequentially
         config = test_config_loading(str(model_path))
         wiring = test_wiring_creation(str(model_path), config)
-        model = test_model_instantiation(wiring, str(model_path))
+        model = test_model_instantiation(wiring, str(model_path), config)
         test_parameter_shapes(model, config)
         test_forward_pass(model, config)
 

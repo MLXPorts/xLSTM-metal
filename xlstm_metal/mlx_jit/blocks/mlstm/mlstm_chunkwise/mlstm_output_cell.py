@@ -16,9 +16,7 @@ from __future__ import annotations
 import mlx.core as mx
 import mlx.nn as nn
 
-from xlstm_metal.mlx_jit.blocks.mlstm.multihead_norm.multihead_norm import (
-    MultiHeadRMSNorm
-)
+from xlstm_metal.mlx_jit.blocks.rms_norm import MultiHeadRMSNormCell
 
 
 class mLSTMOutputCell(nn.Module):
@@ -47,6 +45,8 @@ class mLSTMOutputCell(nn.Module):
             v_dim_per_head: int,
             use_bias: bool = False,
             eps: float = 1e-6,
+            force_float32_reductions: bool = True,
+            param_dtype: mx.Dtype = mx.float32,
     ):
         super().__init__()
 
@@ -56,7 +56,13 @@ class mLSTMOutputCell(nn.Module):
         v_dim = num_heads * v_dim_per_head
 
         # Multi-head RMS normalization (per-head)
-        self.norm = MultiHeadRMSNorm(num_heads=num_heads, head_dim=v_dim_per_head, eps=eps)
+        self.norm = MultiHeadRMSNormCell(
+            num_heads=num_heads,
+            head_dim=v_dim_per_head,
+            eps=eps,
+            force_float32_reductions=force_float32_reductions,
+            param_dtype=param_dtype,
+        )
 
         # Output gate projection (from original input)
         self.ogate_proj = nn.Linear(input_size, v_dim, bias=use_bias)
