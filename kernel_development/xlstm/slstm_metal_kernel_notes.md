@@ -185,8 +185,8 @@ Testing sequential recurrence...
 
 ## References
 
-- Canonical sLSTM: `/Users/sydneybach/miniconda3/lib/python3.12/site-packages/xlstm/blocks/slstm/src/vanilla/slstm.py`
-- M2-BERT kernels: `/Volumes/stuff/Projects/m2-bert-mlx/bert/src/mm_mlx/`
+- Canonical sLSTM: `xlstm/blocks/slstm/src/vanilla/slstm.py`
+- M2-BERT kernels: `<workspace_root>/Projects/m2-bert-mlx/bert/src/mm_mlx/`
 - xlstm package: https://github.com/NX-AI/xlstm
 
 ---

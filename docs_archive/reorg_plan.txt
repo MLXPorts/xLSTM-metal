@@ -1,0 +1,30 @@
+# Archive Reorganization Analysis
+
+Current structure has some organization but files at root level need categorization.
+
+Root-level files (need organization):
+- COMPLETE_FIX_SUMMARY.md - debugging history
+- FIX_DTYPE_ISSUE.md - debugging history  
+- FIX_NAN_ISSUE.md - debugging history
+- FIX_RMSNORM_METAL_KERNEL.md - debugging history
+- NUMERIC_STABILITY_TORCH_vs_MLX.md - debugging/lessons
+- MLX_NUMERICS_LAB.md - experiments/testing
+- DOCSTRING_ENRICHMENT_SUMMARY.md - task summary (cleanup candidate?)
+
+Existing folders:
+- architecture/ - design docs, analysis
+- components/ - kernels, MAD system
+- flowlang/ - experimental DSL
+- plan/ - research notes, future work
+- porting/ - platform-specific notes
+- summaries/ - various summaries
+
+Proposed new structure:
+├── 01_debugging/          # Bug fixes and resolutions
+├── 02_lessons_learned/    # Numerical stability, pitfalls
+├── 03_architecture/       # Design docs (keep existing)
+├── 04_components/         # Implementation details (keep existing)
+├── 05_experiments/        # Flowlang, lab work, prototypes
+├── 06_porting/            # Platform-specific (keep existing)
+├── 07_research/           # Future work, analysis papers
+└── 08_planning/           # Task summaries, milestones

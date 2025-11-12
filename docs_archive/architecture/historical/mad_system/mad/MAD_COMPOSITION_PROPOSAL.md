@@ -464,6 +464,6 @@ Next steps:
 
 **References:**
 
-- LFM2: `/Users/sydneybach/miniconda3/lib/python3.12/site-packages/transformers/models/lfm2/`
+- LFM2: `<local_install>/site-packages/transformers/models/lfm2/`
 - MAD paper: Appendix (iso-state normalization, architecture zoo)
 - xlstm-large: [canonical checkpoint for validation]

@@ -3,7 +3,7 @@
 This document surveys the Triton kernels that ship with the `mlstm_kernels` PyPI package we have installed locally and
 explains how they relate to our Apple/MPS path.
 
-- Installed package: `/Users/sydneybach/miniconda3/lib/python3.12/site-packages/mlstm_kernels` (version 1.0.3 detected).
+- Installed package: `<local_install>/site-packages/mlstm_kernels` (version 1.0.3 detected).
 - Scope: CUDA/Triton kernels (NVIDIA) and JAX wrappers; these do not run on Apple/Metal. On Apple we use compiled
   PyTorch MPS backends (no Triton).
 

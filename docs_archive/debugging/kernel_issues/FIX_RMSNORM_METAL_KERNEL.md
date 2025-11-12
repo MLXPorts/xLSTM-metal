@@ -110,7 +110,7 @@ All tests pass with the pure MLX implementation:
 
 ```bash
 # Numerical parity test
-cd /Volumes/emberstuff/xLSTM-metal
+cd /path/to/xLSTM-metal
 python test_parity_simple.py
 ```
 
@@ -169,4 +169,3 @@ Hello world [generated text continues without errors]
 ---
 
 **Status**: ✅ **FIXED** - Model now produces correct numerical outputs using pure MLX RMSNorm
-

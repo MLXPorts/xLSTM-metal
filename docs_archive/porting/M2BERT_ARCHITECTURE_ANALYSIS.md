@@ -327,7 +327,7 @@ From `blockdiag_multiply_mlx.py`:
 
 ```python
 # Lines 14-18: Import xLSTM kernels
-xlstm_kernels_path = '/Volumes/emberstuff/xLSTM/experimental_kernels/mlx_fast_kernels'
+xlstm_kernels_path = '<workspace_root>/xLSTM/experimental_kernels/mlx_fast_kernels'
 if xlstm_kernels_path not in sys.path:
     sys.path.insert(0, xlstm_kernels_path)
 from gemm_kernels import gemm_av, gemm_at_b
@@ -521,9 +521,9 @@ M2-BERT confirms the universal pattern:
 
 **xLSTM Kernel Integration**:
 
-- `/Volumes/emberstuff/xLSTM/experimental_kernels/mlx_fast_kernels/gemm_kernels.py`
+- `<workspace_root>/xLSTM/experimental_kernels/mlx_fast_kernels/gemm_kernels.py`
 
 **HPC16x8 Reference**:
 
-- `/Volumes/stuff/Projects/ember-ml-kotlin/ember_ml/backend/mlx/linearalg/hpc16x8_ops.py`
-- `/Volumes/stuff/Projects/ember-ml-kotlin/ember_ml/backend/mlx/linearalg/svd_ops.py`
+- `<workspace_root>/Projects/ember-ml-kotlin/ember_ml/backend/mlx/linearalg/hpc16x8_ops.py`
+- `<workspace_root>/Projects/ember-ml-kotlin/ember_ml/backend/mlx/linearalg/svd_ops.py`

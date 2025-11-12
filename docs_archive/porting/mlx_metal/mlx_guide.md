@@ -1043,7 +1043,7 @@ curated docs contain real-world findings, pitfalls, and fixes that go beyond the
 
 ### 9.1 Primary Curated Path
 
-`/Volumes/emberstuff/Projects/magentic-codex/codex-cli/agent_knowledgebase/mlx/`
+`<workspace_root>/Projects/magentic-codex/codex-cli/agent_knowledgebase/mlx/`
 
 ### 9.2 Suggested Starting Points (High-Signal)
 
@@ -1063,7 +1063,7 @@ curated docs contain real-world findings, pitfalls, and fixes that go beyond the
 
 ### 9.4 Attribution
 
-The kernel patterns and HPC techniques used here are adapted from Sydney Bach's Ember ML project (The Solace Project).
+The kernel patterns and HPC techniques used here are adapted from Sydney Renee's Ember ML project (The Solace Project).
 Where applicable, this repo mirrors those approaches and salutes the ingenuity that made them work on real hardware.
 
 ### 9.5 How This Repo Applies the Patterns
@@ -1090,4 +1090,3 @@ when developing Metal kernels, optimizing performance, or troubleshooting issues
 
 For questions or contributions, refer to the project's main documentation or the research journal for experimental
 findings and ongoing work.
-

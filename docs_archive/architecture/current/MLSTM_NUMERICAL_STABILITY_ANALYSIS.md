@@ -415,7 +415,7 @@ def test_denominator_stability():
 ## References
 
 - Transformers xLSTM:
-  `/Users/sydneybach/miniconda3/lib/python3.12/site-packages/transformers/models/xlstm/modeling_xlstm.py`
+  `<local_install>/site-packages/transformers/models/xlstm/modeling_xlstm.py`
 - Our MLX kernel: `xlstm_metal/blocks/mlx/mlstm/kernel.py`
 - Config: `xlstm_7b_model/config.json`
 - Canonical notes: `docs/porting/CANONICAL_XLSTM_IMPLEMENTATION_NOTES.md`

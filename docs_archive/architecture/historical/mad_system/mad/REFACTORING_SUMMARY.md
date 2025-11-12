@@ -188,7 +188,7 @@ Created comprehensive documentation:
 
 ## References
 
-- NCPS MLX: `/Volumes/stuff/Projects/AI/Code/ncps-mlx/`
+- NCPS MLX: `<workspace_root>/Projects/AI/Code/ncps-mlx/`
 - LTC/CfC Cells: Proper cell/layer separation
 - MLX Module Primer: Parameter handling in MLX
 - xLSTM Paper: Block specifications
@@ -220,4 +220,3 @@ from xlstm_metal.wiring.mlx import MLXWiring
 **Date**: October 27, 2025
 **Status**: Refactoring Complete ✓
 **Impact**: Cleaner codebase, better architecture, NCPS compliance
-

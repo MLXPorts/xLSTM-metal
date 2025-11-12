@@ -162,6 +162,18 @@ class mLSTMBlock(nn.Module):
         self.embedding_dim = embedding_dim
         self.num_heads = num_heads
         self.eps = eps
+        self.qk_dim_factor = qk_dim_factor
+        self.v_dim_factor = v_dim_factor
+        self.ffn_proj_factor = ffn_proj_factor
+        self.ffn_round_up_to_multiple_of = ffn_round_up_to_multiple_of
+        self.mlstm_round_up_to_multiple_of = mlstm_round_up_to_multiple_of
+        self.chunk_size = chunk_size
+        self.kernel_mode = kernel_mode
+        self.norm_eps = norm_eps
+        self.norm_reduction_force_float32 = norm_reduction_force_float32
+        self.use_bias = use_bias
+        self.compute_dtype = compute_dtype
+        self.state_dtype = state_dtype
 
         # Compute dimensions with proper rounding (matches safetensors)
         # QK dimension per head
@@ -402,8 +414,20 @@ class mLSTMBlock(nn.Module):
             "num_heads": self.num_heads,
             "qk_dim_per_head": self.qk_dim_per_head,
             "v_dim_per_head": self.v_dim_per_head,
+            "qk_dim_factor": self.qk_dim_factor,
+            "v_dim_factor": self.v_dim_factor,
             "hidden_size": self.hidden_size,
             "ffn_hidden_dim": self.ffn_hidden_dim,
+            "ffn_proj_factor": self.ffn_proj_factor,
+            "ffn_round_up_to_multiple_of": self.ffn_round_up_to_multiple_of,
+            "mlstm_round_up_to_multiple_of": self.mlstm_round_up_to_multiple_of,
+            "chunk_size": self.chunk_size,
+            "kernel_mode": self.kernel_mode,
             "gate_soft_cap": self.gate_soft_cap,
+            "norm_eps": self.norm_eps,
+            "norm_reduction_force_float32": self.norm_reduction_force_float32,
+            "use_bias": self.use_bias,
             "eps": self.eps,
+            "compute_dtype": self.compute_dtype,
+            "state_dtype": self.state_dtype,
         }
