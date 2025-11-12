@@ -13,7 +13,7 @@ This tests that:
 import sys
 from pathlib import Path
 
-sys.path.insert(0, '.')
+sys.path.insert(0, '..')
 
 import mlx.core as mx
 from xlstm_metal.mlx_jit.models import WiredxLSTM
@@ -25,7 +25,7 @@ def test_load_pretrained():
     print("TEST 1: Loading pretrained xLSTM-7B model")
     print("=" * 60)
 
-    model_dir = Path("xlstm_7b_model")
+    model_dir = Path("../xlstm_7b_model")
     if not model_dir.exists():
         print(f"❌ Model directory not found: {model_dir}")
         return None

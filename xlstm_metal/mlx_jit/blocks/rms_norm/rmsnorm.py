@@ -282,7 +282,8 @@ class RMSNormCell(nn.Module):
 
         if mx.any(mx.isnan(out)).item():
             raise ValueError(
-                "RMSNormCell produced NaNs; consider enabling norm_reduction_force_float32"
+                "RMSNormCell produced NaNs; consider enabling norm_reduction_force_float32 "
+                "or using float32 compute_dtype instead of bfloat16"
             )
 
         if self.debug_compare:

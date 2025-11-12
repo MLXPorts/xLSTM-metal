@@ -1,10 +1,90 @@
 #!/usr/bin/env python
 """
-Configuration loader for xLSTM models.
+Configuration Loader – MLX Implementation (HuggingFace Config Parsing)
 
-Loads model configuration from HuggingFace config.json.
-MLX uses plain dicts for configuration (not dataclasses/objects).
-PyTorch transformers uses xLSTMConfig objects.
+Overview
+--------
+Loads xLSTM model configuration from HuggingFace-style `config.json` files
+and computes derived dimensions following canonical dimension rounding rules.
+
+This module bridges the gap between:
+  - HuggingFace checkpoint format (config.json with base hyperparameters)
+  - Runtime model instantiation (needs computed dimensions)
+
+Why Separate Config Loading?
+-----------------------------
+Model checkpoints store **base parameters** (embedding_dim, qk_dim_factor)
+but runtime code needs **computed dimensions** (qk_dim, qk_head_dim). This
+loader:
+  1. Reads config.json
+  2. Computes derived dimensions with proper rounding
+  3. Fills missing defaults for inference mode
+  4. Returns a complete runtime configuration dict
+
+Dimension Computation
+---------------------
+Given base parameters:
+  - embedding_dim (e.g., 4096)
+  - qk_dim_factor (e.g., 0.5)
+  - num_heads (e.g., 8)
+  - mlstm_round_up_to_multiple_of (e.g., 64)
+
+Derived dimensions:
+  qk_dim_raw = int(embedding_dim * qk_dim_factor)  # 2048
+  qk_dim = round_up(qk_dim_raw, 64)                # 2048 (already multiple)
+  qk_head_dim = qk_dim // num_heads                # 256
+
+Rounding ensures dimensions align with hardware SIMD widths and safetensors
+weight shapes.
+
+Configuration Hierarchy
+-----------------------
+1. **Required** (must be in config.json):
+   - embedding_dim, vocab_size, num_blocks, num_heads
+   - qk_dim_factor, v_dim_factor, ffn_proj_factor
+   - gate_soft_cap, norm_eps, use_bias
+
+2. **Optional with defaults**:
+   - chunk_size: 64
+   - autocast_kernel_dtype: "bfloat16"
+   - inference_state_dtype: "float32"
+   - norm_reduction_force_float32: True
+   - max_inference_chunksize: 16384
+
+3. **Computed**:
+   - qk_dim, v_dim, ffn_hidden_dim
+   - qk_head_dim, v_head_dim
+
+MLX vs PyTorch Config
+----------------------
+- **MLX**: Uses plain dicts (config['embedding_dim'])
+- **PyTorch**: Uses dataclass objects (config.embedding_dim)
+
+This module produces MLX-style dicts. For PyTorch compat, see
+torch_native config loaders.
+
+Inference Defaults
+------------------
+When `mode` is not specified, defaults to "inference" which:
+  - Uses bfloat16 for compute (autocast_kernel_dtype)
+  - Uses float32 for state (inference_state_dtype)
+  - Enables return_last_states for stateful generation
+  - Sets max chunk size for memory-efficient prefill
+
+Usage
+-----
+Basic loading:
+  >>> config = load_config("xlstm_7b_model")
+  >>> model = WiredxLSTM.from_config(config)
+
+Extract mLSTM-specific config:
+  >>> mlstm_cfg = get_mlstm_config(config)
+  >>> block = mLSTMBlock(**mlstm_cfg)
+
+Parity
+------
+Dimension computation mirrors transformers.xLSTMConfig for checkpoint
+compatibility.
 """
 
 import json
@@ -14,26 +94,61 @@ from typing import Any, Dict
 import mlx.core as mx
 
 def _round_up(value: int, multiple_of: int) -> int:
-    """Match canonical round-up behavior (see transformers xLSTMConfig)."""
+    """Round value up to nearest multiple (matches HuggingFace xLSTMConfig).
+
+    Parameters
+    ----------
+    value : int
+        Raw dimension value.
+    multiple_of : int
+        Alignment boundary (typically 64 for SIMD/safetensors).
+
+    Returns
+    -------
+    rounded : int
+        Value rounded up to nearest multiple.
+
+    Examples
+    --------
+    >>> _round_up(2048, 64)
+    2048
+    >>> _round_up(2050, 64)
+    2112
+    """
     if multiple_of <= 0:
         return value
     return ((value + multiple_of - 1) // multiple_of) * multiple_of
 
 
 def load_config(model_path: str) -> Dict[str, Any]:
-    """
-    Load xLSTM configuration from HuggingFace model directory.
+    """Load xLSTM configuration from HuggingFace model directory.
 
-    Args:
-        model_path: Path to model directory containing config.json
+    Reads config.json, computes derived dimensions, fills defaults.
 
-    Returns:
-        Dictionary with model configuration
+    Parameters
+    ----------
+    model_path : str
+        Path to model directory containing config.json (or path to config.json directly).
 
-    Example:
-        >>> config = load_config("xlstm_7b_model")
-        >>> print(config['embedding_dim'])  # 4096
-        >>> print(config['chunk_size'])  # 64
+    Returns
+    -------
+    config : dict
+        Complete configuration with base + derived + default parameters.
+
+    Raises
+    ------
+    FileNotFoundError
+        If config.json not found in model_path.
+
+    Examples
+    --------
+    >>> config = load_config("xlstm_7b_model")
+    >>> config['embedding_dim']
+    4096
+    >>> config['qk_dim']  # computed from qk_dim_factor
+    2048
+    >>> config['qk_head_dim']  # computed from qk_dim / num_heads
+    256
     """
     config_path = Path(model_path)
     if config_path.is_dir():
@@ -76,19 +191,25 @@ def load_config(model_path: str) -> Dict[str, Any]:
 
 
 def get_mlstm_config(config: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Extract mLSTM block configuration from full model config.
+    """Extract mLSTM block parameters from full model config.
 
-    Args:
-        config: Full model configuration dict
+    Filters full config to only parameters needed for mLSTMBlock construction.
 
-    Returns:
-        Dict with parameters for mLSTMConfig initialization
+    Parameters
+    ----------
+    config : dict
+        Full model configuration (from load_config).
 
-    Example:
-        >>> full_config = load_config("xlstm_7b_model")
-        >>> mlstm_config = get_mlstm_config(full_config)
-        >>> # Use for mLSTMConfig(**mlstm_config)
+    Returns
+    -------
+    mlstm_config : dict
+        Subset of config relevant to mLSTMBlock initialization.
+
+    Example
+    -------
+    >>> full_config = load_config("xlstm_7b_model")
+    >>> mlstm_cfg = get_mlstm_config(full_config)
+    >>> block = mLSTMBlock(**mlstm_cfg)
     """
     return {
         'embedding_dim': config['embedding_dim'],

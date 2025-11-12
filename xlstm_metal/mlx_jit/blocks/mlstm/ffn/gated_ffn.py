@@ -1,7 +1,85 @@
-"""MLX implementation of the GatedFFN recurrent-style module.
+"""Gated Feed-Forward Network Module – MLX Implementation (NCPS Sequence Wrapper)
 
-This follows the NCPS pattern where a cell (GatedFFNCell) is wrapped
-by a module that handles batching and sequence processing.
+Overview
+--------
+GatedFFN is a sequence-processing wrapper around GatedFFNCell, following
+the NCPS pattern where:
+  - **Cell**: Single-step computation with parameters (GatedFFNCell)
+  - **Module**: Batch/sequence handling wrapper (this class)
+
+This separation enables flexible integration with NCPS wiring while maintaining
+compatibility with standard sequence-to-sequence interfaces.
+
+NCPS Module Pattern
+-------------------
+Similar to how RNN modules wrap RNN cells:
+  - Cell: processes one timestep at a time
+  - Module: iterates over sequence dimension, calling cell repeatedly
+
+For stateless FFN, this pattern seems redundant but maintains API consistency
+with stateful cells (LSTM, GRU, CfC) in NCPS frameworks.
+
+Sequence Processing Modes
+--------------------------
+1. **return_sequences=True** (default):
+   - Returns all timestep outputs [B, S, D]
+   - Used for encoder-style processing
+
+2. **return_sequences=False**:
+   - Returns only last timestep [B, D]
+   - Used for sequence classification
+
+Batch Dimension Ordering
+-------------------------
+- **batch_first=True** (default): Input shape [B, S, D]
+  - Standard PyTorch/MLX convention
+  - B = batch size, S = sequence length, D = features
+
+- **batch_first=False**: Input shape [S, B, D]
+  - Legacy RNN convention (rarely used in modern code)
+
+When to Use This vs GatedFFNCell Directly?
+-------------------------------------------
+Use **GatedFFNCell** when:
+  - You have already-batched single-step inputs [B, D]
+  - You're building custom sequence processing logic
+  - You want minimal overhead
+
+Use **GatedFFN** when:
+  - You need standard sequence-to-sequence interface
+  - You want compatibility with NCPS wiring infrastructure
+  - You need return_sequences or batch_first options
+
+In Practice
+-----------
+For xLSTM blocks, FFN is typically applied to entire sequences at once
+(not iteratively), so direct GatedFFNCell usage is more efficient:
+
+  # Efficient (used in xLSTM blocks)
+  ffn_cell = GatedFFNCell(input_size, hidden_size)
+  output, _ = ffn_cell(x)  # x: [B, S, D]
+
+  # Equivalent but slower (iterates over sequence)
+  ffn_module = GatedFFN(input_size, hidden_size)
+  output, _ = ffn_module(x)  # x: [B, S, D]
+
+This wrapper is primarily for NCPS-style applications where the wiring
+framework expects a module-level interface.
+
+Optional Projection
+-------------------
+If `proj_size` is specified, an additional linear layer projects the output
+to a different dimension. This is useful for encoder-decoder architectures
+or when embedding dimension differs from model dimension.
+
+Stateless Property
+------------------
+Unlike LSTM/GRU, FFN has no hidden state. The `hx` parameter and return
+value are kept for API compatibility but are always None.
+
+Parity
+------
+Logic mirrors torch-native GatedFFN for cross-backend testing.
 """
 
 from typing import Optional
@@ -13,21 +91,47 @@ from .gated_ffn_cell import GatedFFNCell
 
 
 class GatedFFN(nn.Module):
-    """
-    Gated Feed-Forward Network module following NCPS patterns.
-    
-    Wraps GatedFFNCell to handle batch and sequence dimensions,
-    similar to how CfC wraps CfCCell.
-    
-    Args:
-        input_size: Input dimension (embedding_dim)
-        hidden_size: Intermediate dimension (proj_up_dim)
-        proj_size: Optional output projection size
-        return_sequences: If True, return all timesteps; if False, return only last
-        batch_first: If True, input shape is [B, S, D]; if False, [S, B, D]
-        activation: Activation function name ('silu', 'gelu', 'relu')
-        use_bias: Whether to use bias in linear layers
-        dropout: Optional dropout rate
+    """Sequence-processing wrapper for GatedFFNCell (NCPS module pattern).
+
+    Handles batch and sequence dimensions, iterates over timesteps calling
+    the underlying cell. Primarily for NCPS framework compatibility.
+
+    Parameters
+    ----------
+    input_size : int
+        Input dimension (embedding_dim).
+    hidden_size : int
+        Intermediate dimension for FFN (~2.667 * input_size typical).
+    proj_size : int | None, optional
+        Optional output projection dimension (default: None = input_size).
+    return_sequences : bool, default True
+        Whether to return all timesteps (True) or only last (False).
+    batch_first : bool, default True
+        Whether input shape is [B, S, D] (True) or [S, B, D] (False).
+    activation : {"silu", "gelu", "relu"}, default "silu"
+        Activation function for gating.
+    use_bias : bool, default False
+        Whether linear layers include bias.
+    dropout : float | None, optional
+        Dropout probability for regularization.
+
+    Returns (forward)
+    -----------------
+    output : mx.array
+        - If return_sequences=True: [B, S, output_size] (or [S, B, output_size])
+        - If return_sequences=False: [B, output_size] (or [output_size])
+    state : None
+        Always None (FFN is stateless).
+
+    Examples
+    --------
+    >>> ffn = GatedFFN(input_size=512, hidden_size=1365)
+    >>> x = mx.random.normal((4, 32, 512))  # [B, S, D]
+    >>> y, state = ffn(x)
+    >>> y.shape
+    (4, 32, 512)
+    >>> state is None
+    True
     """
 
     def __init__(
@@ -75,15 +179,27 @@ class GatedFFN(nn.Module):
             inputs: mx.array,
             hx: Optional[mx.array] = None
     ) -> tuple[mx.array, Optional[mx.array]]:
-        """
-        Forward pass through the GatedFFN module.
-        
-        Args:
-            inputs: Input tensor [B, S, D] if batch_first else [S, B, D]
-            hx: Hidden state (unused for FFN, kept for API compatibility)
-            
-        Returns:
-            (output, state): Output tensor and state (None for stateless FFN)
+        """Process sequence through gated FFN.
+
+        Parameters
+        ----------
+        inputs : mx.array
+            Input sequences [B, S, D] if batch_first else [S, B, D].
+        hx : mx.array | None, optional
+            Hidden state (unused, kept for API compatibility).
+
+        Returns
+        -------
+        output : mx.array
+            Processed sequences (shape depends on return_sequences).
+        state : None
+            Always None (stateless).
+
+        Notes
+        -----
+        Iterates over sequence dimension, applying cell at each timestep.
+        For efficiency, consider using GatedFFNCell directly on full
+        sequences when return_sequences=True and no special processing needed.
         """
         global h_out
         is_batched = inputs.ndim == 3
@@ -125,3 +241,6 @@ class GatedFFN(nn.Module):
             readout = mx.squeeze(readout, axis=batch_dim)
 
         return readout, h_state
+
+
+__all__ = ['GatedFFN']

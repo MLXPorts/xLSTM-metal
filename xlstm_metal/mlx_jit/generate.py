@@ -60,7 +60,9 @@ class xLSTMRunner:
         # Load configuration from model directory
         print(f"Loading configuration from {self.model_path / 'config.json'}...")
         self.config = load_config(str(self.model_path))
-        self.compute_dtype = resolve_dtype(self.config.get('autocast_kernel_dtype'))
+        # Use torch_dtype for model weights (float32), not autocast_kernel_dtype (bfloat16)
+        # autocast_kernel_dtype is for specific kernel operations only
+        self.compute_dtype = resolve_dtype(self.config.get('torch_dtype', 'float32'))
         self.state_dtype = resolve_dtype(self.config.get('inference_state_dtype'))
         self.norm_reduce_force_float32 = self.config.get('norm_reduction_force_float32', True)
 

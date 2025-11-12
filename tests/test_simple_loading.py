@@ -20,7 +20,7 @@ def test_config_loading():
     print("TEST 1: Loading config.json")
     print("=" * 60)
 
-    model_dir = Path("xlstm_7b_model")
+    model_dir = Path("../xlstm_7b_model")
     if not model_dir.exists():
         print(f"❌ Model directory not found: {model_dir}")
         return False
@@ -47,7 +47,7 @@ def test_safetensors_loading():
     print("TEST 2: Loading safetensors weights")
     print("=" * 60)
 
-    model_dir = Path("xlstm_7b_model")
+    model_dir = Path("../xlstm_7b_model")
     index_file = model_dir / "model.safetensors.index.json"
 
     if not index_file.exists():
@@ -91,8 +91,8 @@ def test_auto_wiring():
     try:
         from xlstm_metal.mlx_jit.wiring import create_auto_wiring
 
-        config = load_config("xlstm_7b_model")
-        wiring = create_auto_wiring("xlstm_7b_model", config)
+        config = load_config("../xlstm_7b_model")
+        wiring = create_auto_wiring("../xlstm_7b_model", config)
 
         print(f"✓ Auto wiring created successfully")
         print(f"  - Detected {wiring.structure['num_blocks']} blocks")
@@ -118,8 +118,8 @@ def test_model_cell_creation():
     try:
         from xlstm_metal.mlx_jit.wiring import create_auto_wiring
 
-        config = load_config("xlstm_7b_model")
-        wiring = create_auto_wiring("xlstm_7b_model", config)
+        config = load_config("../xlstm_7b_model")
+        wiring = create_auto_wiring("../xlstm_7b_model", config)
 
         # Create a single block using wiring
         cell = wiring.create_block_cell(0)
@@ -156,8 +156,8 @@ def test_forward_pass():
     try:
         from xlstm_metal.mlx_jit.wiring import create_auto_wiring
 
-        config = load_config("xlstm_7b_model")
-        wiring = create_auto_wiring("xlstm_7b_model", config)
+        config = load_config("../xlstm_7b_model")
+        wiring = create_auto_wiring("../xlstm_7b_model", config)
         cell = wiring.create_block_cell(0)
 
         # Create dummy input: [batch=1, seq_len=4, embedding_dim]

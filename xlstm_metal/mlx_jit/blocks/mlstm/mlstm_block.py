@@ -208,6 +208,7 @@ class mLSTMBlock(nn.Module):
             gate_soft_cap=gate_soft_cap,
             compute_dtype=compute_dtype,
             state_dtype=state_dtype,
+            force_float32_reductions=norm_reduction_force_float32,
         )
 
         # Pre-normalization for FFN
@@ -362,7 +363,9 @@ class mLSTMBlock(nn.Module):
             ...     config = json.load(f)
             >>> cell = mLSTMBlock.from_config(0, config)
         """
-        norm_reduction_force_float32 = config.get('norm_reduction_force_float32', True)
+        norm_reduction_force_float32 = overrides.get(
+            'norm_reduction_force_float32', config.get('norm_reduction_force_float32', True)
+        )
         compute_dtype = overrides.get(
             'compute_dtype', resolve_dtype(config.get('autocast_kernel_dtype', 'float32'))
         )

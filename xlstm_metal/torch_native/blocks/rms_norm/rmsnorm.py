@@ -2,23 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 import torch
 import torch.nn as nn
 
-
-def _metal_rmsnorm(x: torch.Tensor, weight: torch.Tensor, eps: float) -> torch.Tensor:
-    if x.device.type == "mps":
-        try:
-            return torch.ops.xlstm_metal.rms_norm(x, weight, eps)
-        except (RuntimeError, AttributeError):
-            pass
-    norm = torch.rsqrt(torch.mean(x * x, dim=-1, keepdim=True) + eps)
-    out = x * norm
-    if weight is not None:
-        out = out * weight
-    return out
+from .rms_metal import rms_norm as metal_rms_norm
 
 
 class RMSNormCell(nn.Module):
@@ -41,11 +28,13 @@ class RMSNormCell(nn.Module):
             self.register_parameter("weight", None)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        if x.device.type != "mps":
+            raise RuntimeError("RMSNormCell requires tensors on MPS for Metal execution")
         x_norm = x.to(torch.float32) if self.force_float32 else x
         w = self.weight
         if w is not None and w.dtype != x_norm.dtype:
             w = w.to(x_norm.dtype)
-        out = _metal_rmsnorm(x_norm, w, self.eps)
+        out = metal_rms_norm(x_norm, w, self.eps)
         if self.force_float32 and out.dtype != x.dtype:
             out = out.to(x.dtype)
         return out

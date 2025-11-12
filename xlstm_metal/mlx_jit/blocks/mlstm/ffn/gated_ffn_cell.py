@@ -1,7 +1,81 @@
-"""MLX implementation of Gated FFN as an NCPS cell.
+"""Gated Feed-Forward Network Cell – MLX Implementation (SwiGLU Pattern)
 
-This cell implements SwiGLU-style gated feed-forward network
-compatible with the NCPS wiring framework.
+Overview
+--------
+GatedFFNCell implements the SwiGLU (Swish-Gated Linear Unit) feed-forward
+network, a modern variant of FFN that uses gating to control information flow.
+This is the standard FFN architecture in LLaMA, PaLM, and xLSTM models.
+
+SwiGLU Architecture
+-------------------
+Traditional FFN:
+  FFN(x) = W₂ · ReLU(W₁ · x)
+
+SwiGLU (Gated FFN):
+  FFN(x) = W_down · (SiLU(W_gate · x) ⊙ W_up · x)
+
+where ⊙ denotes element-wise multiplication and SiLU(x) = x · σ(x).
+
+The gating mechanism allows the network to learn which features to amplify
+or suppress, improving expressiveness without additional depth.
+
+Why Gated FFN?
+--------------
+1. **Better Expressiveness**: Gating provides multiplicative interactions
+2. **Smoother Gradients**: SiLU has smoother derivatives than ReLU
+3. **Empirical Performance**: SwiGLU outperforms ReLU FFN in LLMs
+4. **Parameter Efficiency**: Same param count as 2-layer FFN with larger hidden
+
+NCPS Pattern
+------------
+This cell follows the NCPS (Neural Circuit Policies) pattern:
+  - Cell = single-step computation with all trainable parameters
+  - Module wraps cell for sequence/batch processing
+  - Stateless: returns (output, None) since FFN has no hidden state
+
+Typical Usage in xLSTM
+-----------------------
+In xLSTM blocks, GatedFFN is applied after mLSTM/sLSTM:
+  x = layer_norm(x)
+  x = mLSTM(x)
+  x = x + residual
+
+  residual = x
+  x = layer_norm(x)
+  x = GatedFFN(x)
+  x = x + residual
+
+Activation Functions
+--------------------
+Supported activations:
+  - **silu** (default): SiLU(x) = x · σ(x), smooth and non-monotonic
+  - **gelu**: GELU(x) ≈ x · Φ(x), used in BERT/GPT
+  - **relu**: ReLU(x) = max(0, x), traditional choice
+
+SiLU is the standard for SwiGLU and provides best empirical results.
+
+Sparsity Mask
+-------------
+Optional `sparsity_mask` enables structured sparsity patterns for NCPS
+wiring. When provided, the mask is applied element-wise to the gated hidden
+states, zeroing out specific connections.
+
+Dropout
+-------
+Optional dropout is applied to the final output for regularization during
+training. Typically disabled for inference.
+
+Parameters vs FLOPs
+-------------------
+For embedding_dim D and hidden_size H:
+  - Parameters: 3 * D * H (gate, up, down projections)
+  - FLOPs: ~6 * D * H * S (forward pass for sequence length S)
+
+Typical hidden_size is 2.667 * embedding_dim (xLSTM-7B uses this ratio).
+
+Parity
+------
+Logic mirrors torch-native GatedFFNCell for cross-backend testing.
 """
 
 from __future__ import annotations
@@ -13,21 +87,42 @@ import mlx.nn as nn
 
 
 class GatedFFNCell(nn.Module):
-    """
-    Gated Feed-Forward Network cell for NCPS.
-    
-    Implements SwiGLU gating: gate(x) * up(x) -> down
-    
-    This is a "neuron" in NCPS terminology but encapsulates
-    the full FFN transformation.
-    
-    Args:
-        input_size: Input dimension (embedding_dim)
-        hidden_size: Intermediate dimension (proj_up_dim)
-        activation: Activation function name ('silu', 'gelu', 'relu')
-        use_bias: Whether to use bias in linear layers
-        dropout: Optional dropout rate
-        sparsity_mask: Optional sparsity mask for connections
+    """SwiGLU-style gated FFN cell (stateless, single-step).
+
+    Implements gated feed-forward transformation with configurable activation.
+    Follows NCPS cell pattern: encapsulates all parameters, single-step forward.
+
+    Parameters
+    ----------
+    input_size : int
+        Input/output dimension (embedding_dim).
+    hidden_size : int
+        Intermediate dimension (typically ~2.667 * input_size).
+    activation : {"silu", "gelu", "relu"}, default "silu"
+        Activation function for gating.
+    use_bias : bool, default False
+        Whether linear layers include bias (typically False for xLSTM).
+    dropout : float | None, optional
+        Dropout probability for output (training regularization).
+    sparsity_mask : mx.array | None, optional
+        Optional mask for structured sparsity (NCPS wiring).
+
+    Returns (forward)
+    -----------------
+    output : mx.array [B, S, input_size]
+        Transformed features.
+    state : None
+        Always None (FFN is stateless).
+
+    Examples
+    --------
+    >>> cell = GatedFFNCell(input_size=4096, hidden_size=10880)
+    >>> x = mx.random.normal((2, 64, 4096))
+    >>> y, state = cell(x)
+    >>> y.shape
+    (2, 64, 4096)
+    >>> state is None
+    True
     """
 
     def __init__(
@@ -73,15 +168,29 @@ class GatedFFNCell(nn.Module):
             self._sparsity_mask = None
 
     def __call__(self, x: mx.array, state: Optional[mx.array] = None) -> tuple[mx.array, Optional[mx.array]]:
-        """
-        Forward pass.
-        
-        Args:
-            x: Input [B, S, input_size]
-            state: Unused (stateless cell), kept for NCPS compatibility
-            
-        Returns:
-            (output, state): Output [B, S, input_size] and state (None for FFN)
+        """Apply SwiGLU gated FFN transformation.
+
+        Parameters
+        ----------
+        x : mx.array [B, S, input_size]
+            Input features.
+        state : mx.array | None, optional
+            Unused (kept for NCPS API compatibility with stateful cells).
+
+        Returns
+        -------
+        output : mx.array [B, S, input_size]
+            Gated FFN output.
+        state : None
+            Always None (stateless).
+
+        Notes
+        -----
+        Computation flow:
+          1. gate = act(W_gate @ x)
+          2. up = W_up @ x
+          3. hidden = gate ⊙ up
+          4. output = W_down @ hidden
         """
         # Separate gate and value projections
         gate = self.proj_up_gate(x)  # [B, S, hidden_size]
@@ -112,3 +221,6 @@ class GatedFFNCell(nn.Module):
             "use_bias": self.use_bias,
             "dropout": self.dropout.p if self.dropout else None,
         }
+
+
+__all__ = ['GatedFFNCell']

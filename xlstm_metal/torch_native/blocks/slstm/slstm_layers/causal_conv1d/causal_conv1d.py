@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Optional
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from .metal_ops import causal_conv1d_mixing, causal_conv1d_depthwise
 
 
 class CausalConv1d(nn.Module):
@@ -56,8 +60,27 @@ class CausalConv1d(nn.Module):
         """
         if self.padding > 0:
             x = F.pad(x, (self.padding, 0))
-        
+
+        if x.device.type == "mps":
+            return self._forward_mps(x)
+
         return self.conv(x)
+
+    def _forward_mps(self, x: torch.Tensor) -> torch.Tensor:
+        B, C, S = x.shape
+        x_seq = x.transpose(1, 2).contiguous()  # [B, S, C]
+        bias = self.conv.bias
+
+        if self.groups == self.in_channels:
+            weight = self.conv.weight.view(self.out_channels, self.kernel_size).contiguous()
+            y = causal_conv1d_depthwise(x_seq, weight, bias)
+        elif self.groups == 1:
+            weight = self.conv.weight.view(self.out_channels, self.in_channels, self.kernel_size).contiguous()
+            y = causal_conv1d_mixing(x_seq, weight, bias)
+        else:
+            raise ValueError("Unsupported groups for MPS causal conv")
+
+        return y.transpose(1, 2)
 
     def get_config(self) -> dict:
         return {

@@ -67,8 +67,58 @@ Comprehensive documentation has been added to all major MLX and Torch-native xLS
     - Cell factory pattern for model-agnostic loading
     - Zero-config model instantiation
 
+### Activation Functions (MLX)
+12. **`mlx_jit/blocks/soft_cap/softcap.py`**
+    - Soft-cap bounded activation (cap * tanh(x / cap))
+    - Mathematical properties, gradient flow
+    - Metal-accelerated kernel implementation
+    - Usage in gate preactivations and output logits
+
+### Utility Modules (MLX)
+13. **`mlx_jit/utils/dtype_utils.py`**
+    - String to dtype mapping for config files
+    - Mixed precision patterns (bfloat16 vs float16)
+    - Framework-agnostic dtype configuration
+
+14. **`mlx_jit/utils/config_loader.py`**
+    - HuggingFace config.json parsing
+    - Derived dimension computation with rounding
+    - Inference defaults and configuration hierarchy
+    - MLX dict vs PyTorch dataclass patterns
+
+### Feed-Forward Networks (MLX)
+15. **`mlx_jit/blocks/mlstm/ffn/gated_ffn_cell.py`**
+    - SwiGLU gated FFN cell implementation
+    - Gating mechanism rationale
+    - Activation functions (SiLU, GELU, ReLU)
+    - NCPS cell pattern for stateless transformation
+
+16. **`mlx_jit/blocks/mlstm/ffn/gated_ffn.py`**
+    - Sequence wrapper for GatedFFNCell
+    - NCPS module pattern (cell vs module)
+    - return_sequences and batch_first modes
+    - When to use wrapper vs cell directly
+
+### Top-Level Model (MLX)
+17. **`mlx_jit/models/wired_xlstm.py`**
+    - Model-agnostic xLSTM language model
+    - Automatic structure discovery from safetensors
+    - Weight loading and weight tying
+    - Stateful generation pattern
+    - Mixed precision configuration
+    - Training vs inference modes
+
+### Command-Line Interface
+18. **`generate.py`**
+    - Text generation CLI (main entry point)
+    - Single-shot and interactive modes
+    - Sampling parameters (temperature, top-k, top-p)
+    - Model introspection and wiring visualization
+    - HuggingFace model loading
+    - Usage examples and error handling
+
 ### Torch-Native Components
-12. **`torch_native/blocks/slstm/slstm_layers/slstm_cell.py`**
+19. **`torch_native/blocks/slstm/slstm_layers/slstm_cell.py`**
     - PyTorch mirror of MLX sLSTM cell
     - Cross-backend parity documentation
 

@@ -7,15 +7,8 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
+from .softcap_metal import soft_cap as metal_soft_cap
 
-def _metal_soft_cap(x: torch.Tensor, cap: float) -> torch.Tensor:
-    """Call into custom Metal kernel if available, else fall back."""
-    if x.device.type == "mps":
-        try:
-            return torch.ops.xlstm_metal.soft_cap(x, cap)
-        except (RuntimeError, AttributeError):
-            pass  # fall through to eager implementation
-    return cap * torch.tanh(x / cap)
 
 
 class SoftCapCell(nn.Module):
@@ -33,7 +26,9 @@ class SoftCapCell(nn.Module):
         cap = float(cap_value) if cap_value is not None else float(self._cap.item())
         if cap <= 0.0:
             return x
-        return _metal_soft_cap(x, cap)
+        if x.device.type != "mps":
+            raise RuntimeError("SoftCapCell requires tensors on MPS for Metal execution")
+        return metal_soft_cap(x, cap)
 
 
 soft_cap = SoftCapCell()

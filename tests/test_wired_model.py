@@ -9,7 +9,7 @@ the correct architecture from safetensors structure.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, '.')
+sys.path.insert(0, '..')
 
 import mlx.core as mx
 from xlstm_metal.mlx_jit.models import WiredxLSTM
@@ -21,7 +21,7 @@ def test_model_creation():
     print("TEST 1: Creating WiredxLSTM from safetensors")
     print("=" * 60)
 
-    model_dir = Path("xlstm_7b_model")
+    model_dir = Path("../xlstm_7b_model")
     if not model_dir.exists():
         print(f"❌ Model directory not found: {model_dir}")
         return False
@@ -64,7 +64,7 @@ def test_forward_pass():
 
     try:
         model = WiredxLSTM.from_pretrained(
-            "xlstm_7b_model",
+            "../xlstm_7b_model",
             load_weights=False
         )
 
@@ -105,7 +105,7 @@ def test_forward_pass_with_states():
 
     try:
         model = WiredxLSTM.from_pretrained(
-            "xlstm_7b_model",
+            "../xlstm_7b_model",
             load_weights=False
         )
 
@@ -152,7 +152,7 @@ def test_weight_loading():
     try:
         # Create model with weight loading
         print("  Creating model and loading weights...")
-        model = WiredxLSTM.from_pretrained("xlstm_7b_model")
+        model = WiredxLSTM.from_pretrained("../xlstm_7b_model")
 
         print(f"✓ Model created with weights loaded")
 
