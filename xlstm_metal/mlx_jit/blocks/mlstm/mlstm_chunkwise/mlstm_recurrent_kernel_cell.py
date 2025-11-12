@@ -100,6 +100,8 @@ class mLSTMRecurrentKernelCell(nn.Module):
         # Sequential processing
         h_list = []
 
+        eps_tensor = mx.array(self.eps, dtype=self.compute_dtype)
+
         for t in range(S):
             # Extract timestep
             q_t = q[:, :, t, :]  # [B, NH, DH_qk]
@@ -121,24 +123,30 @@ class mLSTMRecurrentKernelCell(nn.Module):
             # Update state
             # C_t = f_t * C_{t-1} + i_t * (k_t ⊗ v_t)
             kv_outer = k_t[:, :, :, None] * v_t[:, :, None, :]  # [B, NH, DH_qk, DH_v]
-            C = f_gate[:, :, None, None] * C + i_gate[:, :, None, None] * kv_outer
+            kv_outer_state = mx.array(kv_outer, dtype=self.state_dtype)
+            f_gate_state = mx.array(f_gate, dtype=self.state_dtype)
+            i_gate_state = mx.array(i_gate, dtype=self.state_dtype)
+            C = f_gate_state[:, :, None, None] * C + i_gate_state[:, :, None, None] * kv_outer_state
 
             # n_t = f_t * n_{t-1} + i_t * k_t
-            n = f_gate[:, :, None] * n + i_gate[:, :, None] * k_t
+            k_state = mx.array(k_t, dtype=self.state_dtype)
+            n = f_gate_state[:, :, None] * n + i_gate_state[:, :, None] * k_state
 
             # Update m
-            m = m_new
+            m = mx.array(m_new, dtype=self.state_dtype)
 
             # Compute output: h_t = (C_t @ q_t) / (|q·n| + exp(-m) + eps)
             q_scaled = q_t * mx.rsqrt(mx.array(self.qk_dim_per_head, dtype=q_t.dtype))
 
             # Numerator
-            h_num = mx.sum(C * q_scaled[:, :, :, None], axis=2)  # [B, NH, DH_v]
+            C_compute = mx.array(C, dtype=self.compute_dtype)
+            h_num = mx.sum(C_compute * q_scaled[:, :, :, None], axis=2)  # [B, NH, DH_v]
 
             # Denominator
-            qn_dot = mx.sum(n * q_scaled, axis=2, keepdims=True)  # [B, NH, 1]
-            max_val = mx.exp(mx.negative(m))[:, :, None]
-            h_den = mx.maximum(mx.abs(qn_dot), max_val) + self.eps
+            n_compute = mx.array(n, dtype=self.compute_dtype)
+            qn_dot = mx.sum(n_compute * q_scaled, axis=2, keepdims=True)  # [B, NH, 1]
+            max_val = mx.exp(mx.negative(mx.array(m, dtype=self.compute_dtype)))[:, :, None]
+            h_den = mx.maximum(mx.abs(qn_dot), max_val) + eps_tensor
 
             h_t = h_num / h_den  # [B, NH, DH_v]
             h_list.append(h_t)
