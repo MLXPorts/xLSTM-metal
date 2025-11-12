@@ -217,17 +217,49 @@ class mLSTMNeuron(nn.Module):
         i_preact = mx.array(i_preact, dtype=self.compute_dtype)
         f_preact = mx.array(f_preact, dtype=self.compute_dtype)
 
-        # === During: Apply kernel (dispatch based on mode) ===
-        if self.kernel_mode == "parallel":
-            h, new_state = self.parallel_kernel(
-                q, k, v, i_preact, f_preact, state
-            )
-        elif self.kernel_mode == "recurrent":
-            h, new_state = self.recurrent_kernel(
-                q, k, v, i_preact, f_preact, state
-            )
+        use_parallel = self.kernel_mode == "parallel" and self.chunk_size > 0
+        B, NH, S, _ = q.shape
+
+        if use_parallel:
+            full_chunks = (S // self.chunk_size)
+            chunk_tokens = full_chunks * self.chunk_size
         else:
-            raise ValueError(f"Unknown kernel_mode: {self.kernel_mode}")
+            chunk_tokens = 0
+
+        h_chunks = []
+        current_state = state
+
+        if use_parallel and chunk_tokens > 0:
+            head = slice(0, chunk_tokens)
+            h_parallel, current_state = self.parallel_kernel(
+                q[:, :, head, :],
+                k[:, :, head, :],
+                v[:, :, head, :],
+                i_preact[:, :, head],
+                f_preact[:, :, head],
+                current_state,
+            )
+            h_chunks.append(h_parallel)
+
+        tail_tokens = S - chunk_tokens
+        if tail_tokens > 0:
+            tail = slice(chunk_tokens, S)
+            h_seq, current_state = self.recurrent_kernel(
+                q[:, :, tail, :],
+                k[:, :, tail, :],
+                v[:, :, tail, :],
+                i_preact[:, :, tail],
+                f_preact[:, :, tail],
+                current_state,
+            )
+            h_chunks.append(h_seq)
+
+        if not h_chunks:
+            # No tokens processed (should not happen, but guard)
+            h, new_state = self.recurrent_kernel(q, k, v, i_preact, f_preact, state)
+        else:
+            h = mx.concatenate(h_chunks, axis=2) if len(h_chunks) > 1 else h_chunks[0]
+            new_state = current_state
 
         # === After: Process output ===
         output = self.output_cell(h, x)
@@ -243,7 +275,12 @@ class mLSTMNeuron(nn.Module):
             "v_dim_per_head": self.v_dim_per_head,
             "chunk_size": self.chunk_size,
             "kernel_mode": self.kernel_mode,
+            "use_bias": self.projection_cell.use_bias,
             "eps": self.eps,
+            "gate_soft_cap": self.projection_cell.gate_soft_cap,
+            "compute_dtype": self.compute_dtype,
+            "state_dtype": self.state_dtype,
+            "force_float32_reductions": self.force_float32_reductions,
         }
 
 

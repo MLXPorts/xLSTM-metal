@@ -256,16 +256,15 @@ def load_safetensor_shards(model_path: str, index_filename: str = "model.safeten
             f"No shard entries listed in {index_path}."
         )
 
-    #tensors: Dict[str, mx.array] = {}
+    tensors: Dict[str, mx.array] = {}
     for shard in shard_files:
         shard_path = model_dir / shard
         if not shard_path.exists():
             raise FileNotFoundError(f"Shard file missing: {shard_path}")
         shard_data = mx.load(str(shard_path), return_metadata=False)
-        #for name, array in shard_data.items():
-        #    tensors[name] = array
+        tensors.update(shard_data)
 
-    return shard_data
+    return tensors
 
 # PyTorch transformers uses xLSTMConfig class with the following structure:
 #

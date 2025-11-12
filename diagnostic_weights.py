@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Diagnostic: Compare Metal RMSNorm vs pure-MLX fallback numerically."""
+"""Diagnostic: Check if weights are loaded correctly and model produces reasonable outputs."""
 
 import sys
 from contextlib import contextmanager
@@ -10,86 +10,134 @@ import mlx.core as mx
 
 from xlstm_metal.mlx_jit.blocks.rms_norm.rmsnorm import RMSNormMetalKernel
 from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
-from xlstm_metal.mlx_jit.tokenizer import TokenizerBlock, TokenizerConfig
-
-
+print("WEIGHT AND OUTPUT DIAGNOSTIC")
+from xlstm_metal.mlx_jit.utils.config_loader import load_safetensor_shards
 @contextmanager
-def force_pure_rmsnorm():
-    """Temporarily replace the Metal kernel with a pure-MLX reference."""
+# Load model
+print("\nLoading model...")
 
     orig_apply = RMSNormMetalKernel.apply
 
-    def pure_apply(self, inputs_2d, weight, eps_param, force_float32):
-        x = inputs_2d
-        original_dtype = x.dtype
+# Check if weights look reasonable
+print("\n" + "="*60)
+print("WEIGHT CHECKS")
+print("="*60)
+
+# Check embeddings
+print("\nEmbedding weights:")
+emb_weight = model.embedding.weight
+print(f"  Shape: {emb_weight.shape}")
+print(f"  Dtype: {emb_weight.dtype}")
+print(f"  Range: [{mx.min(emb_weight).item():.6f}, {mx.max(emb_weight).item():.6f}]")
+print(f"  Mean: {mx.mean(emb_weight).item():.6f}")
+print(f"  Std: {mx.std(emb_weight).item():.6f}")
+
+# Check first block weights
+print("\nFirst block (block 0) weights:")
+block0 = model.blocks[0]
+
+# Check mLSTM weights
+print("  mLSTM q_proj:")
+q_weight = block0.mlstm_cell.projection_cell.q_proj.weight
+print(f"    Shape: {q_weight.shape}, Range: [{mx.min(q_weight).item():.6f}, {mx.max(q_weight).item():.6f}]")
+
+print("  mLSTM k_proj:")
+k_weight = block0.mlstm_cell.projection_cell.k_proj.weight
+print(f"    Shape: {k_weight.shape}, Range: [{mx.min(k_weight).item():.6f}, {mx.max(k_weight).item():.6f}]")
+
+# Check FFN weights
+print("  FFN proj_up:")
+ffn_up = block0.ffn_proj_up.weight
+print(f"    Shape: {ffn_up.shape}, Range: [{mx.min(ffn_up).item():.6f}, {mx.max(ffn_up).item():.6f}]")
+
+# Check LM head
+print("\nLM head weights:")
+lm_head_weight = model.lm_head.weight
+print(f"  Shape: {lm_head_weight.shape}")
+print(f"  Range: [{mx.min(lm_head_weight).item():.6f}, {mx.max(lm_head_weight).item():.6f}]")
+
+# Check if embeddings and lm_head are tied
+if model.tie_word_embeddings:
+    are_same = mx.array_equal(model.embedding.weight, model.lm_head.weight)
+    print(f"  Tied with embeddings: {are_same}")
         if force_float32 and original_dtype != mx.float32:
             x = mx.array(x, dtype=mx.float32)
-
+print("OUTPUT CHECKS")
         eps = mx.array(eps_param, dtype=x.dtype)
         rms = mx.sqrt(mx.mean(mx.multiply(x, x), axis=-1, keepdims=True) + eps)
-        y = mx.multiply(x / rms, weight.astype(x.dtype))
-        return y.astype(original_dtype)
-
-    RMSNormMetalKernel.apply = pure_apply
-    try:
-        yield
-    finally:
+# Test with known tokens
+tokenizer_config = TokenizerConfig(model_path="xlstm_7b_model")
+tokenizer = TokenizerBlock(tokenizer_config)
         RMSNormMetalKernel.apply = orig_apply
+test_prompts = [
+    "Hello",
+    "The",
+    "Once upon a time",
+]
+def build_model(weights: dict[str, mx.array]) -> WiredxLSTM:
+for prompt in test_prompts:
+    model = WiredxLSTM(
 
-def main() -> None:
-    print("="*60)
-    print("RMSNORM IMPLEMENTATION COMPARISON")
-    print("="*60)
-    print("\nThis test checks if our Pure MLX RMSNorm produces")
-    print("reasonable outputs compared to what should be expected.")
-    print()
-
-    print("Loading baseline (Metal RMSNorm) model...")
-    metal_model = WiredxLSTM.from_pretrained(
-        'xlstm_7b_model',
+        load_weights=False,
+        model_dir=MODEL_DIR,
         compute_dtype=mx.float32,
         state_dtype=mx.float32,
-        norm_reduce_force_float32=True,
+
+    print(f"  Token IDs: {prompt_ids.tolist()}")
+
     )
-    print("✓ Baseline model loaded")
+    model._load_weights_from_dict(weights)
+    print(f"  Logits shape: {logits.shape}")
 
-    tokenizer_config = TokenizerConfig(model_path="xlstm_7b_model")
-    tokenizer = TokenizerBlock(tokenizer_config)
+    # Get last token logits
+    return model
+    print(f"  Last token logits range: [{mx.min(last_logits).item():.2f}, {mx.max(last_logits).item():.2f}]")
 
-    print("\n" + "="*60)
-    print("PREDICTION QUALITY CHECK")
-    print("="*60)
+    # Get top 5 predictions
+    top5_indices = mx.argsort(last_logits)[-5:][::-1]
+    print(f"  Top 5 token IDs: {top5_indices.tolist()}")
 
-    test_cases = [
-        "Hello",
-        "The quick brown",
+    print("RMSNORM IMPLEMENTATION COMPARISON")
+    for idx in top5_indices.tolist():
+    print("reasonable outputs compared to what should be expected.")
+    print()
+        logit_val = last_logits[idx].item()
+        print(f"    {idx}: '{token_text}' (logit={logit_val:.2f})")
         "Once upon a",
         "2 + 2 =",
-    ]
+print("DIAGNOSIS")
 
     print("\nRunning paired inference (Metal vs Pure MLX)...")
+# Check for common issues
+issues = []
 
-    encoded_prompts = {}
-    for prompt in test_cases:
+# 1. Check if weights are all zeros or ones
+if mx.all(emb_weight == 0).item():
+    issues.append("❌ Embedding weights are all zeros!")
+elif mx.all(emb_weight == 1).item():
+    issues.append("❌ Embedding weights are all ones!")
         prompt_ids = tokenizer.encode(prompt)
-        if prompt_ids.ndim == 1:
-            prompt_ids = mx.expand_dims(prompt_ids, axis=0)
-        encoded_prompts[prompt] = prompt_ids
+    issues.append("✅ Embedding weights look loaded")
 
-    metal_logits_map = {}
-    for prompt, ids in encoded_prompts.items():
-        metal_logits_map[prompt] = metal_model(ids)
+# 2. Check if weights are in reasonable range
+if abs(mx.mean(emb_weight).item()) > 1.0:
+    issues.append("⚠️ Embedding mean is large (may indicate wrong dtype)")
+
+# 3. Check if logits are reasonable
+if abs(mx.min(last_logits).item()) > 100 or abs(mx.max(last_logits).item()) > 100:
+    issues.append("⚠️ Logits are very large (>100), may indicate numerical instability")
+else:
+    issues.append("✅ Logits are in reasonable range")
+
+for issue in issues:
+    print(issue)
 
     pure_logits_map = {}
     with force_pure_rmsnorm():
-        pure_model = WiredxLSTM.from_pretrained(
-            'xlstm_7b_model',
-            compute_dtype=mx.float32,
-            state_dtype=mx.float32,
-            norm_reduce_force_float32=True,
-        )
+        pure_weights = load_safetensor_shards(str(MODEL_DIR))
         for prompt, ids in encoded_prompts.items():
             pure_logits_map[prompt] = pure_model(ids)
+        del pure_model
 
     max_abs_diffs = []
     mean_abs_diffs = []

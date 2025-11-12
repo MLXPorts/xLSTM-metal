@@ -179,10 +179,23 @@ The extensive docstrings added during debugging helped us:
 To verify the fix is working:
 ```bash
 cd /Volumes/emberstuff/xLSTM-metal
+
+# Test generation
 python generate.py --model xlstm_7b_model --prompt "Test prompt" --max-tokens 100
+
+# Run numerical parity tests  
+python test_parity_simple.py
 ```
 
-Should complete without errors and generate coherent (or at least non-NaN) text.
+All tests should complete without errors and generate stable (non-NaN) outputs.
+
+### Test Results (Nov 12, 2025)
+✅ Soft-cap function: PASS
+✅ RMSNorm: PASS  
+✅ Embeddings: PASS (single token, multiple tokens, batch)
+✅ mLSTM block: PASS (short, single, medium sequences)
+✅ Full model forward: PASS (1, 3, 7 token sequences)
+✅ Text generation: PASS (multiple prompts tested)
 
 ---
 

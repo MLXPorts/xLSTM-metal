@@ -70,12 +70,13 @@ _RMS_TEMPLATE = r"""
     using scalar_t = @SCALAR@;
     using accum_t = @ACCUM@;
 
-    uint row = threadgroup_position_in_grid.x;
+    uint tg_size = params[2];
+    uint global_tid = thread_position_in_grid.x;
+    uint row = global_tid / tg_size;
     uint tid = thread_position_in_threadgroup.x;
 
     uint rows = params[0];
     uint cols = params[1];
-    uint tg_size = params[2];
 
     if (row >= rows) {
         return;
