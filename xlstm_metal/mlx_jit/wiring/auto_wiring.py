@@ -103,7 +103,14 @@ from .wirings import Wiring
 
 
 def _parse_block_index(text: str) -> int:
-    """Parse integer-like block indices without relying on bare int casts."""
+    """
+    Parse a string containing a valid JSON integer (e.g., '0', '15') as an int.
+
+    This function uses `json.loads()` instead of `int()` to ensure that only
+    valid JSON integer representations are accepted (e.g., no floats, hex, or
+    other non-JSON formats). This provides type safety and strict validation
+    of block indices as they appear in JSON-based model index files.
+    """
     return json.loads(text)
 
 
