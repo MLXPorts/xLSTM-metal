@@ -1,21 +1,138 @@
-"""Pure-MLX wiring utilities for constructing sparse neural circuits."""
+"""NCPS Wiring – MLX Implementation (Sparse Neural Circuit Blueprints)
 
-from random import Random as PyRandom
-from typing import Dict, Iterable, List, Optional
+Overview
+--------
+Wiring defines the **connectivity blueprint** for sparse neural circuits in
+the NCPS (Neural Circuit Policies) framework. Instead of densely connecting
+all neurons, wiring specifies which neurons connect to which (analogous to
+biological synaptic connectivity patterns).
+
+NCPS Philosophy
+---------------
+Traditional neural networks use dense weight matrices where every input
+connects to every output. NCPS instead defines:
+  - **Neurons**: Computational units (e.g., LSTM cells, attention heads)
+  - **Synapses**: Directed connections between neurons with polarity
+  - **Wiring**: The adjacency matrix encoding which synapses exist
+
+This modularity enables:
+  1. Compositional architectures (mix different cell types)
+  2. Sparse connectivity (reduce parameters, improve interpretability)
+  3. Biologically-inspired circuit motifs (feed-forward, recurrent, lateral inhibition)
+
+Neuron Types
+------------
+- **Sensory**: Input neurons receiving external features
+- **Inter**: Internal/hidden neurons (computation, memory)
+- **Motor**: Output neurons producing predictions/actions
+
+Synapse Polarity
+---------------
+Each synapse has polarity ∈ {-1, +1}:
+  - **Excitatory (+1)**: Positive influence (strengthen activation)
+  - **Inhibitory (-1)**: Negative influence (suppress activation)
+
+In xLSTM context, polarity is typically +1 (standard feed-forward flow).
+Inhibitory synapses can model gating or competition between pathways.
+
+Adjacency Matrices
+------------------
+Two connectivity matrices:
+  1. **adjacency_matrix**: [units, units] inter-neuron connections
+  2. **sensory_adjacency_matrix**: [input_dim, units] sensory → inter connections
+
+Entry values:
+  - 0: No synapse
+  - +1: Excitatory synapse
+  - -1: Inhibitory synapse
+
+Sequential Wiring Pattern (xLSTM)
+---------------------------------
+For transformer/LSTM-style models, wiring is typically **sequential**:
+  block_0 → block_1 → block_2 → ... → block_N → output
+
+Each block is a "neuron" in NCPS terminology, and sequential connectivity
+ensures information flows through the entire stack.
+
+Usage in xLSTM
+--------------
+While xLSTM models use sequential stacking (not sparse wiring), the Wiring
+abstraction provides:
+  - Uniform interface for model assembly
+  - Introspection (query block types, connectivity)
+  - Extensibility (future sparse/mixture variants)
+
+Building Wiring
+---------------
+1. Create wiring: `wiring = Wiring(units=32)`
+2. Add synapses: `wiring.add_synapse(src=0, dest=1, polarity=1)`
+3. Set input: `wiring.build(input_dim=256)`
+4. Add sensory: `wiring.add_sensory_synapse(src=0, dest=5, polarity=1)`
+
+Serialization
+-------------
+Wiring can be saved/loaded via `get_config()` / `from_config()` for
+reproducibility and transfer across frameworks.
+
+Visualization
+-------------
+The `draw_graph()` method renders the wiring as a NetworkX graph for
+inspection and debugging.
+
+Parity
+------
+Logic mirrors torch-native Wiring for cross-backend compatibility.
+"""
+
+from typing import Dict, List, Optional
 
 import mlx.core as mx
 
 
 def _set_matrix_entry(matrix: mx.array, row: int, col: int, value: int) -> None:
-    matrix[row, col] = int(value)
+    matrix[row, col] = mx.array(value, dtype=matrix.dtype)
 
 
 class Wiring:
-    """Connectivity blueprint describing synapses between neurons."""
+    """Connectivity blueprint for sparse neural circuits (NCPS framework).
+
+    Encodes which neurons connect to which via adjacency matrices. Supports
+    both inter-neuron (recurrent) and sensory (input) connections. Provides
+    serialization, visualization, and introspection methods.
+
+    Parameters
+    ----------
+    units : int
+        Number of neurons in the circuit (excluding sensory inputs).
+
+    Attributes
+    ----------
+    adjacency_matrix : mx.array [units, units]
+        Inter-neuron connectivity matrix (0 = no synapse, ±1 = synapse polarity).
+    sensory_adjacency_matrix : mx.array [input_dim, units] | None
+        Sensory → inter-neuron connectivity (set after build()).
+    input_dim : int | None
+        Number of sensory input features (set via build()).
+    output_dim : int | None
+        Number of motor output neurons (set via set_output_dim()).
+
+    Methods
+    -------
+    build(input_dim)
+        Initialize sensory connectivity matrix.
+    add_synapse(src, dest, polarity)
+        Add inter-neuron synapse.
+    add_sensory_synapse(src, dest, polarity)
+        Add sensory → inter-neuron synapse.
+    get_config() / from_config(config)
+        Serialize/deserialize wiring for persistence.
+    draw_graph(layout, colors, labels)
+        Visualize wiring as NetworkX graph (requires matplotlib).
+    """
 
     def __init__(self, units: int) -> None:
         self.units = units
-        self.adjacency_matrix = mx.zeros((units, units), dtype=mx.int32)
+        self.adjacency_matrix = mx.zeros((units, units))
         self.sensory_adjacency_matrix: Optional[mx.array] = None
         self.input_dim: Optional[int] = None
         self.output_dim: Optional[int] = None
@@ -45,9 +162,17 @@ class Wiring:
         return self.input_dim is not None
 
     def build(self, input_dim: int) -> None:
-        """
+        """Initialize wiring with input dimension (creates sensory adjacency).
 
-        :param input_dim:
+        Parameters
+        ----------
+        input_dim : int
+            Number of sensory input features.
+
+        Raises
+        ------
+        ValueError
+            If input_dim conflicts with previously set value.
         """
         if self.input_dim is not None and self.input_dim != input_dim:
             raise ValueError(
@@ -65,7 +190,7 @@ class Wiring:
         :param __:
         :return:
         """
-        return mx.array(self.adjacency_matrix, dtype=mx.int32)
+        return mx.array(self.adjacency_matrix)
 
     def sensory_erev_initializer(self, *_: object, **__: object) -> mx.array:
         """
@@ -76,7 +201,7 @@ class Wiring:
         """
         if self.sensory_adjacency_matrix is None:
             raise ValueError("Sensory adjacency matrix not initialised.")
-        return mx.array(self.sensory_adjacency_matrix, dtype=mx.int32)
+        return mx.array(self.sensory_adjacency_matrix)
 
     def set_input_dim(self, input_dim: int) -> None:
         """
@@ -85,7 +210,7 @@ class Wiring:
         """
         self.input_dim = input_dim
         self.sensory_adjacency_matrix = mx.zeros(
-            (input_dim, self.units), dtype=mx.int32
+            (input_dim, self.units)
         )
 
     def set_output_dim(self, output_dim: int) -> None:
@@ -97,21 +222,38 @@ class Wiring:
 
     # ------------------------------------------------------------------
     def get_type_of_neuron(self, neuron_id: int) -> str:
-        """
+        """Classify neuron as 'motor' (output) or 'inter' (hidden).
 
-        :param neuron_id:
-        :return:
+        Parameters
+        ----------
+        neuron_id : int
+            Neuron index.
+
+        Returns
+        -------
+        neuron_type : {"motor", "inter"}
+            Neuron classification based on output_dim.
         """
         if self.output_dim is None:
             return "inter"
         return "motor" if neuron_id < self.output_dim else "inter"
 
-    def add_synapse(self, src: int, dest: int, polarity: int) -> None:
-        """
+    def add_synapse(self, src: int, dest: int, polarity: int = 1) -> None:
+        """Add inter-neuron synapse (recurrent connection).
 
-        :param src:
-        :param dest:
-        :param polarity:
+        Parameters
+        ----------
+        src : int
+            Source neuron index [0, units).
+        dest : int
+            Destination neuron index [0, units).
+        polarity : {-1, +1}, default 1
+            Synapse polarity (excitatory +1, inhibitory -1).
+
+        Raises
+        ------
+        ValueError
+            If indices out of bounds or invalid polarity.
         """
         if src < 0 or src >= self.units:
             raise ValueError(f"Invalid source neuron {src} for {self.units} units")
@@ -121,12 +263,22 @@ class Wiring:
             raise ValueError("Synapse polarity must be -1 or +1")
         _set_matrix_entry(self.adjacency_matrix, src, dest, polarity)
 
-    def add_sensory_synapse(self, src: int, dest: int, polarity: int) -> None:
-        """
+    def add_sensory_synapse(self, src: int, dest: int, polarity: int = 1) -> None:
+        """Add sensory → inter-neuron synapse (input connection).
 
-        :param src:
-        :param dest:
-        :param polarity:
+        Parameters
+        ----------
+        src : int
+            Sensory input index [0, input_dim).
+        dest : int
+            Destination neuron index [0, units).
+        polarity : {-1, +1}, default 1
+            Synapse polarity.
+
+        Raises
+        ------
+        ValueError
+            If wiring not built or indices out of bounds.
         """
         if self.input_dim is None or self.sensory_adjacency_matrix is None:
             raise ValueError("Cannot add sensory synapse before build().")
@@ -161,13 +313,13 @@ class Wiring:
         :param config:
         :return:
         """
-        wiring = cls(int(config['units']))
+        wiring = cls(config['units'])
         wiring.adjacency_matrix = mx.array(
-            config["adjacency_matrix"], dtype=mx.int32
+            config["adjacency_matrix"]
         )
         if config.get("sensory_adjacency_matrix") is not None:
             wiring.sensory_adjacency_matrix = mx.array(
-                config["sensory_adjacency_matrix"], dtype=mx.int32
+                config["sensory_adjacency_matrix"]
             )
         wiring.input_dim = config.get("input_dim")
         wiring.output_dim = config.get("output_dim")
@@ -224,20 +376,30 @@ class Wiring:
                     )
         return graph
 
-    def draw_graph(  # pragma: no cover
+    def draw_graph(
             self,
             layout: str = "shell",
             neuron_colors: Optional[Dict[str, str]] = None,
             synapse_colors: Optional[Dict[str, str]] = None,
             draw_labels: bool = False,
-    ):
-        """
+    ):  # pragma: no cover
+        """Render wiring as NetworkX graph (requires matplotlib).
 
-        :param layout:
-        :param neuron_colors:
-        :param synapse_colors:
-        :param draw_labels:
-        :return:
+        Parameters
+        ----------
+        layout : str, default "shell"
+            NetworkX layout algorithm: {"kamada", "circular", "spring", "spectral", ...}
+        neuron_colors : dict | None
+            Mapping {neuron_type: color} for node coloring.
+        synapse_colors : dict | None
+            Mapping {polarity: color} for edge coloring.
+        draw_labels : bool, default False
+            Whether to annotate nodes with neuron IDs.
+
+        Returns
+        -------
+        legend_patches : list
+            Matplotlib patch objects for legend creation.
         """
         import matplotlib.patches as mpatches
         import matplotlib.pyplot as plt
@@ -293,32 +455,52 @@ class Wiring:
         plt.axis("off")
         return legend_patches
 
-    def print_diagram(self, include_sensory: bool = True) -> None:
-        """Print a simple textual wiring diagram (src -> dest [polarity])."""
-        print("\nWIRING DIAGRAM")
-        print("--------------")
+    def print_diagram(self, include_sensory: bool = True, style: str = "unicode") -> None:
+        """Print a textual wiring diagram with simple ASCII/Unicode glyphs."""
+
+        style = style.lower()
+        if style not in {"unicode", "ascii"}:
+            raise ValueError("style must be 'unicode' or 'ascii'")
+
+        arrow_exc = " ──▶ " if style == "unicode" else " --> "
+        arrow_inh = " ──┤ " if style == "unicode" else " -x> "
+        bullet = "•" if style == "unicode" else "*"
+        header_top = "┏━━━━━━━━━━━━━━━━━━━━━━┓" if style == "unicode" else "===================="
+        header_mid = "┃ WIRING DIAGRAM      ┃" if style == "unicode" else "== WIRING DIAGRAM =="
+        header_bot = "┗━━━━━━━━━━━━━━━━━━━━━━┛" if style == "unicode" else "===================="
+
+        def format_line(src_label: str, dest_label: str, polarity: int) -> str:
+            arrow = arrow_exc if polarity > 0 else arrow_inh
+            tag = "exc" if polarity > 0 else "inh"
+            return f"  {bullet} {src_label}{arrow}{dest_label} ({tag})"
+
+        print("\n" + header_top)
+        print(header_mid)
+        print(header_bot)
 
         if include_sensory and self.sensory_adjacency_matrix is not None and self.input_dim:
-            print("Sensory connections:")
+            print("Sensory → Neuron:")
             sensory = self.sensory_adjacency_matrix.tolist()
             for src in range(self.input_dim):
                 for dest in range(self.units):
                     val = sensory[src][dest]
                     if val != 0:
-                        polarity = "+" if val > 0 else "-"
-                        print(f"  sensory_{src} -> neuron_{dest} [{polarity}]")
+                        print(format_line(f"sensory_{src:02d}", f"neuron_{dest:02d}", val))
 
-        print("Neural connections:")
+        print("Neuron → Neuron:")
         adj = self.adjacency_matrix.tolist()
-        found = False
+        connections: List[str] = []
         for src in range(self.units):
             for dest in range(self.units):
                 val = adj[src][dest]
                 if val != 0:
-                    polarity = "+" if val > 0 else "-"
-                    print(f"  neuron_{src} -> neuron_{dest} [{polarity}]")
-                    found = True
-        if not found:
+                    connections.append(
+                        format_line(f"neuron_{src:02d}", f"neuron_{dest:02d}", val)
+                    )
+        if connections:
+            for line in connections:
+                print(line)
+        else:
             print("  (no synapses)")
 
     # ------------------------------------------------------------------
@@ -337,357 +519,8 @@ class Wiring:
         :return:
         """
         if self.sensory_adjacency_matrix is None:
-            return mx.array(0, dtype=mx.int32)
+            return mx.array(0)
         return mx.sum(mx.abs(self.sensory_adjacency_matrix))
 
 
-class FullyConnected(Wiring):
-    def __init__(
-            self, units: int, output_dim: Optional[int] = None, erev_init_seed: int = 1111,
-            self_connections: bool = True
-    ) -> None:
-        super().__init__(units)
-        if output_dim is None:
-            output_dim = units
-        self.self_connections = self_connections
-        self.set_output_dim(output_dim)
-        self._rng = PyRandom(erev_init_seed)
-        self._seed = erev_init_seed
-
-        for src in range(self.units):
-            for dest in range(self.units):
-                if src == dest and not self_connections:
-                    continue
-                self.add_synapse(src, dest, self._polarity())
-
-    def _polarity(self) -> int:
-        return -1 if self._rng.random() < (1.0 / 3.0) else 1
-
-    def build(self, input_shape: int) -> None:
-        """
-
-        :param input_shape:
-        """
-        super().build(input_shape)
-        assert self.input_dim is not None
-        for src in range(self.input_dim):
-            for dest in range(self.units):
-                self.add_sensory_synapse(src, dest, self._polarity())
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "units": self.units,
-            "output_dim": self.output_dim,
-            "erev_init_seed": self._seed,
-            "self_connections": self.self_connections,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "FullyConnected":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)
-
-
-class Random(Wiring):
-    def __init__(
-            self,
-            units: int,
-            output_dim: Optional[int] = None,
-            sparsity_level: float = 0.0,
-            random_seed: int = 1111,
-    ) -> None:
-        super().__init__(units)
-        if output_dim is None:
-            output_dim = units
-        if sparsity_level < 0.0 or sparsity_level >= 1.0:
-            raise ValueError("sparsity_level must be in [0, 1)")
-        self.set_output_dim(output_dim)
-        self.sparsity_level = sparsity_level
-        self._rng = PyRandom(random_seed)
-        self._seed = random_seed
-
-        total = self.units * self.units
-        synapses = round(total * (1.0 - sparsity_level))
-        all_synapses = [(src, dest) for src in range(self.units) for dest in range(self.units)]
-        for src, dest in self._rng.sample(all_synapses, synapses):
-            self.add_synapse(src, dest, self._polarity())
-
-    def _polarity(self) -> int:
-        return -1 if self._rng.random() < (1.0 / 3.0) else 1
-
-    def build(self, input_shape: int) -> None:
-        """
-
-        :param input_shape:
-        """
-        super().build(input_shape)
-        assert self.input_dim is not None
-        total = self.input_dim * self.units
-        synapses = round(total * (1.0 - self.sparsity_level))
-        all_synapses = [(src, dest) for src in range(self.input_dim) for dest in range(self.units)]
-        for src, dest in self._rng.sample(all_synapses, synapses):
-            self.add_sensory_synapse(src, dest, self._polarity())
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "units": self.units,
-            "output_dim": self.output_dim,
-            "sparsity_level": self.sparsity_level,
-            "random_seed": self._seed,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "Random":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)
-
-
-class NCP(Wiring):
-    def __init__(
-            self,
-            inter_neurons: int,
-            command_neurons: int,
-            motor_neurons: int,
-            sensory_fanout: int,
-            inter_fanout: int,
-            recurrent_command_synapses: int,
-            motor_fanin: int,
-            seed: int = 22222,
-    ) -> None:
-        super().__init__(inter_neurons + command_neurons + motor_neurons)
-        self._sensory_neurons = None
-        self._num_sensory_neurons = None
-        self.set_output_dim(motor_neurons)
-        self._rng = PyRandom(seed)
-        self._seed = seed
-
-        self._num_inter_neurons = inter_neurons
-        self._num_command_neurons = command_neurons
-        self._num_motor_neurons = motor_neurons
-        self._sensory_fanout = sensory_fanout
-        self._inter_fanout = inter_fanout
-        self._recurrent_command_synapses = recurrent_command_synapses
-        self._motor_fanin = motor_fanin
-
-        self._motor_neurons = list(range(0, motor_neurons))
-        self._command_neurons = list(range(motor_neurons, motor_neurons + command_neurons))
-        self._inter_neurons = list(
-            range(
-                motor_neurons + command_neurons,
-                motor_neurons + command_neurons + inter_neurons,
-            )
-        )
-
-        if motor_fanin > command_neurons:
-            raise ValueError("motor_fanin exceeds number of command neurons")
-        if sensory_fanout > inter_neurons:
-            raise ValueError("sensory_fanout exceeds number of inter neurons")
-        if inter_fanout > command_neurons:
-            raise ValueError("inter_fanout exceeds number of command neurons")
-
-    @property
-    def num_layers(self) -> int:
-        """
-
-        :return:
-        """
-        return 3
-
-    def get_neurons_of_layer(self, layer_id: int) -> List[int]:
-        """
-
-        :param layer_id:
-        :return:
-        """
-        if layer_id == 0:
-            return list(self._inter_neurons)
-        if layer_id == 1:
-            return list(self._command_neurons)
-        if layer_id == 2:
-            return list(self._motor_neurons)
-        raise ValueError(f"Unknown layer {layer_id}")
-
-    def get_type_of_neuron(self, neuron_id: int) -> str:
-        """
-
-        :param neuron_id:
-        :return:
-        """
-        if neuron_id in self._motor_neurons:
-            return "motor"
-        if neuron_id in self._command_neurons:
-            return "command"
-        return "inter"
-
-    def _polarity(self) -> int:
-        return -1 if self._rng.random() < 0.5 else 1
-
-    def _choose(self, seq: Iterable[int]) -> int:
-        return self._rng.sample(list(seq), 1)[0]
-
-    def _build_sensory_to_inter_layer(self) -> None:
-        assert self.input_dim is not None and self.sensory_adjacency_matrix is not None
-        unreachable = set(self._inter_neurons)
-        for src in range(self.input_dim):
-            dests = self._rng.sample(self._inter_neurons, min(self._sensory_fanout, len(self._inter_neurons)))
-            for dest in dests:
-                unreachable.discard(dest)
-                self.add_sensory_synapse(src, dest, self._polarity())
-
-        if unreachable:
-            fanin = max(1, min(self.input_dim, round(self.input_dim * self._sensory_fanout / self._num_inter_neurons)))
-            for dest in unreachable:
-                for src in self._rng.sample(list(range(self.input_dim)), fanin):
-                    self.add_sensory_synapse(src, dest, self._polarity())
-
-    def _build_inter_to_command_layer(self) -> None:
-        unreachable = set(self._command_neurons)
-        for src in self._inter_neurons:
-            dests = self._rng.sample(self._command_neurons, min(self._inter_fanout, len(self._command_neurons)))
-            for dest in dests:
-                unreachable.discard(dest)
-                self.add_synapse(src, dest, self._polarity())
-
-        if unreachable:
-            fanin = max(1, min(self._num_inter_neurons,
-                               round(self._num_inter_neurons * self._inter_fanout / self._num_command_neurons)))
-            for dest in unreachable:
-                for src in self._rng.sample(self._inter_neurons, fanin):
-                    self.add_synapse(src, dest, self._polarity())
-
-    def _build_recurrent_command_layer(self) -> None:
-        for _ in range(self._recurrent_command_synapses):
-            src = self._choose(self._command_neurons)
-            dest = self._choose(self._command_neurons)
-            self.add_synapse(src, dest, self._polarity())
-
-    def _build_command_to_motor_layer(self) -> None:
-        unreachable = set(self._command_neurons)
-        for dest in self._motor_neurons:
-            fanin = min(self._motor_fanin, len(self._command_neurons))
-            srcs = self._rng.sample(self._command_neurons, fanin)
-            for src in srcs:
-                unreachable.discard(src)
-                self.add_synapse(src, dest, self._polarity())
-
-        if unreachable:
-            fanout = max(1, min(self._num_motor_neurons,
-                                round(self._num_motor_neurons * self._motor_fanin / self._num_command_neurons)))
-            for src in unreachable:
-                for dest in self._rng.sample(self._motor_neurons, fanout):
-                    self.add_synapse(src, dest, self._polarity())
-
-    def build(self, input_shape: int) -> None:
-        """
-
-        :param input_shape:
-        """
-        super().build(input_shape)
-        self._num_sensory_neurons = self.input_dim
-        self._sensory_neurons = list(range(self._num_sensory_neurons))
-        self._build_sensory_to_inter_layer()
-        self._build_inter_to_command_layer()
-        self._build_recurrent_command_layer()
-        self._build_command_to_motor_layer()
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "inter_neurons": self._num_inter_neurons,
-            "command_neurons": self._num_command_neurons,
-            "motor_neurons": self._num_motor_neurons,
-            "sensory_fanout": self._sensory_fanout,
-            "inter_fanout": self._inter_fanout,
-            "recurrent_command_synapses": self._recurrent_command_synapses,
-            "motor_fanin": self._motor_fanin,
-            "seed": self._seed,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "NCP":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)
-
-
-class AutoNCP(NCP):
-    def __init__(
-            self,
-            units: int,
-            output_size: int,
-            sparsity_level: float = 0.5,
-            seed: int = 22222,
-    ) -> None:
-        if output_size >= units - 2:
-            raise ValueError(
-                f"Output size must be less than units-2 (given {units=} and {output_size=})."
-            )
-        if not (0.0 < sparsity_level <= 1.0):
-            raise ValueError("sparsity_level must be in (0, 1]")
-
-        density = 1.0 - sparsity_level
-        inter_and_command = units - output_size
-        command = max(int(0.4 * inter_and_command), 1)
-        inter = inter_and_command - command
-
-        sensory_fanout = max(int(inter * density), 1)
-        inter_fanout = max(int(command * density), 1)
-        recurrent_command = max(int(command * density * 2), 1)
-        motor_fanin = max(int(command * density), 1)
-
-        super().__init__(
-            inter,
-            command,
-            output_size,
-            sensory_fanout,
-            inter_fanout,
-            recurrent_command,
-            motor_fanin,
-            seed=seed,
-        )
-        self._total_units = units
-        self._output_size = output_size
-        self._sparsity_level = sparsity_level
-
-    def get_config(self) -> Dict[str, object]:
-        """
-
-        :return:
-        """
-        return {
-            "units": self._total_units,
-            "output_size": self._output_size,
-            "sparsity_level": self._sparsity_level,
-            "seed": self._seed,
-        }
-
-    @classmethod
-    def from_config(cls, config: Dict[str, object]) -> "AutoNCP":
-        """
-
-        :param config:
-        :return:
-        """
-        return cls(**config)
+__all__ = ['Wiring']

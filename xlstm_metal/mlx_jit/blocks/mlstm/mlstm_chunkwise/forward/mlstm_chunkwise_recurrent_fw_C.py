@@ -366,6 +366,7 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
         siz_b_DHHV: int = 16,
         save_states_every_nth_chunk: int = 1,
         dbg: Optional[mx.array] = None,
+        state_dtype: mx.Dtype | None = None,
 ) -> Tuple[mx.array, mx.array, mx.array] | Tuple[mx.array, mx.array, mx.array, mx.array]:
     """
     Metal kernel for recurrent forward computation of mLSTM chunk states.
@@ -417,18 +418,27 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
         NH,  # str_scaMinterinitial_B_NH
     ], dtype=mx.uint32)
 
+    # Determine dtype for recurrent states (default to matK dtype if unspecified)
+    states_dtype = state_dtype or matK.dtype
+
     # Allocate output states
-    matC_states = mx.zeros((B, NH, (NC + 1) * DHQK, DHHV), dtype=matK.dtype)
-    vecN_states = mx.zeros((B, NH, (NC + 1) * DHQK), dtype=matK.dtype)
-    scaMinter_states = mx.zeros((B, NH, NC + 1), dtype=matK.dtype)
+    matC_states = mx.zeros((B, NH, (NC + 1) * DHQK, DHHV), dtype=states_dtype)
+    vecN_states = mx.zeros((B, NH, (NC + 1) * DHQK), dtype=states_dtype)
+    scaMinter_states = mx.zeros((B, NH, NC + 1), dtype=states_dtype)
 
     # Default initial states if not provided
     if matC_initial is None:
-        matC_initial = mx.zeros((B, NH, DHQK, DHHV), dtype=matK.dtype)
+        matC_initial = mx.zeros((B, NH, DHQK, DHHV), dtype=states_dtype)
+    else:
+        matC_initial = mx.array(matC_initial, dtype=states_dtype)
     if vecN_initial is None:
-        vecN_initial = mx.zeros((B, NH, DHQK), dtype=matK.dtype)
+        vecN_initial = mx.zeros((B, NH, DHQK), dtype=states_dtype)
+    else:
+        vecN_initial = mx.array(vecN_initial, dtype=states_dtype)
     if scaMinter_initial is None:
-        scaMinter_initial = mx.zeros((B, NH), dtype=matK.dtype)
+        scaMinter_initial = mx.zeros((B, NH), dtype=states_dtype)
+    else:
+        scaMinter_initial = mx.array(scaMinter_initial, dtype=states_dtype)
     # Track whether caller asked for debug output; allocate buffer only if requested
     dbg_requested = dbg is not None
     if not dbg_requested:
@@ -445,7 +455,7 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
         inputs=[matK, matV, vecF, vecI, matC_initial, vecN_initial,
                 scaMinter_initial, params, strides],
         output_shapes=[matC_states.shape, vecN_states.shape, scaMinter_states.shape, (L * 3 + 1,)],
-        output_dtypes=[matK.dtype, matK.dtype, matK.dtype, dbg.dtype],
+        output_dtypes=[states_dtype, states_dtype, states_dtype, dbg.dtype],
         grid=grid,
         threadgroup=threadgroup,
     )

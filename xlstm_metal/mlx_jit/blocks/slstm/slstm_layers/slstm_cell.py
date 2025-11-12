@@ -1,13 +1,91 @@
 """
-sLSTM Cell - MLX Implementation
+Scalar LSTM (sLSTM) Cell – MLX Implementation (single-step)
 
-NCPS-style cell implementing single-step sLSTM recurrence with ALL trainable parameters.
-Based on xLSTM paper (https://arxiv.org/pdf/2405.04517) Appendix A.
+Overview
+--------
+The scalar LSTM (sLSTM) layer is the *scalar-memory* component of xLSTM
+(see Appendix A of the xLSTM paper: https://arxiv.org/pdf/2405.04517).
+Instead of storing matrix-valued memory like mLSTM, each head maintains
+lightweight scalar exponential statistics that enable long-range retention
+with numerically stable gating.
 
-Follows NCPS CfCCell pattern:
-- Cell holds ALL trainable parameters (projections, norms, etc.)
-- Single timestep processing
-- __call__(inputs, hx, ts) -> (output, new_hx)
+NCPS Design Pattern
+-------------------
+Following NCPS / CfC style, ALL trainable parameters (projections, optional
+causal conv pre-processing, group / per‑head norm, output projection) are
+contained in this cell. The cell processes **one timestep** at a time:
+    __call__(inputs, hx, ts) -> (output, new_hx)
+
+Computation Flow (per timestep)
+-------------------------------
+1. (Optional) Causal 1D convolution over the *current* token (implemented
+   via padding + conv + SiLU) for temporal mixing of i,f gate preactivations.
+2. Linear projections produce:
+      z_t  : candidate content         [B, NH * H]
+      i_t  : input  gate preactivation [B, NH]
+      f_t  : forget gate preactivation [B, NH]
+      o_t  : output gate preactivation [B, NH]
+3. Soft cap (cap * tanh(x / cap)) optionally applied to i_t, f_t, o_t to
+   bound magnitude and stabilize exponentials.
+4. Exponential stabilization:
+      m_t = max(f_t + m_{t-1}, i_t)
+   ensures denominators remain well‑scaled and avoids overflow/underflow.
+5. Normalized gates:
+      i_gate = exp(i_t              - m_t)
+      f_gate = exp(f_t + m_{t-1}    - m_t)
+6. State updates (per head, elementwise in H):
+      c_t = f_gate * c_{t-1} + i_gate * z_t
+      n_t = f_gate * n_{t-1} + i_gate
+7. Normalized hidden content:
+      h_tilde = c_t / (n_t + eps)
+      h      = sigmoid(o_t) * h_tilde
+8. Group / per‑head normalization (multi‑head layer norm) applied to h,
+   flattened to [B, NH * H], then projected back to input_size.
+
+Shapes
+------
+Inputs:
+    inputs : [B, D]
+State (hx): (c, n, m)
+    c : [B, NH, H]  (content accumulator)
+    n : [B, NH, H]  (normalizer accumulator)
+    m : [B, NH]     (stabilizer log‑scale)
+Output:
+    output : [B, D]
+    new_hx : (c_new, n_new, m_new)
+
+Arguments
+---------
+input_size : int
+    Feature dimension D.
+num_heads : int
+    Number of scalar heads (NH).
+head_dim : int
+    Per‑head hidden size (H) so NH * H = hidden_size.
+conv1d_kernel_size : int, default 4
+    Enables causal temporal conv for i,f gate preactivations when > 0.
+use_bias : bool, default False
+    Bias term in linear projections.
+eps : float, default 1e-6
+    Numerical stability constant for normalization.
+gate_soft_cap : float, default 15.0
+    Soft cap value; if None disables tanh capping.
+
+Why Soft Capping?
+-----------------
+Large gate magnitudes can explode the stabilized exponentials. The soft
+cap keeps preactivations in a smooth but bounded range without hard clipping.
+
+Autograd / Numerical Notes
+--------------------------
+The stabilized form using m_t avoids computing exp of large positive
+numbers while preserving correct ratios. Dividing by n_t + eps normalizes
+cumulative weighted content, preventing scale drift.
+
+Parity with Torch Version
+-------------------------
+Logic mirrors the torch_native sLSTMCell so forward parity tests can
+assert closeness between MLX and PyTorch backends.
 """
 
 from __future__ import annotations
@@ -18,21 +96,32 @@ import mlx.nn as nn
 
 
 class sLSTMCell(nn.Module):
-    """
-    Scalar LSTM (sLSTM) cell for single-step recurrence.
+    """Single‑timestep scalar LSTM (sLSTM) recurrence cell (MLX backend).
 
-    This cell implements complete sLSTM processing for ONE timestep,
-    including all feedforward transformations and recurrence.
-    Follows NCPS pattern: ALL trainable parameters are in the cell.
+    Implements one autoregressive timestep with stabilized exponential gating
+    and per‑head normalization. Encapsulates projections, (optional) conv
+    preprocessing, normalization, and output projection.
 
-    Args:
-        input_size: Input dimension
-        num_heads: Number of sLSTM heads
-        head_dim: Hidden dimension per head
-        conv1d_kernel_size: Conv kernel size (0 = disabled, default 4)
-        use_bias: Whether to use bias in projections
-        eps: Numerical stability epsilon
-        gate_soft_cap: Soft cap value for gates (default 15.0)
+    Forward Signature
+    -----------------
+    __call__(inputs, hx=None, ts=None) -> (output, new_hx)
+
+    Parameters (see module docstring for detailed semantics)
+    -------------------------------------------------------
+    input_size : int
+    num_heads : int
+    head_dim : int
+    conv1d_kernel_size : int, default 4
+    use_bias : bool, default False
+    eps : float, default 1e-6
+    gate_soft_cap : float, default 15.0
+
+    Returns
+    -------
+    output : mx.array [B, D]
+        Projected hidden representation for the timestep.
+    new_hx : (c_new, n_new, m_new)
+        Updated recurrent states.
     """
 
     def __init__(
@@ -88,8 +177,8 @@ class sLSTMCell(nn.Module):
         """Output size (same as input_size after out_proj)."""
         return self.input_size
 
-    def soft_cap_gates(self, x: mx.array) -> mx.array:
-        """Apply soft capping to gate pre-activations."""
+    def soft_cap_gates(self, x: mx.array) -> mx.array:  # noqa: D401 - detailed in module docstring
+        """Apply soft capping (cap * tanh(x / cap)) to gate preactivations if enabled."""
         if self.gate_soft_cap is None:
             return x
         cap = mx.array(self.gate_soft_cap, dtype=x.dtype)
@@ -100,23 +189,24 @@ class sLSTMCell(nn.Module):
             inputs: mx.array,
             hx: Optional[Tuple[mx.array, mx.array, mx.array]] = None,
             ts: Optional[float | mx.array] = None,
-    ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:
-        """
-        Single-step sLSTM processing.
+    ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:  # noqa: D401 - expanded below
+        """Run one sLSTM timestep.
 
-        Follows NCPS pattern: __call__(inputs, hx, ts) -> (output, new_hx)
+        Parameters
+        ----------
+        inputs : mx.array [B, D]
+            Current timestep features.
+        hx : tuple | None
+            Previous state (c, n, m) or None for zero initialization.
+        ts : float | mx.array | None
+            Optional timestep placeholder (kept for NCPS API symmetry; unused).
 
-        Args:
-            inputs: Input [B, D] for single timestep
-            hx: State tuple (c, n, m) or None for zero init
-                - c: cell state [B, NH, H]
-                - n: normalizer [B, NH, H]
-                - m: stabilizer [B, NH]
-            ts: Timestep (unused, for API compatibility with NCPS)
-
-        Returns:
-            output: Hidden state [B, D]
-            new_hx: Tuple (c_new, n_new, m_new)
+        Returns
+        -------
+        output : mx.array [B, D]
+            Hidden representation after gating, normalization, and projection.
+        new_hx : (c_new, n_new, m_new)
+            Updated recurrent states for next step.
         """
         B = inputs.shape[0]
         NH = self.num_heads

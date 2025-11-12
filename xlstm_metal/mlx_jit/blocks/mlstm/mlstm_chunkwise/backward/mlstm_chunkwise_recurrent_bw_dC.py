@@ -40,8 +40,8 @@ RECURRENT_BW_DC_SRC = r"""
     uint USE_LAST_STATE = params[10];
 
     // Extract floats (reinterpreted from uint32)
-    float qk_scale = as_type<float>(params[11]);
-    float EPS = as_type<float>(params[12]);
+    float qk_scale = scalar_params[0];
+    float EPS = scalar_params[1];
 
     // Extract strides from strides buffer
     uint str_matQ_B_NH = strides[0];
@@ -317,21 +317,15 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
         :param eps:
         :return:
     """
-    import struct
-
     B, NH, S, DHQK = matQ.shape
     DHHV = matDeltaH.shape[3]
 
     # Prepare parameter buffer
     USE_LAST_STATE = 1 if matDeltaC_last is not None else 0
 
-    # Pack floats as reinterpreted uint32
-    qk_scale_bits = struct.unpack('I', struct.pack('f', qk_scale))[0]
-    eps_bits = struct.unpack('I', struct.pack('f', eps))[0]
-
     params = mx.array([B, NH, S, DHQK, DHHV, NC, L, siz_b_DHQK, siz_b_DHHV,
-                       save_states_every_nth_chunk, USE_LAST_STATE,
-                       qk_scale_bits, eps_bits], dtype=mx.uint32)
+                       save_states_every_nth_chunk, USE_LAST_STATE], dtype=mx.uint32)
+    scalar_params = mx.array([qk_scale, eps], dtype=mx.float32)
 
     # Prepare strides buffer
     strides = mx.array([
@@ -354,7 +348,7 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
         (NC + 1) * DHQK * DHHV,  # str_matDeltaC_states_B_NH
         DHHV,  # str_matDeltaC_states_NCDHQK
         1,  # str_matDeltaC_states_DHHV
-    ], dtype=mx.uint32)
+    ])
 
     # Allocate output
     matDeltaC_states = mx.zeros((B, NH, (NC + 1) * DHQK, DHHV), dtype=matQ.dtype)
@@ -366,7 +360,7 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
     # Build kernel
     kernel = mx.fast.metal_kernel(name="mlstm_recurrent_bw_dC",
                                   input_names=["matQ", "vecF", "scaM_inter", "vecM_combine", "matDeltaH",
-                                               "vecN_out", "matDeltaC_last", "params", "strides"],
+                                               "vecN_out", "matDeltaC_last", "scalar_params", "params", "strides"],
                                   output_names=["matDeltaC_states"], header=HEADER, source=RECURRENT_BW_DC_SRC)
 
     # Launch: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
@@ -377,7 +371,7 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
 
     outputs = kernel(
         inputs=[matQ, vecF, scaM_inter, vecM_combine, matDeltaH,
-                vecN_out, matDeltaC_last, params, strides],
+                vecN_out, matDeltaC_last, scalar_params, params, strides],
         output_shapes=[matDeltaC_states.shape],
         output_dtypes=[matQ.dtype],
         grid=grid,

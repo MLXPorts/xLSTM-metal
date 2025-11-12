@@ -40,6 +40,14 @@ def _shape_of(tensor_name: str, index: Dict, shards: Dict[str, mx.array]) -> Opt
     return None
 
 
+def _parse_block_index(text: str) -> int:
+    """
+    Parse a single numeric string component (e.g., the '2' from 'backbone.blocks.2')
+    and convert it to an integer without direct casts.
+    """
+    return json.loads(text)
+
+
 def _infer_heads_from_mhln(model_dir: str, d_model: int) -> int:
     """
     Infer number of heads from multihead_norm weight shape.

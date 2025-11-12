@@ -8,8 +8,6 @@ Ported from Triton to Metal C++ using mx.fast.metal_kernel().
 This kernel computes ∂Loss/∂K using intra-chunk and inter-chunk contributions.
 """
 
-import struct
-
 import mlx.core as mx
 
 HEADER = """#include <metal_stdlib>
@@ -41,9 +39,9 @@ PARALLEL_BW_DK_SRC = r"""
     uint siz_b_DHQK = params[9];
     uint siz_b_DHHV = params[10];
 
-    // Extract floats
-    float qk_scale = as_type<float>(params[11]);
-    float EPS = as_type<float>(params[12]);
+    // Extract scalars
+    float qk_scale = scalar_params[0];
+    float EPS = scalar_params[1];
 
     // Extract strides
     uint str_matQK_B_NH = strides[0];
@@ -341,13 +339,9 @@ def mlstm_chunkwise_parallel_bw_dK_metal(
     B, NH, S, DHQK = matQ.shape
     DHHV = matV.shape[3]
 
-    # Pack floats
-    qk_scale_bits = struct.unpack('I', struct.pack('f', qk_scale))[0]
-    eps_bits = struct.unpack('I', struct.pack('f', eps))[0]
-
     params = mx.array([B, NH, S, DHQK, DHHV, NC, L, siz_b_LQ, siz_b_LKV,
-                       siz_b_DHQK, siz_b_DHHV, qk_scale_bits, eps_bits],
-                      dtype=mx.uint32)
+                       siz_b_DHQK, siz_b_DHHV], dtype=mx.uint32)
+    scalar_params = mx.array([qk_scale, eps], dtype=mx.float32)
 
     strides = mx.array([
         NH * S * DHQK,  # str_matQK_B_NH
@@ -373,7 +367,8 @@ def mlstm_chunkwise_parallel_bw_dK_metal(
                                   input_names=["matQ", "matK", "matV", "vecI", "vecB", "vecA",
                                                "matCstate_all", "vecNstate_all", "scaMstate_all",
                                                "vecN_out", "vecM_out", "matDeltaH_out", "matDeltaC_states",
-                                               "params", "strides"], output_names=["matDeltaK"], header=HEADER,
+                                               "scalar_params", "params", "strides"],
+                                  output_names=["matDeltaK"], header=HEADER,
                                   source=PARALLEL_BW_DK_SRC)
 
     # Launch: grid over (DHQK/siz_b_DHQK, L/siz_b_LKV, NC * B*NH)
@@ -386,7 +381,7 @@ def mlstm_chunkwise_parallel_bw_dK_metal(
         inputs=[matQ, matK, matV, vecI, vecB, vecA,
                 matCstate_all, vecNstate_all, scaMstate_all,
                 vecN_out, vecM_out, matDeltaH_out, matDeltaC_states,
-                params, strides],
+                scalar_params, params, strides],
         output_shapes=[matDeltaK.shape],
         output_dtypes=[matQ.dtype],
         grid=grid,

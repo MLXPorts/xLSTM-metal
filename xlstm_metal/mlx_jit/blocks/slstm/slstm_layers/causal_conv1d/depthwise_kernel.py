@@ -60,9 +60,9 @@ def _compile_kernel():
 
 
 def metal_causal_conv1d_depthwise(
-    x: mx.array,
-    weight: mx.array,
-    bias: Optional[mx.array] = None,
+        x: mx.array,
+        weight: mx.array,
+        bias: Optional[mx.array] = None,
 ) -> mx.array:
     """Depthwise causal conv (groups=channels)."""
     B, S, C = x.shape
@@ -82,13 +82,13 @@ def metal_causal_conv1d_depthwise(
     y, = kernel(
         inputs=[
             params,
-            x.astype(mx.float32),
-            weight.reshape(-1).astype(mx.float32),
-            bias.astype(mx.float32),
+            x,
+            weight.reshape(-1),
+            bias,
             has_bias,
         ],
         output_shapes=[(B * S * C,)],
-        output_dtypes=[mx.float32],
+        #output_dtypes=[mx.float32],
         grid=grid,
         threadgroup=threadgroup,
     )

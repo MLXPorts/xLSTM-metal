@@ -14,7 +14,7 @@ import mlx.core as mx
 # from xlstm_metal.blocks.mlstm import xLSTMBlock
 
 if TYPE_CHECKING:
-    from xlstm_metal.mlx_jit.wiring import WiredMADModel
+    from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
 
 
 def load_npz_weights_to_block(npz_weights: Dict[str, mx.array], block_idx: int, block):
@@ -150,16 +150,16 @@ def load_xLSTM_7b_weights(npz_path: str, blocks: list):
     return embedding_weight, head_weight
 
 
-def load_weights_into_wired_model(npz_path: str, model: "WiredMADModel"):
+def load_weights_into_wired_model(npz_path: str, model: "WiredxLSTM"):
     """
-    Load xLSTM-7B weights from NPZ file into a WiredMADModel.
+    Load xLSTM-7B weights from NPZ file into a WiredxLSTM model.
 
     This function handles the MAD wiring structure where blocks are named
     'xlstm_0', 'xlstm_1', etc., and also loads embedding and lm_head weights.
 
     Args:
         npz_path: Path to xlstm_7b_mlx_converted.npz
-        model: WiredMADModel instance with xLSTM-7B wiring
+        model: WiredxLSTM instance with xLSTM-7B wiring
 
     The model is expected to have blocks named:
         - 'embedding': Token embedding
@@ -167,7 +167,7 @@ def load_weights_into_wired_model(npz_path: str, model: "WiredMADModel"):
         - 'final_norm': Final RMSNorm
         - 'lm_head': Language model head
     """
-    print(f"Loading weights into WiredMADModel from {npz_path}...")
+    print(f"Loading weights into WiredxLSTM from {npz_path}...")
     weights = mx.load(npz_path)
 
     print(f"Loaded {len(weights)} weight tensors")
@@ -218,4 +218,4 @@ def load_weights_into_wired_model(npz_path: str, model: "WiredMADModel"):
     else:
         print("Warning: 'lm_head' block not found in model")
 
-    print(f"\n✅ Successfully loaded all pretrained weights into WiredMADModel")
+    print(f"\n✅ Successfully loaded all pretrained weights into WiredxLSTM")

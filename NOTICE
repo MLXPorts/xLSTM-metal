@@ -1,16 +1,21 @@
 Third‑Party Notices
 
-This project includes or derives ideas and implementation approaches from the xLSTM project by NX‑AI. It is an independent port to PyTorch + Metal (MPS) and is not affiliated with NX‑AI.
+This project includes or derives ideas and implementation approaches from the xLSTM project by NX‑AI. It is an
+independent port to Metal (MLX + JIT, and PyTorch (MPS) and is not affiliated with NX‑AI.
 
 - Project: xLSTM — Extended Long Short‑Term Memory
 - Upstream: https://github.com/NX-AI/xlstm
-- License: Apache License 2.0 (see upstream repository)
+- License: Apache License 2.0 (see upstream repository) where compatible with upstream license.
 - Papers:
   - xLSTM: Extended Long Short‑Term Memory (arXiv:2405.04517)
   - xLSTM‑7B: A Recurrent LLM for Fast and Efficient Inference (arXiv:2503.13427)
 
-Attribution: Maximilian Beck, Korbinian Pöppel, Markus Spanring, Andreas Auer, Oleksandra Prudnikova, Michael Kopp, Günter Klambauer, Johannes Brandstetter, Sepp Hochreiter; and for xLSTM‑7B: Maximilian Beck, Korbinian Pöppel, Phillip Lippe, Richard Kurle, Patrick M. Blies, Günter Klambauer, Sebastian Böck, Sepp Hochreiter.
+Attribution: Maximilian Beck, Korbinian Pöppel, Markus Spanring, Andreas Auer, Oleksandra Prudnikova, Michael Kopp,
+Günter Klambauer, Johannes Brandstetter, Sepp Hochreiter; and for xLSTM‑7B: Maximilian Beck, Korbinian Pöppel,
+Phillip Lippe, Richard Kurle, Patrick M. Blies, Günter Klambauer, Sebastian Böck, Sepp Hochreiter.
 
-Port credit: Sydney Bach (The Solace Project) — PyTorch + Metal port, Ray integration, and tooling. GitHub: https://github.com/SolaceHarmony | Project: https://github.com/SolaceHarmony/xLSTM-Metal
+Port credit: Sydney Bach (The Solace Project) — PyTorch + Metal port, Ray integration, and tooling.
+GitHub: https://github.com/MLXPorts | Project: https://github.com/MLXPorts/xLSTM-Metal
 
-Where files in this repository are modified derivatives of upstream works, changes are noted in commit history. This NOTICE is provided for attribution and does not modify the licensing of this repository.
+Where files in this repository are modified derivatives of upstream works, changes are noted in commit history.
+This NOTICE is provided for attribution and does not modify the licensing of this repository.

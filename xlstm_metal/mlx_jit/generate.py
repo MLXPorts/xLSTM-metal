@@ -15,7 +15,7 @@ import mlx.core as mx
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from xlstm_metal.mlx_jit.utils import load_config
+from xlstm_metal.mlx_jit.utils import load_config, resolve_dtype
 from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
 from xlstm_metal.mlx_jit.wiring.auto_wiring import create_auto_wiring
 from xlstm_metal.mlx_jit.blocks.soft_cap import soft_cap
@@ -44,7 +44,8 @@ class xLSTMRunner:
         MLX:     runner = xLSTMRunner.from_pretrained("NX-AI/xLSTM-7b")
     """
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, show_wiring: bool = False,
+                 wiring_style: str = "unicode"):
         """
         Initialize xLSTM runner from model directory.
 
@@ -59,6 +60,11 @@ class xLSTMRunner:
         # Load configuration from model directory
         print(f"Loading configuration from {self.model_path / 'config.json'}...")
         self.config = load_config(str(self.model_path))
+        # Use torch_dtype for model weights (float32), not autocast_kernel_dtype (bfloat16)
+        # autocast_kernel_dtype is for specific kernel operations only
+        self.compute_dtype = resolve_dtype(self.config.get('torch_dtype', 'float32'))
+        self.state_dtype = resolve_dtype(self.config.get('inference_state_dtype'))
+        self.norm_reduce_force_float32 = self.config.get('norm_reduction_force_float32', True)
 
         # Extract key parameters for easy access
         self.embedding_dim = self.config['embedding_dim']
@@ -66,18 +72,30 @@ class xLSTMRunner:
         self.num_blocks = self.config['num_blocks']
         self.vocab_size = self.config['vocab_size']
         self.output_logit_soft_cap = self.config['output_logit_soft_cap']
+        self.pad_token_id = self.config.get('pad_token_id')
+        self.bos_token_id = self.config.get('bos_token_id')
+        self.eos_token_id = self.config.get('eos_token_id')
+        self.force_bos_token_insert = self.config.get('force_bos_token_insert', False)
+        self.default_stop_tokens = (
+            [self.eos_token_id] if self.eos_token_id is not None else None
+        )
 
         # Build NCPS wiring/model
         print(f"Creating NCPS auto-wiring ({self.num_blocks} blocks, {self.embedding_dim}d)...")
         self.wiring = create_auto_wiring(str(self.model_path), self.config)
-        self.wiring.print_diagram(include_sensory=False)
+        if show_wiring:
+            self.wiring.print_diagram(include_sensory=False, style=wiring_style)
 
         print("Creating WiredxLSTM model...")
         self.model = WiredxLSTM(
             wiring=self.wiring,
             load_weights=True,
             model_dir=self.model_path,
+            compute_dtype=self.compute_dtype,
+            state_dtype=self.state_dtype,
+            norm_reduce_force_float32=self.norm_reduce_force_float32,
         )
+        self.model.eval()
 
         print(f"✓ xLSTM NCPS model created with {self.num_blocks} blocks, {self.embedding_dim}d")
 
@@ -89,7 +107,9 @@ class xLSTMRunner:
             cls,
             model_id: str,
             cache_dir: Optional[str] = None,
-            force_download: bool = False
+            force_download: bool = False,
+            show_wiring: bool = False,
+            wiring_style: str = "unicode"
     ):
         """
         Load xLSTM model from HuggingFace Hub or local directory.
@@ -123,7 +143,7 @@ class xLSTMRunner:
         # Check if it's a local path
         if model_path.exists():
             print(f"Loading from local directory: {model_id}")
-            return cls(model_id)
+            return cls(model_id, show_wiring=show_wiring, wiring_style=wiring_style)
 
         # Try to download from HuggingFace Hub
         try:
@@ -137,7 +157,7 @@ class xLSTMRunner:
                 allow_patterns=["*.json", "*.safetensors", "*.model", "*.txt"]
             )
             print(f"✓ Model downloaded to: {downloaded_path}")
-            return cls(downloaded_path)
+            return cls(downloaded_path, show_wiring=show_wiring, wiring_style=wiring_style)
 
         except ImportError:
             raise ImportError(
@@ -185,10 +205,10 @@ class xLSTMRunner:
     def generate_next_token(
             self,
             input_ids: mx.array,
-            temperature: float = 1.0,
-            top_k: Optional[int] = None,
-            top_p: Optional[float] = None
-    ) -> int:
+            temperature: mx.array = mx.array(1.0 ,dtype= mx.float32),
+            top_k: Optional[mx.array] = None,
+            top_p: Optional[mx.array] = None
+    ) -> mx.array:
         """
         Generate next token given input token IDs.
 
@@ -199,7 +219,7 @@ class xLSTMRunner:
             top_p: Nucleus sampling threshold (None for no filtering)
 
         Returns:
-            Next token ID (int)
+            Next token ID as an MLX scalar array
         """
         # Forward pass
         logits, self.state = self.forward(input_ids, self.state)
@@ -209,48 +229,49 @@ class xLSTMRunner:
 
         # Apply temperature
         if temperature != 1.0:
-            next_token_logits /= temperature
+            next_token_logits /= mx.array(temperature, dtype=next_token_logits.dtype)
+
+        neg_inf = mx.full(next_token_logits.shape, -mx.inf, dtype=next_token_logits.dtype)
 
         # Apply top-k filtering
-        if top_k is not None:
-            # Get top-k values using argsort (which returns indices we can use)
-            top_k_indices = mx.argsort(next_token_logits)[::-1][:top_k]
-            # Get threshold value (smallest value in top-k)
-            threshold = next_token_logits[top_k_indices[-1]]
-            # Keep only top-k or better
-            next_token_logits = mx.where(
-                next_token_logits >= threshold,
-                next_token_logits,
-                mx.array(-float('inf'))
-            )
+        if top_k is not None and top_k > 0:
+            k = min(top_k, next_token_logits.shape[-1])
+            topk_values = mx.topk(next_token_logits, k=k)
+            kth_value = mx.min(topk_values)
+            mask = next_token_logits >= kth_value
+            next_token_logits = mx.where(mask, next_token_logits, neg_inf)
 
         # Apply top-p (nucleus) filtering
         if top_p is not None:
-            # Sort logits in descending order
-            sorted_logits = mx.sort(next_token_logits)[::-1]
-            # Compute probabilities and cumulative sum
+            sorted_indices = mx.argsort(next_token_logits)[::-1]
+            sorted_logits = mx.take(next_token_logits, sorted_indices)
             sorted_probs = mx.softmax(sorted_logits, axis=-1)
             cumulative_probs = mx.cumsum(sorted_probs, axis=-1)
 
-            # Find how many tokens to keep (at least 1)
-            keep_mask = cumulative_probs <= top_p
-            num_keep = max(1, int(mx.sum(keep_mask).item()))
+            top_p_tensor = mx.array(top_p, dtype=sorted_probs.dtype)
+            keep_mask_sorted = cumulative_probs <= top_p_tensor
 
-            # Get threshold (logit value at cutoff)
-            threshold = sorted_logits[num_keep - 1]
-
-            # Keep only tokens above threshold
-            next_token_logits = mx.where(
-                next_token_logits >= threshold,
-                next_token_logits,
-                mx.array(-float('inf'))
+            positions = mx.arange(keep_mask_sorted.shape[0])
+            first_position = positions == 0
+            keep_mask_sorted = mx.where(
+                first_position,
+                mx.ones_like(keep_mask_sorted),
+                keep_mask_sorted
             )
+
+            keep_count = mx.sum(keep_mask_sorted)
+            keep_count = mx.maximum(keep_count, mx.ones_like(keep_count))
+            last_index = keep_count - mx.ones_like(keep_count)
+
+            threshold = mx.take(sorted_logits, last_index)
+            mask = next_token_logits >= threshold
+            next_token_logits = mx.where(mask, next_token_logits, neg_inf)
 
         # Sample from distribution
         probs = mx.softmax(next_token_logits, axis=-1)
         next_token = mx.random.categorical(mx.log(probs))
 
-        return int(next_token)
+        return next_token
 
     def generate(
             self,
@@ -279,8 +300,15 @@ class xLSTMRunner:
         self.reset_state()
 
         # Convert prompt to array [1, S]
-        generated = list(prompt_ids)
-        current_ids = mx.array([prompt_ids])
+        prompt_tokens = self._prepare_prompt(prompt_ids)
+        prompt_array = mx.array(prompt_tokens, mx.int64)
+        generated = prompt_array
+        current_ids = mx.expand_dims(prompt_array, axis=0)
+        effective_stop_tokens = stop_tokens if stop_tokens is not None else self.default_stop_tokens
+        stop_tokens_arr = (
+            mx.array(effective_stop_tokens, dtype=mx.int64)
+            if effective_stop_tokens is not None else None
+        )
 
         # Generate tokens
         for _ in range(max_tokens):
@@ -291,16 +319,17 @@ class xLSTMRunner:
                 top_p=top_p
             )
 
-            generated.append(next_token)
+            next_token_vector = mx.reshape(next_token, (1,))
+            generated = mx.concatenate([generated, next_token_vector])
 
             # Check for stop tokens
-            if stop_tokens and next_token in stop_tokens:
+            if stop_tokens_arr is not None and mx.any(next_token == stop_tokens_arr).tolist():
                 break
 
             # Update input for next iteration (only use last token for stateful generation)
-            current_ids = mx.array([[next_token]])
+            current_ids = mx.reshape(next_token, (1, 1))
 
-        return generated
+        return generated.tolist()
 
     def get_model_info(self) -> dict:
         """
@@ -328,4 +357,36 @@ class xLSTMRunner:
             'has_embedding': self.wiring.structure['has_embedding'],
             'has_out_norm': self.wiring.structure['has_out_norm'],
             'has_lm_head': self.wiring.structure['has_lm_head'],
+            'pad_token_id': self.pad_token_id,
+            'bos_token_id': self.bos_token_id,
+            'eos_token_id': self.eos_token_id,
+            'force_bos_token_insert': self.force_bos_token_insert,
         }
+
+    def _prepare_prompt(self, prompt_ids) -> List[int]:
+        """Normalize prompt IDs and enforce BOS/stop-token defaults."""
+        if prompt_ids is None:
+            tokens: List[int] = []
+        elif hasattr(prompt_ids, "tolist"):
+            tokens = prompt_ids.tolist()
+        else:
+            tokens = list(prompt_ids)
+
+        tokens = [int(t) for t in tokens]
+
+        if not tokens and self.bos_token_id is not None:
+            tokens = [int(self.bos_token_id)]
+        elif (
+            tokens
+            and self.force_bos_token_insert
+            and self.bos_token_id is not None
+            and tokens[0] != int(self.bos_token_id)
+        ):
+            tokens = [int(self.bos_token_id)] + tokens
+
+        if not tokens:
+            raise ValueError(
+                "Prompt is empty and no BOS token was available in config.json."
+            )
+
+        return tokens

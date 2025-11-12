@@ -374,8 +374,7 @@ xlstm_metal/
 ├── models/
 │   └── xlstm_7b_mlx.py         # Top-level model class
 ├── inference/
-│   ├── text_generator.py       # Generation utilities
-│   └── xlstm_7b_runner.py      # Inference runner
+│   └── text_generator.py       # Generation utilities
 └── utils/
     ├── weight_loader.py        # Checkpoint loading
     └── safetensors_loader.py   # Safetensors format
