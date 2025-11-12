@@ -59,6 +59,7 @@ class sLSTMProjectionCell(nn.Module):
         self.conv1d_kernel_size = conv1d_kernel_size
         self.conv_channel_mixing = conv_channel_mixing
         self.gate_soft_cap = gate_soft_cap
+        self.use_bias = use_bias
 
         hidden_size = num_heads * head_dim
 

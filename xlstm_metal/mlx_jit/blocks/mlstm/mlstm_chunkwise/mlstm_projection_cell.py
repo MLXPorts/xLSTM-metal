@@ -120,6 +120,7 @@ class mLSTMProjectionCell(nn.Module):
         self.num_heads = num_heads
         self.qk_dim_per_head = qk_dim_per_head
         self.v_dim_per_head = v_dim_per_head
+        self.use_bias = use_bias
         self.gate_soft_cap = gate_soft_cap
         self.soft_cap = soft_cap_cell or SoftCapCell()
 

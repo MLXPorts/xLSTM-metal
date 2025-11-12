@@ -60,6 +60,10 @@ class sLSTMBlock(nn.Module):
         self.block_index = block_index
         self.embedding_dim = embedding_dim
         self.num_heads = num_heads
+        self.ffn_proj_factor = ffn_proj_factor
+        self.ffn_round_up_to_multiple_of = ffn_round_up_to_multiple_of
+        self.norm_eps = norm_eps
+        self.use_bias = use_bias
 
         # Compute head_dim
         if head_dim is None:
@@ -206,7 +210,11 @@ class sLSTMBlock(nn.Module):
             "head_dim": self.head_dim,
             "hidden_size": self.hidden_size,
             "ffn_hidden_dim": self.ffn_hidden_dim,
+            "ffn_proj_factor": self.ffn_proj_factor,
+            "ffn_round_up_to_multiple_of": self.ffn_round_up_to_multiple_of,
             "gate_soft_cap": self.gate_soft_cap,
+            "norm_eps": self.norm_eps,
+            "use_bias": self.use_bias,
             "eps": self.eps,
         }
 

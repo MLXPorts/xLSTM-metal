@@ -140,6 +140,8 @@ class GatedFFNCell(nn.Module):
         self.hidden_size = hidden_size
         self.use_bias = use_bias
 
+        self.activation = activation
+
         # Separate gate and value projections
         self.proj_up_gate = nn.Linear(input_size, hidden_size, bias=use_bias)
         self.proj_up = nn.Linear(input_size, hidden_size, bias=use_bias)
@@ -218,8 +220,10 @@ class GatedFFNCell(nn.Module):
         return {
             "input_size": self.input_size,
             "hidden_size": self.hidden_size,
+            "activation": self.activation,
             "use_bias": self.use_bias,
             "dropout": self.dropout.p if self.dropout else None,
+            "sparsity_mask": self._sparsity_mask,
         }
 
 

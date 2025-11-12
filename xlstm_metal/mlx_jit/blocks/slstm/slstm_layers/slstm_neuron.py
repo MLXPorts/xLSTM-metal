@@ -57,6 +57,7 @@ class sLSTMNeuron(nn.Module):
         self.conv1d_kernel_size = conv1d_kernel_size
         self.eps = eps
         self.gate_soft_cap = gate_soft_cap
+        self.use_bias = use_bias
 
         # === Before Cell: Projections ===
         self.projection_cell = sLSTMProjectionCell(
@@ -159,6 +160,7 @@ class sLSTMNeuron(nn.Module):
             "conv1d_kernel_size": self.conv1d_kernel_size,
             "eps": self.eps,
             "gate_soft_cap": self.gate_soft_cap,
+            "use_bias": self.use_bias,
         }
 
 

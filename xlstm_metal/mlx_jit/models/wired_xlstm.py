@@ -510,6 +510,11 @@ class WiredxLSTM(nn.Module):
             'eos_token_id': self.eos_token_id,
             'tie_word_embeddings': self.tie_word_embeddings,
             'add_embedding_dropout': self.add_embedding_dropout,
+            'force_bos_token_insert': self.force_bos_token_insert,
+            'embedding_dropout_prob': self.embedding_dropout_prob,
+            'compute_dtype': self.compute_dtype,
+            'state_dtype': self.state_dtype,
+            'norm_reduce_force_float32': self.norm_reduce_force_float32,
         }
 
     def _apply_weight_tying(self) -> None:

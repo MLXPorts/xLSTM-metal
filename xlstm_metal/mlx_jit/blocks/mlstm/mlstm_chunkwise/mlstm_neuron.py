@@ -124,6 +124,8 @@ class mLSTMNeuron(nn.Module):
         self.compute_dtype = compute_dtype
         self.state_dtype = state_dtype
         self.force_float32_reductions = force_float32_reductions
+        self.use_bias = use_bias
+        self.gate_soft_cap = gate_soft_cap
 
         # Validate kernel mode
         valid_modes = {"parallel", "recurrent"}
@@ -275,9 +277,9 @@ class mLSTMNeuron(nn.Module):
             "v_dim_per_head": self.v_dim_per_head,
             "chunk_size": self.chunk_size,
             "kernel_mode": self.kernel_mode,
-            "use_bias": self.projection_cell.use_bias,
+            "use_bias": self.use_bias,
             "eps": self.eps,
-            "gate_soft_cap": self.projection_cell.gate_soft_cap,
+            "gate_soft_cap": self.gate_soft_cap,
             "compute_dtype": self.compute_dtype,
             "state_dtype": self.state_dtype,
             "force_float32_reductions": self.force_float32_reductions,

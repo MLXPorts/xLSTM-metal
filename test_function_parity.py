@@ -26,6 +26,10 @@ from tests.parity.canonical_reference import (
 )
 
 import importlib.util
+from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
+from xlstm_metal.mlx_jit.tokenizer import TokenizerBlock, TokenizerConfig
+from xlstm_metal.mlx_jit.utils.config_loader import load_safetensor_shards
+from xlstm_metal.mlx_jit.wiring import create_auto_wiring
 
 chunkwise_path = Path(__file__).parent / "quarantine" / "mlx_native" / "blocks" / "mlstm" / "chunkwise_mlx.py"
 spec = importlib.util.spec_from_file_location("chunkwise_mlx_ref", chunkwise_path)
@@ -33,6 +37,20 @@ chunkwise_module = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(chunkwise_module)
 mlstm_chunkwise_mlx = chunkwise_module.mlstm_chunkwise_mlx
+
+MODEL_DIR = Path("xlstm_7b_model")
+
+
+def build_model(weights: dict[str, mx.array]) -> WiredxLSTM:
+    model = WiredxLSTM(
+        wiring=create_auto_wiring(str(MODEL_DIR)),
+        load_weights=False,
+        model_dir=MODEL_DIR,
+        compute_dtype=mx.float32,
+        state_dtype=mx.float32,
+    )
+    model._load_weights_from_dict(weights)
+    return model
 
 
 def run_chunkwise_reference(
@@ -57,10 +75,6 @@ def run_chunkwise_reference(
         return_last_states=True,
     )
     return h_ref, state_ref
-from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
-from xlstm_metal.mlx_jit.tokenizer import TokenizerBlock, TokenizerConfig
-from xlstm_metal.mlx_jit.utils.config_loader import load_safetensor_shards
-from diagnostic_weights import MODEL_DIR, build_model  # reuse helpers
 
 PROMPTS = [
     "Hello",
