@@ -1,14 +1,77 @@
-"""mLSTM Output Cell - handles output processing.
+"""mLSTM Output Cell – MLX Implementation (After Phase)
 
-This is the "after" cell in the mLSTM pipeline:
-    Input → Projection Cell → Kernel Cell → Output Cell
+Overview
+--------
+The output cell is the **"after"** component in the modular mLSTM pipeline.
+It receives hidden states h from the kernel cell and the original input x,
+then produces the final block output via:
+  1. Per-head RMS normalization of h (flattened across heads)
+  2. Output gating conditioned on the original input x
+  3. Final linear projection back to input_size
 
-The output cell transforms kernel outputs back to input space:
-- Per-head normalization
-- Output gate modulation
-- Final linear projection
+It contains **no recurrence**—purely feedforward post-processing.
 
-It contains NO recurrence logic.
+Pipeline Position
+-----------------
+Input x [B, S, D]
+  → Projection Cell → (q, k, v, i_preact, f_preact)
+  → Kernel Cell     → hidden h [B, NH, S, DH_v]
+  → Output Cell     → output [B, S, D]
+
+Tensor Shapes
+-------------
+Inputs:
+  h      : [B, NH, S, DH_v]   hidden states from kernel cell
+  x_orig : [B, S, D]          original input (for output gate conditioning)
+
+Output:
+  output : [B, S, D]          final processed representation
+
+Per-Head RMS Normalization
+---------------------------
+RMS norm is applied per head over the head_dim axis, then results are
+flattened to [B, S, NH * DH_v]. This preserves per-head statistics while
+enabling a shared weight vector across all heads.
+
+Output Gate (o_gate)
+--------------------
+The output gate is computed from the **original input** x_orig (before
+projection or recurrence), not from the hidden states. This allows the
+model to conditionally attenuate or amplify memory-derived features based
+on the current input context:
+  o_gate = sigmoid(W_o @ x_orig)
+  h_gated = h_norm ⊙ o_gate
+This is analogous to the output gate in standard LSTM but conditioned on
+the embedding rather than recurrent state.
+
+Why Use x_orig?
+---------------
+Using the original input for the output gate provides a **skip connection**
+pattern where the model can selectively bypass the recurrent memory updates
+if the input context suggests they're not relevant. This improves gradient
+flow and allows more flexible gating.
+
+Final Projection
+----------------
+After gating, a linear layer projects [B, S, NH * DH_v] → [B, S, D], matching
+the input dimensionality for residual addition at the block level.
+
+Force Float32 Reductions
+------------------------
+The norm cell may internally cast to float32 during mean/variance computation
+(controlled by `force_float32_reductions`) to avoid precision loss in
+mixed-precision settings (e.g., bfloat16 inference).
+
+NCPS Terminology
+----------------
+In NCPS / liquid time-constant networks:
+  - Output gate is the "motor neuron gate" (final control signal)
+  - Normalization stabilizes "inter-layer dynamics"
+This cell follows that modular, composable pattern.
+
+Parity
+------
+Logic mirrors torch-native `mLSTMOutputCell` for cross-backend testing.
 """
 
 from __future__ import annotations
@@ -20,22 +83,29 @@ from xlstm_metal.mlx_jit.blocks.rms_norm import MultiHeadRMSNormCell
 
 
 class mLSTMOutputCell(nn.Module):
-    """
-    mLSTM Output Cell - output transformation only.
+    """Output post-processing stage for mLSTM (no recurrence, just transformation).
 
-    Handles all output processing for mLSTM:
-    - Per-head RMS normalization
-    - Output gate computation and modulation
-    - Final projection back to input space
+    Parameters
+    ----------
+    input_size : int
+        Embedding / model dimension D.
+    num_heads : int
+        Number of attention heads (NH).
+    v_dim_per_head : int
+        Value dimension per head.
+    use_bias : bool, default False
+        Whether output gate and projection layers include bias.
+    eps : float, default 1e-6
+        Epsilon for RMS normalization stability.
+    force_float32_reductions : bool, default True
+        Force float32 in norm reductions for numerical stability.
+    param_dtype : mx.Dtype, default mx.float32
+        Dtype for norm parameters (weight).
 
-    No recurrence - just output transformations.
-
-    Args:
-        input_size: Input dimension (for x_orig and final output)
-        num_heads: Number of attention heads
-        v_dim_per_head: Value dimension per head
-        use_bias: Whether to use bias in output gate/projection
-        eps: Epsilon for RMS normalization
+    Returns (forward)
+    -----------------
+    output : mx.array [B, S, D]
+        Final output after normalization, gating, and projection.
     """
 
     def __init__(
@@ -74,16 +144,20 @@ class mLSTMOutputCell(nn.Module):
             self,
             h: mx.array,
             x_orig: mx.array
-    ) -> mx.array:
-        """
-        Process kernel output to final output.
+    ) -> mx.array:  # noqa: D401
+        """Transform kernel hidden states to final output.
 
-        Args:
-            h: Hidden states from kernel [B, NH, S, DH_v]
-            x_orig: Original input (for output gate) [B, S, input_size]
+        Parameters
+        ----------
+        h : mx.array [B, NH, S, DH_v]
+            Hidden states from the kernel cell (memory-integrated features).
+        x_orig : mx.array [B, S, D]
+            Original input embedding (used for output gate conditioning).
 
-        Returns:
-            output: Final output [B, S, input_size]
+        Returns
+        -------
+        output : mx.array [B, S, D]
+            Final output ready for residual addition at block level.
         """
         B, NH, S, DH_v = h.shape
 

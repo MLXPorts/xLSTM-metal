@@ -1,11 +1,70 @@
-"""mLSTM Parallel Kernel Cell - pure parallel/chunkwise recurrence.
+"""mLSTM Parallel Kernel Cell – MLX Implementation (Chunkwise Recurrence)
 
-This is the "during" cell in the mLSTM pipeline:
-    Input → Projection Cell → Kernel Cell → Output Cell
+Overview
+--------
+The parallel kernel cell is the **"during"** (recurrence) component of
+the mLSTM pipeline using a **chunkwise parallel** strategy. It processes
+sequences in fixed-size chunks, computing:
+  1. **Inter-chunk** recurrence (sequential across chunks)
+  2. **Intra-chunk** attention (parallel within each chunk)
 
-The parallel kernel cell implements chunkwise parallel recurrence
-using Metal-accelerated kernels. It contains ONLY recurrence logic,
-no projections or output processing.
+This approach balances parallelism (for throughput) with recurrent memory
+(for long-range dependencies).
+
+Two-Phase Algorithm
+-------------------
+Phase 1 (Sequential across chunks):
+  For each chunk k = 0..NC-1:
+    Compute inter-chunk states (C_k, n_k, m_k) from prior state + chunk content.
+  This produces NC + 1 boundary states (including initial state).
+
+Phase 2 (Parallel within chunks):
+  For all positions i in all chunks (fully parallel):
+    Compute hidden state h_i using:
+      - Intra-chunk attention (causal within chunk)
+      - Inter-chunk contribution from boundary state C_{k-1}
+  Uses Metal-optimized kernel for high throughput.
+
+Why Chunkwise?
+--------------
+- Full parallel attention over long sequences: O(S²) memory + compute
+- Full recurrent: O(S) memory but sequential (slow for long S)
+- Chunkwise: O(S · L) intra-chunk + O(S/L) inter-chunk (practical tradeoff)
+
+Chunk Size L
+------------
+Typical values: 64, 128. Larger L increases intra-chunk parallelism but
+requires more memory. Smaller L reduces per-chunk cost but increases
+sequential overhead from inter-chunk updates.
+
+State Structure
+---------------
+State tuple = (C, n, m):
+  C : [B, NH, DH_qk, DH_v]  matrix-memory (outer product accumulator)
+  n : [B, NH, DH_qk]        normalizer vector
+  m : [B, NH]               scalar stabilizer (log-space gating)
+
+Padding
+-------
+If sequence length S is not divisible by chunk_size L, the inputs are
+zero-padded to NC * L (NC = ceil(S / L)). Output is then unpadded back
+to length S.
+
+Metal Kernels
+-------------
+Both recurrent (inter-chunk) and parallel (intra-chunk) phases call
+Metal-optimized kernels for efficient execution on Apple Silicon.
+
+Numerical Stability
+-------------------
+- Input/forget gate preactivations are processed in log-space to avoid
+  exponential overflow.
+- Query scaling (1 / sqrt(DH_qk)) applied before attention-like operations.
+- Mixed precision: compute in `compute_dtype`, store state in `state_dtype`.
+
+Parity
+------
+Logic mirrors torch-native `mLSTMParallelKernelCell` for cross-backend testing.
 """
 
 from __future__ import annotations
@@ -21,21 +80,31 @@ from .forward import (
 
 
 class mLSTMParallelKernelCell(nn.Module):
-    """
-    mLSTM Parallel Kernel Cell - chunkwise parallel recurrence only.
+    """Chunkwise parallel recurrence kernel for mLSTM (no projections, pure memory).
 
-    Implements two-phase chunkwise parallel algorithm:
-    1. Recurrent phase: Compute inter-chunk states sequentially
-    2. Parallel phase: Compute intra-chunk outputs in parallel
+    Parameters
+    ----------
+    num_heads : int
+        Number of attention heads (NH).
+    qk_dim_per_head : int
+        Query/key dimension per head.
+    v_dim_per_head : int
+        Value dimension per head.
+    chunk_size : int, default 64
+        Chunk length L for parallel processing.
+    eps : float, default 1e-6
+        Numerical stability epsilon.
+    compute_dtype : mx.Dtype, default mx.float32
+        Dtype for forward pass activations.
+    state_dtype : mx.Dtype, default mx.float32
+        Dtype for recurrent state storage (C, n, m).
 
-    No projections, no output processing - pure recurrence.
-
-    Args:
-        num_heads: Number of attention heads
-        qk_dim_per_head: Query/key dimension per head
-        v_dim_per_head: Value dimension per head
-        chunk_size: Chunk size for parallel processing
-        eps: Numerical stability epsilon
+    Returns (forward)
+    -----------------
+    h : mx.array [B, NH, S, DH_v]
+        Hidden states for all timesteps.
+    new_state : (C, n, m)
+        Updated boundary state for next call.
     """
 
     def __init__(
@@ -68,24 +137,30 @@ class mLSTMParallelKernelCell(nn.Module):
             i_preact: mx.array,
             f_preact: mx.array,
             state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
-    ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:
-        """
-        Apply chunkwise parallel mLSTM recurrence.
+    ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:  # noqa: D401
+        """Execute two-phase chunkwise parallel mLSTM recurrence.
 
-        Args:
-            q: Query [B, NH, S, DH_qk]
-            k: Key [B, NH, S, DH_qk]
-            v: Value [B, NH, S, DH_v]
-            i_preact: Input gate pre-activation [B, NH, S]
-            f_preact: Forget gate pre-activation [B, NH, S]
-            state: Optional previous state (C, n, m)
-                   C: [B, NH, DH_qk, DH_v]
-                   n: [B, NH, DH_qk]
-                   m: [B, NH]
+        Parameters
+        ----------
+        q : mx.array [B, NH, S, DH_qk]
+            Query projections.
+        k : mx.array [B, NH, S, DH_qk]
+            Key projections.
+        v : mx.array [B, NH, S, DH_v]
+            Value projections.
+        i_preact : mx.array [B, NH, S]
+            Input gate preactivations.
+        f_preact : mx.array [B, NH, S]
+            Forget gate preactivations.
+        state : tuple | None
+            Previous recurrent state (C, n, m) or None for initialization.
 
-        Returns:
-            h: Hidden states [B, NH, S, DH_v]
-            new_state: Updated state (C, n, m)
+        Returns
+        -------
+        h : mx.array [B, NH, S, DH_v]
+            Hidden states computed via chunkwise algorithm.
+        new_state : (C, n, m)
+            Final recurrent state (boundary of last chunk).
         """
         q = mx.array(q, dtype=self.compute_dtype)
         k = mx.array(k, dtype=self.compute_dtype)

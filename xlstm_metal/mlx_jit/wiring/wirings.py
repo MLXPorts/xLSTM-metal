@@ -1,4 +1,88 @@
-"""Pure-MLX wiring utilities for constructing sparse neural circuits."""
+"""NCPS Wiring – MLX Implementation (Sparse Neural Circuit Blueprints)
+
+Overview
+--------
+Wiring defines the **connectivity blueprint** for sparse neural circuits in
+the NCPS (Neural Circuit Policies) framework. Instead of densely connecting
+all neurons, wiring specifies which neurons connect to which (analogous to
+biological synaptic connectivity patterns).
+
+NCPS Philosophy
+---------------
+Traditional neural networks use dense weight matrices where every input
+connects to every output. NCPS instead defines:
+  - **Neurons**: Computational units (e.g., LSTM cells, attention heads)
+  - **Synapses**: Directed connections between neurons with polarity
+  - **Wiring**: The adjacency matrix encoding which synapses exist
+
+This modularity enables:
+  1. Compositional architectures (mix different cell types)
+  2. Sparse connectivity (reduce parameters, improve interpretability)
+  3. Biologically-inspired circuit motifs (feed-forward, recurrent, lateral inhibition)
+
+Neuron Types
+------------
+- **Sensory**: Input neurons receiving external features
+- **Inter**: Internal/hidden neurons (computation, memory)
+- **Motor**: Output neurons producing predictions/actions
+
+Synapse Polarity
+---------------
+Each synapse has polarity ∈ {-1, +1}:
+  - **Excitatory (+1)**: Positive influence (strengthen activation)
+  - **Inhibitory (-1)**: Negative influence (suppress activation)
+
+In xLSTM context, polarity is typically +1 (standard feed-forward flow).
+Inhibitory synapses can model gating or competition between pathways.
+
+Adjacency Matrices
+------------------
+Two connectivity matrices:
+  1. **adjacency_matrix**: [units, units] inter-neuron connections
+  2. **sensory_adjacency_matrix**: [input_dim, units] sensory → inter connections
+
+Entry values:
+  - 0: No synapse
+  - +1: Excitatory synapse
+  - -1: Inhibitory synapse
+
+Sequential Wiring Pattern (xLSTM)
+---------------------------------
+For transformer/LSTM-style models, wiring is typically **sequential**:
+  block_0 → block_1 → block_2 → ... → block_N → output
+
+Each block is a "neuron" in NCPS terminology, and sequential connectivity
+ensures information flows through the entire stack.
+
+Usage in xLSTM
+--------------
+While xLSTM models use sequential stacking (not sparse wiring), the Wiring
+abstraction provides:
+  - Uniform interface for model assembly
+  - Introspection (query block types, connectivity)
+  - Extensibility (future sparse/mixture variants)
+
+Building Wiring
+---------------
+1. Create wiring: `wiring = Wiring(units=32)`
+2. Add synapses: `wiring.add_synapse(src=0, dest=1, polarity=1)`
+3. Set input: `wiring.build(input_dim=256)`
+4. Add sensory: `wiring.add_sensory_synapse(src=0, dest=5, polarity=1)`
+
+Serialization
+-------------
+Wiring can be saved/loaded via `get_config()` / `from_config()` for
+reproducibility and transfer across frameworks.
+
+Visualization
+-------------
+The `draw_graph()` method renders the wiring as a NetworkX graph for
+inspection and debugging.
+
+Parity
+------
+Logic mirrors torch-native Wiring for cross-backend compatibility.
+"""
 
 from typing import Dict, List, Optional
 
@@ -10,7 +94,41 @@ def _set_matrix_entry(matrix: mx.array, row: int, col: int, value: int) -> None:
 
 
 class Wiring:
-    """Connectivity blueprint describing synapses between neurons."""
+    """Connectivity blueprint for sparse neural circuits (NCPS framework).
+
+    Encodes which neurons connect to which via adjacency matrices. Supports
+    both inter-neuron (recurrent) and sensory (input) connections. Provides
+    serialization, visualization, and introspection methods.
+
+    Parameters
+    ----------
+    units : int
+        Number of neurons in the circuit (excluding sensory inputs).
+
+    Attributes
+    ----------
+    adjacency_matrix : mx.array [units, units]
+        Inter-neuron connectivity matrix (0 = no synapse, ±1 = synapse polarity).
+    sensory_adjacency_matrix : mx.array [input_dim, units] | None
+        Sensory → inter-neuron connectivity (set after build()).
+    input_dim : int | None
+        Number of sensory input features (set via build()).
+    output_dim : int | None
+        Number of motor output neurons (set via set_output_dim()).
+
+    Methods
+    -------
+    build(input_dim)
+        Initialize sensory connectivity matrix.
+    add_synapse(src, dest, polarity)
+        Add inter-neuron synapse.
+    add_sensory_synapse(src, dest, polarity)
+        Add sensory → inter-neuron synapse.
+    get_config() / from_config(config)
+        Serialize/deserialize wiring for persistence.
+    draw_graph(layout, colors, labels)
+        Visualize wiring as NetworkX graph (requires matplotlib).
+    """
 
     def __init__(self, units: int) -> None:
         self.units = units
@@ -44,9 +162,17 @@ class Wiring:
         return self.input_dim is not None
 
     def build(self, input_dim: int) -> None:
-        """
+        """Initialize wiring with input dimension (creates sensory adjacency).
 
-        :param input_dim:
+        Parameters
+        ----------
+        input_dim : int
+            Number of sensory input features.
+
+        Raises
+        ------
+        ValueError
+            If input_dim conflicts with previously set value.
         """
         if self.input_dim is not None and self.input_dim != input_dim:
             raise ValueError(
@@ -96,21 +222,38 @@ class Wiring:
 
     # ------------------------------------------------------------------
     def get_type_of_neuron(self, neuron_id: int) -> str:
-        """
+        """Classify neuron as 'motor' (output) or 'inter' (hidden).
 
-        :param neuron_id:
-        :return:
+        Parameters
+        ----------
+        neuron_id : int
+            Neuron index.
+
+        Returns
+        -------
+        neuron_type : {"motor", "inter"}
+            Neuron classification based on output_dim.
         """
         if self.output_dim is None:
             return "inter"
         return "motor" if neuron_id < self.output_dim else "inter"
 
     def add_synapse(self, src: int, dest: int, polarity: int = 1) -> None:
-        """
+        """Add inter-neuron synapse (recurrent connection).
 
-        :param src:
-        :param dest:
-        :param polarity:
+        Parameters
+        ----------
+        src : int
+            Source neuron index [0, units).
+        dest : int
+            Destination neuron index [0, units).
+        polarity : {-1, +1}, default 1
+            Synapse polarity (excitatory +1, inhibitory -1).
+
+        Raises
+        ------
+        ValueError
+            If indices out of bounds or invalid polarity.
         """
         if src < 0 or src >= self.units:
             raise ValueError(f"Invalid source neuron {src} for {self.units} units")
@@ -121,11 +264,21 @@ class Wiring:
         _set_matrix_entry(self.adjacency_matrix, src, dest, polarity)
 
     def add_sensory_synapse(self, src: int, dest: int, polarity: int = 1) -> None:
-        """
+        """Add sensory → inter-neuron synapse (input connection).
 
-        :param src:
-        :param dest:
-        :param polarity:
+        Parameters
+        ----------
+        src : int
+            Sensory input index [0, input_dim).
+        dest : int
+            Destination neuron index [0, units).
+        polarity : {-1, +1}, default 1
+            Synapse polarity.
+
+        Raises
+        ------
+        ValueError
+            If wiring not built or indices out of bounds.
         """
         if self.input_dim is None or self.sensory_adjacency_matrix is None:
             raise ValueError("Cannot add sensory synapse before build().")
@@ -223,20 +376,30 @@ class Wiring:
                     )
         return graph
 
-    def draw_graph(  # pragma: no cover
+    def draw_graph(
             self,
             layout: str = "shell",
             neuron_colors: Optional[Dict[str, str]] = None,
             synapse_colors: Optional[Dict[str, str]] = None,
             draw_labels: bool = False,
-    ):
-        """
+    ):  # pragma: no cover
+        """Render wiring as NetworkX graph (requires matplotlib).
 
-        :param layout:
-        :param neuron_colors:
-        :param synapse_colors:
-        :param draw_labels:
-        :return:
+        Parameters
+        ----------
+        layout : str, default "shell"
+            NetworkX layout algorithm: {"kamada", "circular", "spring", "spectral", ...}
+        neuron_colors : dict | None
+            Mapping {neuron_type: color} for node coloring.
+        synapse_colors : dict | None
+            Mapping {polarity: color} for edge coloring.
+        draw_labels : bool, default False
+            Whether to annotate nodes with neuron IDs.
+
+        Returns
+        -------
+        legend_patches : list
+            Matplotlib patch objects for legend creation.
         """
         import matplotlib.patches as mpatches
         import matplotlib.pyplot as plt
@@ -358,3 +521,6 @@ class Wiring:
         if self.sensory_adjacency_matrix is None:
             return mx.array(0)
         return mx.sum(mx.abs(self.sensory_adjacency_matrix))
+
+
+__all__ = ['Wiring']

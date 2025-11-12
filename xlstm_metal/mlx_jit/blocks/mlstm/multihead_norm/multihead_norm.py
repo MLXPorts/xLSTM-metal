@@ -1,15 +1,110 @@
+"""Multi-Head Normalization Layers – MLX Implementation
+
+Overview
+--------
+Multi-head normalization applies layer normalization or RMS normalization
+**independently per head** rather than across the entire flattened dimension.
+This is critical for multi-head architectures (like mLSTM) where different
+heads may operate at different activation scales.
+
+Why Per-Head Normalization?
+----------------------------
+In standard LayerNorm/RMSNorm over a flattened [NH * DH] dimension, the
+normalization statistics (mean, variance, RMS) are computed globally. This
+can be problematic when:
+  - One head dominates in magnitude (its stats swamp others)
+  - Different heads encode different types of information at different scales
+  - Gradient flow becomes imbalanced across heads
+
+Per-head normalization computes stats independently for each head's DH
+features, ensuring each head is normalized to a consistent scale before
+being combined.
+
+Tensor Flow
+-----------
+Input:  [B, S, NH, DH]  (multi-head format)
+  ↓ Normalize each [:, :, h, :] independently
+Normalized: [B, S, NH, DH]
+  ↓ Flatten to [B, S, NH * DH]
+Output: [B, S, NH * DH]  (ready for projection)
+
+Weight Shape
+------------
+**CRITICAL**: Weight is stored as a **flat vector [NH * DH]**, not [NH, DH].
+This matches the HuggingFace transformers xLSTM implementation and allows
+a single learnable parameter per feature dimension.
+
+After per-head normalization and flattening, the weight is applied:
+  output = normalized_flat * weight
+
+This design enables the model to learn per-feature rescaling while maintaining
+per-head normalization statistics.
+
+MultiHeadLayerNorm vs MultiHeadRMSNorm
+--------------------------------------
+- **LayerNorm**: Computes mean and variance per head, normalizes via
+  (x - mean) / sqrt(var + eps). More compute (two passes) but zero-centers.
+
+- **RMSNorm**: Computes only RMS = sqrt(mean(x²) + eps), normalizes via
+  x / RMS. Single pass, no mean centering. Often equivalent performance.
+
+Force Float32 Reductions
+------------------------
+When `force_float32_reductions=True`, mean/variance/RMS computations are
+performed in float32 even if inputs are bfloat16. This prevents accumulation
+errors in long reductions (large DH) and is **strongly recommended** for
+stable mixed-precision training.
+
+Usage in mLSTM
+--------------
+The mLSTM output cell uses MultiHeadRMSNorm to normalize hidden states h
+before applying the output gate and projection:
+
+  h: [B, NH, S, DH_v] → transpose → [B, S, NH, DH_v]
+  h_norm = MultiHeadRMSNorm(h)  → [B, S, NH * DH_v]
+  output = LinearProjection(h_norm * output_gate)
+
+This ensures each head's contribution is properly scaled before the final
+projection back to embedding_dim.
+
+Parity
+------
+Logic mirrors torch-native MultiHeadLayerNorm/MultiHeadRMSNorm for testing.
+"""
+
 import mlx.core as mx
 import mlx.nn as nn
 
 
 class MultiHeadLayerNorm(nn.Module):
-    """
-    Multi-Head Layer Normalization
+    """Per-head LayerNorm with flattening (mean centering + variance scaling).
 
-    Normalizes independently per head, not across all dimensions.
-    Critical for xLSTM-7B mLSTM blocks.
+    Applies standard LayerNorm independently to each head's features, then
+    flattens and applies a shared weight vector. Commonly used when zero-
+    centering is beneficial for downstream layers.
 
-    Weight shape: [num_heads, head_dim] not [num_heads * head_dim]!
+    Parameters
+    ----------
+    num_heads : int
+        Number of attention heads (NH).
+    head_dim : int
+        Dimension per head (DH).
+    eps : float, default 1e-6
+        Numerical stability epsilon for variance.
+    use_weight : bool, default True
+        Whether to apply learnable weight scaling.
+    use_bias : bool, default False
+        Whether to apply learnable bias (after normalization).
+
+    Returns (forward)
+    -----------------
+    output : mx.array [B, S, NH * DH]
+        Normalized and flattened activations.
+
+    Notes
+    -----
+    Weight/bias are flat [NH * DH], applied **after** per-head normalization
+    and flattening (matches HuggingFace xLSTM design).
     """
 
     def __init__(
@@ -34,15 +129,18 @@ class MultiHeadLayerNorm(nn.Module):
         if use_bias:
             self.bias = mx.zeros((num_heads * head_dim))
 
-    def __call__(self, x: mx.array) -> mx.array:
-        """
-        Forward pass matching transformers xLSTMMultiHeadLayerNorm
+    def __call__(self, x: mx.array) -> mx.array:  # noqa: D401
+        """Normalize per head, flatten, and scale.
 
-        Args:
-            x: Input tensor [B, S, num_heads, head_dim]
+        Parameters
+        ----------
+        x : mx.array [B, S, NH, DH]
+            Multi-head input tensor.
 
-        Returns:
-            Normalized tensor [B, S, num_heads * head_dim]
+        Returns
+        -------
+        output : mx.array [B, S, NH * DH]
+            Normalized and flattened output.
         """
         B, S, NH, DH = x.shape
         if NH != self.num_heads:
@@ -81,21 +179,40 @@ class MultiHeadLayerNorm(nn.Module):
 
 
 class MultiHeadRMSNorm(nn.Module):
-    """
-    Multi-Head RMS Normalization
+    """Per-head RMSNorm with flattening (RMS scaling only, no mean centering).
 
-    RMS normalizes per head (over head_dim), then applies weight to flattened output.
-    Matches the canonical xLSTM implementation.
+    Applies RMS normalization independently to each head's features, then
+    flattens and applies a shared weight vector. Preferred for efficiency
+    when mean centering is not required.
 
-    Args:
-        num_heads: Number of heads
-        head_dim: Dimension per head
-        eps: Epsilon for numerical stability
-        use_weight: Whether to use learnable weight
-        force_float32_reductions: Whether to force float32 for reductions
+    Per-Head RMS Computation
+    ------------------------
+    For each head h:
+      RMS_h = sqrt(mean(x[:,:,h,:]²) + eps)
+      x_norm[:,:,h,:] = x[:,:,h,:] / RMS_h
 
-    Input: [B, S, NH, DH]
-    Output: [B, S, NH * DH]
+    Parameters
+    ----------
+    num_heads : int
+        Number of attention heads (NH).
+    head_dim : int
+        Dimension per head (DH).
+    eps : float, default 1e-6
+        Numerical stability epsilon for RMS.
+    use_weight : bool, default True
+        Whether to apply learnable weight scaling.
+    force_float32_reductions : bool, default True
+        Force float32 accumulation in RMS computation (recommended).
+
+    Returns (forward)
+    -----------------
+    output : mx.array [B, S, NH * DH]
+        RMS-normalized and flattened activations.
+
+    Notes
+    -----
+    Weight is flat [NH * DH], applied **after** per-head RMS normalization
+    and flattening. This is the standard pattern in xLSTM output cells.
     """
 
     def __init__(
@@ -117,15 +234,18 @@ class MultiHeadRMSNorm(nn.Module):
         if use_weight:
             self.weight = mx.ones((num_heads * head_dim,))
 
-    def __call__(self, x: mx.array) -> mx.array:
-        """
-        Forward pass with RMS normalization per head.
+    def __call__(self, x: mx.array) -> mx.array:  # noqa: D401
+        """RMS normalize per head, flatten, and scale.
 
-        Args:
-            x: Input tensor [B, S, NH, DH]
+        Parameters
+        ----------
+        x : mx.array [B, S, NH, DH]
+            Multi-head input tensor.
 
-        Returns:
-            Normalized tensor [B, S, NH * DH]
+        Returns
+        -------
+        output : mx.array [B, S, NH * DH]
+            RMS-normalized and flattened output.
         """
         B, S, NH, DH = x.shape
         if NH != self.num_heads:
@@ -155,3 +275,6 @@ class MultiHeadRMSNorm(nn.Module):
             x_norm = mx.multiply(self.weight, x_norm)
 
         return x_norm
+
+
+__all__ = ['MultiHeadLayerNorm', 'MultiHeadRMSNorm']

@@ -1,9 +1,68 @@
-"""xLSTM-7B Cell - NCPS-compatible wrapper for full xLSTM block.
+"""mLSTM Block (xLSTM-7B) – MLX Implementation
 
-This cell wraps a complete xLSTM block (mLSTM + FFN) with proper parameter
-handling for model loading from safetensors and config.json.
+Overview
+--------
+The mLSTM block is the *matrix memory* component of xLSTM. Each attention
+head maintains matrix-valued state C plus accompanying normalizers (n, m)
+allowing long-range sequence modeling with stabilized exponential updates.
 
-Follows NCPS patterns for clean composability and wiring.
+Composition
+-----------
+This high-level block wraps three conceptual cells:
+  1. Projection Cell (before): input -> Q,K,V + gate preactivations
+  2. Kernel Cell     (during): chunkwise or recurrent memory updates
+  3. Output Cell     (after) : per-head normalization + gating + projection
+
+The block then appends a SwiGLU feed-forward network (FFN) with its own
+pre-normalization (RMSNorm). Two residual connections are applied:
+  (a) input + mLSTM output
+  (b) intermediate + FFN output
+
+Sequence of Operations
+----------------------
+residual = x
+x_normed = norm_mlstm(x)
+mlstm_out, state = mlstm_cell(x_normed, state)
+x = residual + mlstm_out
+
+residual = x
+x_normed = norm_ffn(x)
+ffn_hidden = silu(proj_up_gate(x_normed)) * proj_up(x_normed)
+ffn_out    = proj_down(ffn_hidden)
+x = residual + ffn_out
+
+State Structure (returned by mlstm_cell)
+---------------------------------------
+state = (C, n, m)
+  C : [B, NH, DH_qk, DH_v]  memory matrices per head
+  n : [B, NH, DH_qk]        normalizer vector per head
+  m : [B, NH]               stabilized scalar log-sum per head
+
+Dimension Rounding
+------------------
+To match pretrained safetensors, QK and V per-head dims are rounded up to
+`mlstm_round_up_to_multiple_of`, and FFN hidden dim to `ffn_round_up_to_multiple_of`.
+
+SwiGLU FFN
+----------
+Applies gate = silu(W_gate x) and up = W_up x then elementwise gate * up
+followed by a down projection. This is standard for modern transformer blocks.
+
+Numeric Stability
+-----------------
+- Norm reductions may force float32 (`norm_reduction_force_float32`) to
+  reduce precision loss for mixed dtype kernels.
+- `eps` ensures denominator safety in normalization and gating steps.
+
+Metal Kernels
+-------------
+`kernel_mode` selects specialized MLX Metal kernels for parallel chunkwise
+execution (`metal_chunkwise`) or fallback recurrent paths.
+
+Parity & Torch Backend
+----------------------
+Logic mirrors the torch_native `mLSTMBlock` to enable forward parity tests
+across backends.
 """
 
 from __future__ import annotations
@@ -19,51 +78,61 @@ from xlstm_metal.mlx_jit.utils import resolve_dtype
 
 
 class mLSTMBlock(nn.Module):
-    """
-    Complete mLSTM (xlSTM-7B block) (mLSTM + FFN) for NCPS.
-    
-    This represents one full xLSTM block from the model:
-        input -> norm_mlstm -> mLSTM -> residual
-              -> norm_ffn -> FFN -> residual -> output
-    
-    Parameters are loaded from:
-    - config.json: Model hyperparameters
-    - safetensors: Pretrained weights (backbone.blocks.{i}.*)
-    
-    Args:
-        block_index: Block index for weight loading (0-31 for xLSTM-7B)
-        embedding_dim: Model dimension (default: 4096)
-        num_heads: Number of attention heads (default: 8)
-        qk_dim_factor: QK dimension factor (default: 0.5)
-        v_dim_factor: V dimension factor (default: 1.0)
-        gate_soft_cap: Gate soft cap value (default: 15.0)
-        ffn_proj_factor: FFN projection factor (default: 2.667)
-        ffn_round_up_to_multiple_of: FFN dimension rounding (default: 64)
-        mlstm_round_up_to_multiple_of: mLSTM dimension rounding (default: 64)
-        chunk_size: mLSTM chunk size (default: 64)
-        kernel_mode: Kernel mode (default: "metal_chunkwise")
-        norm_eps: Normalization epsilon (default: 1e-6)
-        norm_reduction_force_float32: Force float32 in norm reductions (default: True)
-        use_bias: Whether to use bias (default: False)
-        eps: Numerical stability epsilon (default: 1e-6)
-        sparsity_mask: Optional NCPS wiring sparsity mask
-        
-    Weight Keys (in safetensors):
-        - backbone.blocks.{i}.norm_mlstm.weight
-        - backbone.blocks.{i}.mlstm_layer.q.weight
-        - backbone.blocks.{i}.mlstm_layer.k.weight
-        - backbone.blocks.{i}.mlstm_layer.v.weight
-        - backbone.blocks.{i}.mlstm_layer.igate_preact.weight
-        - backbone.blocks.{i}.mlstm_layer.igate_preact.bias
-        - backbone.blocks.{i}.mlstm_layer.fgate_preact.weight
-        - backbone.blocks.{i}.mlstm_layer.fgate_preact.bias
-        - backbone.blocks.{i}.mlstm_layer.ogate_preact.weight
-        - backbone.blocks.{i}.mlstm_layer.multihead_norm.weight
-        - backbone.blocks.{i}.mlstm_layer.out_proj.weight
-        - backbone.blocks.{i}.norm_ffn.weight
-        - backbone.blocks.{i}.ffn.proj_up.weight
-        - backbone.blocks.{i}.ffn.proj_up_gate.weight
-        - backbone.blocks.{i}.ffn.proj_down.weight
+    """High-level mLSTM + FFN block (matrix memory + SwiGLU) with residuals.
+
+    Wraps projection, kernel, and output processing for mLSTM plus the
+    feed-forward network. Provides weight key mapping for safetensors
+    loading and configuration introspection.
+
+    Parameters
+    ----------
+    block_index : int
+        Index of the block inside the backbone (0-based).
+    embedding_dim : int, default 4096
+        Model embedding dimension.
+    num_heads : int, default 8
+        Number of attention heads.
+    qk_dim_factor : float, default 0.5
+        Proportion of embedding_dim allocated to Q/K per head (pre-rounding).
+    v_dim_factor : float, default 1.0
+        Proportion for V per head (commonly 1.0 in xLSTM).
+    gate_soft_cap : float, default 15.0
+        Soft cap applied to gate preactivations inside cells.
+    ffn_proj_factor : float, default 2.667
+        Expansion ratio for FFN hidden dimension before rounding.
+    ffn_round_up_to_multiple_of : int, default 64
+        Alignment multiple for FFN hidden dimension.
+    mlstm_round_up_to_multiple_of : int, default 64
+        Alignment multiple for QK / V per-head dims.
+    chunk_size : int, default 64
+        Chunk size for parallel kernel execution.
+    kernel_mode : str, default "metal_chunkwise"
+        Execution strategy/preset for kernels.
+    norm_eps : float, default 1e-6
+        Epsilon for RMSNorm stability.
+    norm_reduction_force_float32 : bool, default True
+        Force float32 accumulation in norm reductions.
+    use_bias : bool, default False
+        Whether linear layers use bias (weights are typically no-bias).
+    eps : float, default 1e-6
+        Numeric epsilon for internal gating/normalization.
+    sparsity_mask : Optional[mx.array]
+        Optional block-level sparsity wiring mask.
+    compute_dtype : mx.Dtype, default mx.float32
+        Dtype for forward activations.
+    state_dtype : mx.Dtype, default mx.float32
+        Dtype for recurrent state tensors (can differ for memory footprint).
+
+    Returns (forward)
+    -----------------
+    output : mx.array [B, S, embedding_dim]
+    new_state : (C, n, m) recurrent state tuple.
+
+    Notes
+    -----
+    - Residual connections use pre-norm design.
+    - Weight tying / LM head applied outside this block.
+    - Compatible with automatic wiring / NCPS model assembly.
     """
 
     def __init__(
@@ -169,28 +238,21 @@ class mLSTMBlock(nn.Module):
             x: mx.array,
             state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
     ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:
-        """
-        Forward pass through xLSTM-7B block.
-        
-        Architecture:
-            residual = x
-            x = norm_mlstm(x)
-            x = mlstm_cell(x, state)  # Returns (output, new_state)
-            x = x + residual  # Residual connection
-            
-            residual = x
-            x = norm_ffn(x)
-            x = ffn(x)
-            x = x + residual  # Residual connection
-        
-        Args:
-            x: Input [B, S, embedding_dim]
-            state: Optional mLSTM state (C, n, m)
-            
-        Returns:
-            (output, new_state):
-                output: [B, S, embedding_dim]
-                new_state: (C, n, m) from mLSTM
+        """Forward pass through composite mLSTM block.
+
+        Parameters
+        ----------
+        x : mx.array [B, S, embedding_dim]
+            Input activations for this block.
+        state : tuple | None
+            Previous mLSTM state (C, n, m) or None to initialize internally.
+
+        Returns
+        -------
+        output : mx.array [B, S, embedding_dim]
+            Activation after mLSTM + FFN + residual pathways.
+        new_state : (C, n, m)
+            Updated recurrent state from mLSTM kernel cell.
         """
         # === mLSTM Branch ===
         # Residual connection

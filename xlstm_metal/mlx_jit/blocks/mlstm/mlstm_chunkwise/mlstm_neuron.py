@@ -1,10 +1,50 @@
-"""mLSTM Neuron - wires together projection, kernel, and output cells.
+"""mLSTM Neuron – MLX Implementation (Projection + Kernel + Output)
 
-The neuron is the complete mLSTM layer that wires together:
-    Input → Projection Cell → Kernel Cell → Output Cell → Output
+Overview
+--------
+The mLSTM neuron is the *per-block* composite that wires the three phases
+of matrix-memory processing:
+  1. Projection Cell (before): input → Q, K, V + gate preactivations
+  2. Kernel Cell     (during): recurrence (parallel chunkwise or sequential) producing hidden states h
+  3. Output Cell     (after) : per-head normalization, output gating, final projection back to input size
 
-The neuron owns the dispatch logic (parallel vs recurrent mode)
-and composes the before/during/after cells.
+It owns the dispatch decision between chunkwise parallel kernels and
+sequential recurrent kernels (reduced memory path) via `kernel_mode`.
+
+Chunkwise vs Recurrent
+----------------------
+- parallel  : Uses optimized Metal kernels to process sequence in fixed-size chunks for higher throughput.
+- recurrent : Processes one timestep at a time; suitable for autoregressive generation and reduced memory usage.
+
+State Structure
+---------------
+State tuple = (C, n, m):
+  C : [B, NH, DH_qk, DH_v]  matrix-memory outer-product accumulator
+  n : [B, NH, DH_qk]        normalizer accumulator for C
+  m : [B, NH]               stabilized scalar gating accumulator
+
+Data Flow (forward)
+-------------------
+Input x [B, S, D]
+  → projection_cell → q,k,v (reshaped) + i_preact,f_preact gates
+  → kernel_cell     → hidden h [B, NH, S, DH_v], new_state (C,n,m)
+  → output_cell     → output [B, S, D]
+
+Numerical Stability
+-------------------
+The kernel cells internally apply stabilized exponentials (using log-space
+techniques similar to sLSTM) and per-head scaling to keep activations within
+well-conditioned ranges for long sequences.
+
+Dtype Handling
+--------------
+Projection outputs are coerced to `compute_dtype` while recurrence state is
+stored in `state_dtype`. This allows mixed precision inference while retaining
+higher precision in recurrent accumulators.
+
+Parity
+------
+Logic mirrors torch-native `mLSTMNeuron` for cross-backend parity testing.
 """
 
 from __future__ import annotations
@@ -20,26 +60,41 @@ from .mlstm_output_cell import mLSTMOutputCell
 
 
 class mLSTMNeuron(nn.Module):
-    """
-    mLSTM Neuron - complete mLSTM layer with dispatch logic.
+    """Composite mLSTM layer orchestrating projection, kernel, and output phases.
 
-    Wires together the mLSTM pipeline:
-    1. Projection Cell: x → q, k, v, gates
-    2. Kernel Cell: q, k, v, gates, state → h, new_state (dispatched)
-    3. Output Cell: h, x → output
+    Parameters
+    ----------
+    input_size : int
+        Embedding / model dimension D.
+    num_heads : int
+        Number of attention heads (NH).
+    qk_dim_per_head : int
+        Query/key dimension per head.
+    v_dim_per_head : int
+        Value dimension per head.
+    chunk_size : int, default 64
+        Sequence chunk length for parallel kernels.
+    kernel_mode : {"parallel", "recurrent"}, default "parallel"
+        Execution mode selecting chunkwise vectorized kernels or stepwise recurrence.
+    use_bias : bool, default False
+        Whether projection/output linear layers include bias.
+    eps : float, default 1e-6
+        Numerical stability constant for internal operations.
+    gate_soft_cap : float | None, optional
+        Soft-cap value for gate preactivations (None disables capping).
+    compute_dtype : mx.Dtype, default mx.float32
+        Dtype for activations and arithmetic inside kernels.
+    state_dtype : mx.Dtype, default mx.float32
+        Dtype for recurrent state tensors (C, n, m).
+    force_float32_reductions : bool, default True
+        Force float32 in reduction ops (norms, sums) for stability.
 
-    The neuron handles kernel dispatch (parallel vs recurrent)
-    and composes the modular cells.
-
-    Args:
-        input_size: Input dimension (embedding_dim)
-        num_heads: Number of attention heads
-        qk_dim_per_head: Query/key dimension per head
-        v_dim_per_head: Value dimension per head
-        chunk_size: Chunk size for parallel kernel
-        kernel_mode: Kernel mode ('parallel' or 'recurrent')
-        use_bias: Whether to use bias in projections
-        eps: Numerical stability epsilon
+    Returns (forward)
+    -----------------
+    output : mx.array [B, S, D]
+        Final dense representation after output processing.
+    new_state : (C, n, m)
+        Updated recurrent memory state tuple for next forward call.
     """
 
     def __init__(
@@ -137,17 +192,22 @@ class mLSTMNeuron(nn.Module):
             self,
             x: mx.array,
             state: Optional[Tuple[mx.array, mx.array, mx.array]] = None
-    ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:
-        """
-        Forward pass through complete mLSTM neuron.
+    ) -> Tuple[mx.array, Tuple[mx.array, mx.array, mx.array]]:  # noqa: D401 - detailed below
+        """Run the full mLSTM pipeline for a sequence batch.
 
-        Args:
-            x: Input [B, S, input_size]
-            state: Optional previous state (C, n, m)
+        Parameters
+        ----------
+        x : mx.array [B, S, D]
+            Input embedding sequence.
+        state : tuple | None
+            Previous recurrent state (C, n, m) or None for initialization.
 
-        Returns:
-            output: Output [B, S, input_size]
-            new_state: Updated state (C, n, m)
+        Returns
+        -------
+        output : mx.array [B, S, D]
+            Transformed output after memory integration and gating.
+        new_state : (C, n, m)
+            Updated memory state for next call.
         """
         # === Before: Project to Q/K/V and gates ===
         q, k, v, i_preact, f_preact = self.projection_cell(x)

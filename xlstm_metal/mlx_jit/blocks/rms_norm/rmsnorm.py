@@ -1,4 +1,60 @@
-"""Metal-accelerated RMSNorm modules."""
+"""Metal-Accelerated RMS Normalization – MLX Implementation
+
+Overview
+--------
+Root Mean Square (RMS) normalization is a simplified variant of layer
+normalization that omits mean centering and only rescales by the RMS:
+
+  RMSNorm(x) = (x / RMS(x)) * weight
+  where RMS(x) = sqrt(mean(x²) + eps)
+
+This is computationally cheaper than full LayerNorm (no mean subtraction,
+no variance bias correction) and empirically performs similarly for
+transformer-style models.
+
+Why RMSNorm?
+------------
+- **Efficiency**: One pass (sum of squares), no mean centering.
+- **Stability**: The additive epsilon prevents division by zero.
+- **Performance**: In large models (e.g., LLaMA, xLSTM), RMSNorm matches
+  LayerNorm quality with ~15% less compute.
+
+Metal Acceleration
+------------------
+This implementation uses a custom Metal kernel for Apple Silicon that:
+  1. Parallelizes sum-of-squares reduction across threads in a threadgroup
+  2. Uses shared memory (threadgroup memory) for partial sums
+  3. Supports mixed precision (float32 accumulation with bfloat16 I/O)
+  4. Fuses RMS computation and weight scaling into a single kernel launch
+
+Force Float32 Reductions
+------------------------
+When `force_float32_reductions=True`, the kernel accumulates squared values
+in float32 even if inputs are bfloat16. This prevents precision loss in
+long reductions (e.g., dims=4096) where bfloat16's limited mantissa can
+cause drift.
+
+Multi-Head Variants
+-------------------
+The module also provides `MultiHeadRMSNormCell` which applies RMSNorm
+independently per head (useful for mLSTM output processing). The per-head
+statistics ensure each head's activations are normalized separately before
+being flattened and projected.
+
+Usage
+-----
+Standard RMSNorm for backbone layers:
+  norm = RMSNormCell(dims=4096, eps=1e-6, force_float32_reductions=True)
+  out = norm(x)  # x: [B, S, 4096]
+
+Multi-head variant (for mLSTM output):
+  norm = MultiHeadRMSNormCell(num_heads=8, head_dim=512, eps=1e-6)
+  out = norm(x)  # x: [B, S, 8, 512] -> [B, S, 4096]
+
+Parity
+------
+Logic mirrors torch-native RMSNorm implementations for cross-backend testing.
+"""
 
 from __future__ import annotations
 
@@ -59,8 +115,31 @@ _RMS_TEMPLATE = r"""
 
 
 class RMSNormMetalKernel(nn.Module):
-    """Shared Metal kernel for RMSNorm."""
+    """Reusable Metal kernel for RMSNorm with dtype-specific compilation.
 
+    Compiles and caches Metal shaders on-demand based on input dtype and
+    precision settings. The kernel implements a parallel reduction for
+    computing mean(x²) followed by element-wise rescaling.
+
+    Kernel Strategy
+    ---------------
+    - Thread count per row: min(256, cols)
+    - Each thread accumulates partial sum over its assigned columns
+    - Threadgroup barrier synchronizes partial sums
+    - Thread 0 reduces threadgroup partials to compute RMS
+    - All threads apply RMS scaling and weight multiplication
+
+    Parameters
+    ----------
+    None (stateless, kernel cache is instance attribute)
+
+    Methods
+    -------
+    build(dtype, force_float32) -> metal_kernel
+        Compile and return cached kernel for given dtype/precision.
+    apply(inputs_2d, weight, eps, force_float32) -> output_2d
+        Execute kernel on 2D-reshaped input.
+    """
     def __init__(self) -> None:
         super().__init__()
         # cache keyed by (dtype, force_float32)
@@ -118,8 +197,34 @@ class RMSNormMetalKernel(nn.Module):
 
 
 class RMSNormCell(nn.Module):
-    """NCPS-style RMSNorm using the Metal kernel."""
+    """NCPS-style RMSNorm cell using Metal-accelerated kernel.
 
+    Wraps the Metal kernel with NCPS-compatible interface (stateless,
+    composable). Handles arbitrary input shapes by flattening to 2D,
+    applying the kernel, and reshaping back.
+
+    Parameters
+    ----------
+    dims : int
+        Feature dimension (last axis of input).
+    eps : float, default 1e-6
+        Numerical stability epsilon.
+    use_weight : bool, default True
+        Whether to apply learnable weight scaling.
+    force_float32_reductions : bool, default True
+        Force float32 accumulation in reduction (recommended for bfloat16).
+    kernel : RMSNormMetalKernel | None, optional
+        Custom kernel instance (default creates new).
+    debug_compare : bool | None, optional
+        Enable torch reference comparison (for validation).
+    param_dtype : mx.Dtype, default mx.float32
+        Dtype for weight parameter.
+
+    Returns (forward)
+    -----------------
+    output : mx.array, same shape as input
+        RMS-normalized and weight-scaled activations.
+    """
     def __init__(
             self,
             dims: int,
@@ -150,6 +255,18 @@ class RMSNormCell(nn.Module):
             self.build(dtype)
 
     def __call__(self, x: mx.array) -> mx.array:
+        """Apply RMSNorm using Metal kernel.
+
+        Parameters
+        ----------
+        x : mx.array [..., dims]
+            Input tensor (arbitrary leading dimensions).
+
+        Returns
+        -------
+        output : mx.array [..., dims]
+            Normalized output matching input shape and dtype.
+        """
         orig_shape = x.shape
         last_dim = orig_shape[-1]
         x_arr = mx.array(x, dtype=mx.float32 if self.force_float32 else x.dtype)
@@ -191,8 +308,46 @@ class RMSNormCell(nn.Module):
 
 
 class MultiHeadRMSNormCell(nn.Module):
-    """Multi-head RMSNorm using the RMSNormCell kernel."""
+    """Multi-head RMSNorm applying per-head normalization then flattening.
 
+    Normalizes each head independently over head_dim, then reshapes to
+    [B, S, NH * DH] and applies a shared flat weight. Used in mLSTM
+    output cells where per-head statistics improve stability.
+
+    Per-Head Normalization
+    ----------------------
+    For input [B, S, NH, DH]:
+      1. Compute RMS(x[:,:,h,:]) for each head h
+      2. Normalize: x_norm[:,:,h,:] = x[:,:,h,:] / RMS_h
+      3. Flatten: [B, S, NH, DH] -> [B, S, NH*DH]
+      4. Scale: x_norm * weight (weight is flat [NH*DH])
+
+    Why Per-Head?
+    -------------
+    Different heads may learn different activation scales. Independent
+    normalization prevents one head from dominating and improves gradient
+    flow across heads.
+
+    Parameters
+    ----------
+    num_heads : int
+        Number of attention heads (NH).
+    head_dim : int
+        Dimension per head (DH).
+    eps : float, default 1e-6
+        Numerical stability epsilon.
+    force_float32_reductions : bool, default True
+        Force float32 accumulation in RMS computation.
+    kernel : RMSNormMetalKernel | None, optional
+        Shared kernel instance (default creates new).
+    param_dtype : mx.Dtype, default mx.float32
+        Dtype for weight parameter.
+
+    Returns (forward)
+    -----------------
+    output : mx.array [B, S, NH * DH]
+        Normalized and flattened multi-head activations.
+    """
     def __init__(
             self,
             num_heads: int,
