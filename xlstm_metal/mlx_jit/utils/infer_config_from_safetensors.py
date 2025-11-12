@@ -41,7 +41,10 @@ def _shape_of(tensor_name: str, index: Dict, shards: Dict[str, mx.array]) -> Opt
 
 
 def _parse_block_index(text: str) -> int:
-    """Convert dot-delimited block index text to integer without direct casts."""
+    """
+    Parse a single numeric string component (e.g., the '2' from 'backbone.blocks.2')
+    and convert it to an integer without direct casts.
+    """
     return json.loads(text)
 
 
