@@ -19,7 +19,6 @@ class MultiHeadLayerNorm(nn.Module):
             eps: float = 1e-6,
             use_weight: bool = True,
             use_bias: bool = False,
-            force_float32_reductions: bool = True
     ):
         super().__init__()
         self.num_heads = num_heads
@@ -27,14 +26,13 @@ class MultiHeadLayerNorm(nn.Module):
         self._eps = mx.array(eps, dtype=mx.float32)
         self.use_weight = use_weight
         self.use_bias = use_bias
-        self.force_float32_reductions = force_float32_reductions
 
         # CRITICAL: Weight and bias are FLAT [num_heads * head_dim], not [num_heads, head_dim]!
         # This matches PyTorch transformers xLSTMMultiHeadLayerNorm
         if use_weight:
-            self.weight = mx.ones((num_heads * head_dim,))
+            self.weight = mx.ones((num_heads * head_dim))
         if use_bias:
-            self.bias = mx.zeros((num_heads * head_dim,))
+            self.bias = mx.zeros((num_heads * head_dim))
 
     def __call__(self, x: mx.array) -> mx.array:
         """

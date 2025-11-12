@@ -71,31 +71,29 @@ def metal_causal_conv1d_mixing(
     Cout, Cin, K = weight.shape
     assert Cout == C and Cin == C, "weight must be [C, C, K] for channel mixing"
 
-    params = mx.array([B, S, C, K], dtype=mx.uint32)
-    has_bias = mx.array(1 if bias is not None else 0, dtype=mx.uint32)
+    params = mx.array([B, S, C, K])
+    has_bias = mx.array(1 if bias is not None else 0)
     if bias is None:
-        bias = mx.zeros((C,), dtype=x.dtype)
+        bias = mx.zeros((C,))
 
     total = B * S * C
-    # Metal kernel dispatch requires Python tuple[int, int, int]
-    grid = (total, 1, 1)
-    threadgroup = (min(total, 256), 1, 1)
+    grid = (int(total), 1, 1)
+    threadgroup = (min(int(total), 256), 1, 1)
 
     kernel = _compile_kernel()
     y, = kernel(
         inputs=[
             params,
-            x.astype(mx.float32),
-            weight.reshape(-1).astype(mx.float32),
-            bias.astype(mx.float32),
+            weight.reshape(-1),
+            bias,
             has_bias,
         ],
         output_shapes=[(B * S * C,)],
-        output_dtypes=[mx.float32],
+        #output_dtypes=[mx.float32],
         grid=grid,
         threadgroup=threadgroup,
     )
-    return y.reshape(B, S, C).astype(x.dtype)
+    return y.reshape(B, S, C)
 
 
 __all__ = ["metal_causal_conv1d_mixing"]

@@ -1,5 +1,9 @@
-import mlx.core as mx
+from __future__ import annotations
+
 from typing import Optional
+
+import mlx.core as mx
+import mlx.nn as nn
 
 _HEADER = """#include <metal_stdlib>
 using namespace metal;
@@ -17,16 +21,11 @@ _KERNEL = r"""
     """
 
 
-class SoftCapMLXJitKernel:
-    """Apply an elementwise soft cap: out = cap * tanh(x/cap).
+class SoftCapMetalKernel:
+    """Stateless Metal kernel wrapper for the soft-cap primitive."""
 
-    This class encapsulates a custom Metal kernel for the soft cap operation,
-    providing a callable interface.
-    """
-
-    def __init__(self):
-        """Initialize the SoftCapMLXFastKernel with no compiled kernel."""
-        self.kernel: Optional[mx.fast.metal_kernel] = None
+    def __init__(self) -> None:
+        self._kernel: Optional[mx.fast.metal_kernel] = None
 
     def compile(self):
         """
@@ -38,49 +37,58 @@ class SoftCapMLXJitKernel:
         Returns:
             mx.fast.metal_kernel: The compiled Metal kernel.
         """
-        if self.kernel is None:
-            self.kernel = mx.fast.metal_kernel(name="soft_cap", input_names=["inp", "cap", "shape"],
-                                               output_names=["out"], header=_HEADER, source=_KERNEL)
-        return self.kernel
+        if self._kernel is None:
+            self._kernel = mx.fast.metal_kernel(
+                name="soft_cap",
+                input_names=["inp", "cap", "shape"],
+                output_names=["out"],
+                header=_HEADER,
+                source=_KERNEL,
+            )
+        return self._kernel
 
-    def __call__(self, x: mx.array, cap_value: float) -> mx.array:
-        """
-        Apply the soft cap operation.
-
-        Parameters:
-            x (mx.array): The input array.
-            cap_value (float): The positive scalar cap value.
-
-        Returns:
-            mx.array: The output array with the soft cap applied.
-        """
-        if not isinstance(cap_value, (float, int)) or cap_value <= 0:
-            raise ValueError(f"cap_value must be a positive number, but got {cap_value}")
-
-        # Prepare inputs
-        x_flat = x.reshape(-1).astype(mx.float32)
-        cap_arr = mx.array([cap_value], dtype=mx.float32)
+    def apply(self, x: mx.array, cap_tensor: mx.array) -> mx.array:
+        """Apply the soft-cap kernel to ``x`` using ``cap_tensor``."""
+        kernel = self.compile()
+        x_arr = mx.array(x, dtype=mx.float32)
+        x_flat = x_arr.reshape(-1)
         shape_arr = mx.array([x_flat.size], dtype=mx.uint32)
 
-        # Configure grid and threadgroup
         grid = (x_flat.size, 1, 1)
-        threadgroup = (256, 1, 1)  # Standard threadgroup size
+        threadgroup = (256, 1, 1)
 
-        # Call kernel with correct API
-        kernel = self.compile()
         (out_flat,) = kernel(
-            inputs=[x_flat, cap_arr, shape_arr],
+            inputs=[x_flat, cap_tensor.reshape(1), shape_arr],
             output_shapes=[x_flat.shape],
             output_dtypes=[mx.float32],
             grid=grid,
             threadgroup=threadgroup,
         )
+        return out_flat.reshape(x_arr.shape)
 
-        # Reshape back to original shape
-        return out_flat.reshape(x.shape)
+
+class SoftCapCell(nn.Module):
+    """NCPS-style cell that applies the Metal soft-cap kernel."""
+
+    def __init__(self, cap_value: Optional[float] = None, kernel: Optional[SoftCapMetalKernel] = None) -> None:
+        super().__init__()
+        self.default_cap = cap_value
+        self.kernel = kernel or SoftCapMetalKernel()
+
+    def __call__(self, x: mx.array, cap_value: Optional[mx.array | float] = None) -> mx.array:
+        cap = cap_value if cap_value is not None else self.default_cap
+        if cap is None:
+            return x
+
+        cap_tensor = mx.array(cap, dtype=mx.float32)
+        zero = mx.zeros_like(cap_tensor)
+        if bool(mx.less_equal(cap_tensor, zero).item()):
+            raise ValueError("cap_value must be positive")
+
+        return self.kernel.apply(x, cap_tensor)
 
 
 # Functional interface for convenience
-soft_cap = SoftCapMLXJitKernel()
+soft_cap = SoftCapCell()
 
-__all__ = ['soft_cap']
+__all__ = ['soft_cap', 'SoftCapCell', 'SoftCapMetalKernel']

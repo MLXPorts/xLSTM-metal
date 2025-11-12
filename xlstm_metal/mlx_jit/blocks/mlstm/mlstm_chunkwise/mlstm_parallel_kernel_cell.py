@@ -53,7 +53,10 @@ class mLSTMParallelKernelCell(nn.Module):
         self.v_dim_per_head = v_dim_per_head
         self.chunk_size = chunk_size
         self.eps = eps
-        self.qk_scale = mx.rsqrt(mx.array(self.qk_dim_per_head, dtype=mx.float32))
+        self.compute_dtype = mx.float32
+        self.state_dtype = mx.float32
+        qk_dim_value = mx.array(qk_dim_per_head, dtype=mx.float32)
+        self.qk_scale = mx.divide(mx.array(1.0, dtype=mx.float32), mx.sqrt(qk_dim_value))
 
     def __call__(
             self,
@@ -82,48 +85,49 @@ class mLSTMParallelKernelCell(nn.Module):
             h: Hidden states [B, NH, S, DH_v]
             new_state: Updated state (C, n, m)
         """
+        q = mx.array(q, dtype=self.compute_dtype)
+        k = mx.array(k, dtype=self.compute_dtype)
+        v = mx.array(v, dtype=self.compute_dtype)
+        i_preact = mx.array(i_preact, dtype=self.compute_dtype)
+        f_preact = mx.array(f_preact, dtype=self.compute_dtype)
+
         B, NH, S, _ = q.shape
 
         # Extract or initialize state
-        c_initial = state[0] if state else None
-        n_initial = state[1] if state else None
-        m_initial = state[2] if state else None
+        c_initial = mx.array(state[0], dtype=self.state_dtype) if state and state[0] is not None else None
+        n_initial = mx.array(state[1], dtype=self.state_dtype) if state and state[1] is not None else None
+        m_initial = mx.array(state[2], dtype=self.state_dtype) if state and state[2] is not None else None
 
-        # Pad sequence to multiple of chunk_size (strict MLX arithmetic)
-        S_t = mx.array(S, dtype=mx.int32)
-        chunk_size_t = mx.array(self.chunk_size, dtype=mx.int32)
-        one_t = mx.array(1, dtype=mx.int32)
-        NC_t = mx.floor_divide(mx.subtract(mx.add(S_t, chunk_size_t), one_t), chunk_size_t)
-        NC = NC_t  # Keep as MLX array
+        # Pad sequence to multiple of chunk_size
+        NC = (S + self.chunk_size - 1) // self.chunk_size
         L = self.chunk_size
 
-        if S % L != 0:  # Python ints for control flow - acceptable
-            pad_len_t = mx.subtract(mx.multiply(NC_t, chunk_size_t), S_t)
-            pad_len = pad_len_t  # Keep as MLX array for mx.pad
+        if S % L != 0:
+            pad_len = NC * L - S
             q = mx.pad(q, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
             k = mx.pad(k, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
             v = mx.pad(v, [(0, 0), (0, 0), (0, pad_len), (0, 0)])
             i_preact = mx.pad(i_preact, [(0, 0), (0, 0), (0, pad_len)])
             f_preact = mx.pad(f_preact, [(0, 0), (0, 0), (0, pad_len)])
-            S_padded = mx.multiply(NC_t, chunk_size_t)  # Keep as MLX array
+            S_padded = NC * L
         else:
             S_padded = S
 
         # ===== Phase 1: Recurrent (Inter-chunk states) =====
         matC_states, vecN_states, scaMinter_states = (
-            mlstm_chunkwise_recurrent_fw_C_metal(matK=k.astype(mx.float32),
-                                                 matV=v.astype(mx.float32),
-                                                 vecF=f_preact.astype(
-                                                     mx.float32),
-                                                 vecI=i_preact.astype(
-                                                     mx.float32),
-                                                 matC_initial=c_initial.astype(
-                                                     mx.float32) if c_initial is not None else None,
-                                                 vecN_initial=n_initial.astype(
-                                                     mx.float32) if n_initial is not None else None,
-                                                 scaMinter_initial=m_initial.astype(
-                                                     mx.float32) if m_initial is not None else None,
-                                                 NC=NC, L=L))
+            mlstm_chunkwise_recurrent_fw_C_metal(
+                matK=k,
+                matV=v,
+                vecF=f_preact,
+                vecI=i_preact,
+                matC_initial=c_initial,
+                vecN_initial=n_initial,
+                scaMinter_initial=m_initial,
+                NC=NC,
+                L=L,
+                state_dtype=self.state_dtype,
+                )
+        )
 
         # ===== Phase 2: Parallel (Intra-chunk outputs) =====
         # Reshape for chunked processing
@@ -135,17 +139,19 @@ class mLSTMParallelKernelCell(nn.Module):
         vecF_logsig = mx.negative(mx.log(mx.add(one, mx.exp(mx.negative(vecF_chunked)))))
         vecB = mx.cumsum(vecF_logsig, axis=-1)
 
+        # Query scaling factor
+        qk_scale = self.qk_scale
+
         # Parallel kernel (intra-chunk)
-        matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(matQ=q.astype(mx.float32),
-                                                                             matK=k.astype(mx.float32),
-                                                                             matV=v.astype(mx.float32),
-                                                                             matC_states=matC_states.astype(mx.float32),
-                                                                             vecN_states=vecN_states.astype(mx.float32),
-                                                                             scaMinter_states=scaMinter_states.astype(
-                                                                                 mx.float32),
-                                                                             vecI=vecI_chunked.astype(mx.float32),
-                                                                             vecB=vecB.astype(mx.float32), NC=NC, L=L,
-                                                                             qk_scale=self.qk_scale, eps=self.eps)
+        matHout, vecNout, vecMout = mlstm_chunkwise_parallel_fw_Hintra_metal(matQ=q,
+                                                                             matK=k,
+                                                                             matV=v,
+                                                                             matC_states=matC_states,
+                                                                             vecN_states=vecN_states,
+                                                                             scaMinter_states=scaMinter_states,
+                                                                             vecI=vecI_chunked,
+                                                                             vecB=vecB, NC=NC, L=L,
+                                                                             qk_scale=qk_scale, eps=self.eps)
 
         # Force evaluation
         mx.eval(matHout)

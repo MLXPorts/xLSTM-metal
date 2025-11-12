@@ -70,7 +70,7 @@ def test_forward_pass():
 
         # Create dummy input
         B, S = 1, 4
-        input_ids = mx.array([[1, 2, 3, 4]], dtype=mx.int32)
+        input_ids = mx.array([[1, 2, 3, 4]])
 
         print(f"  Input shape: {input_ids.shape}")
 
@@ -111,7 +111,7 @@ def test_forward_pass_with_states():
 
         # Create dummy input
         B, S = 1, 4
-        input_ids = mx.array([[1, 2, 3, 4]], dtype=mx.int32)
+        input_ids = mx.array([[1, 2, 3, 4]])
 
         # Forward pass with state return
         logits, states = model(input_ids, return_last_states=True)

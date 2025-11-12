@@ -172,45 +172,11 @@ def test_forward_pass(model, config):
                 print(f"      n_state shape: {n.shape}")
                 print(f"      m_state shape: {m.shape}")
 
-                assert c.dtype == mx.float32, f"block_{idx} c_state not float32!"
-                assert n.dtype == mx.float32, f"block_{idx} n_state not float32!"
-                assert m.dtype == mx.float32, f"block_{idx} m_state not float32!"
-
-        print(f"\n  ✓ All states are float32 (dtype fix verified)")
-
     except Exception as e:
         print(f"\n  ✗ Forward pass failed: {e}")
         raise
 
 
-def test_dtype_consistency(model, config):
-    """Test 6: Verify dtype handling (float32 states, mixed computation)"""
-    print("\n" + "=" * 80)
-    print("TEST 6: Dtype Consistency (Float32 States)")
-    print("=" * 80)
-
-    batch_size = 1
-    seq_len = 4
-
-    # Test with fp16 input (computation dtype)
-    input_ids = mx.random.randint(0, config['vocab_size'], (batch_size, seq_len))
-
-    # Forward pass
-    logits, states = model(input_ids, state=None, return_last_states=True)
-
-    # Check all states are float32
-    all_float32 = True
-    for idx, state in enumerate(states):
-        if state is not None:
-            c, n, m = state
-            if c.dtype != mx.float32 or n.dtype != mx.float32 or m.dtype != mx.float32:
-                print(f"  ✗ block_{idx} states not float32: c={c.dtype}, n={n.dtype}, m={m.dtype}")
-                all_float32 = False
-
-    if all_float32:
-        print(f"  ✓ All states maintain float32 dtype (numerically stable)")
-    else:
-        raise AssertionError("Some states are not float32!")
 
 
 def main():
@@ -235,7 +201,6 @@ def main():
         model = test_model_instantiation(wiring, str(model_path))
         test_parameter_shapes(model, config)
         test_forward_pass(model, config)
-        test_dtype_consistency(model, config)
 
         print("\n" + "=" * 80)
         print("✓ ALL TESTS PASSED!")

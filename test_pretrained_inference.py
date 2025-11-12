@@ -89,7 +89,7 @@ def test_forward_pass_pretrained(model):
         # Create some test inputs
         # Using reasonable token IDs (within vocab range)
         B, S = 1, 8
-        input_ids = mx.array([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=mx.int32)
+        input_ids = mx.array([[1, 2, 3, 4, 5, 6, 7, 8]], dtype=mx.int64)
 
         print(f"  Input shape: {input_ids.shape}")
         print(f"  Input IDs: {input_ids.tolist()[0]}")
@@ -179,10 +179,10 @@ def test_greedy_generation(model):
             # Prepare input (just last token for autoregressive generation)
             if step == 0:
                 # First step: use full prompt
-                input_ids = mx.array([prompt_tokens], dtype=mx.int32)
+                input_ids = mx.array([prompt_tokens], dtype=mx.int64)
             else:
                 # Subsequent steps: use last generated token
-                input_ids = mx.array([[generated_tokens[-1]]], dtype=mx.int32)
+                input_ids = mx.array([[generated_tokens[-1]]], dtype=mx.int64)
 
             # Forward pass with state
             logits, state = model(input_ids, state=state, return_last_states=True)
@@ -236,7 +236,7 @@ def test_batch_inference(model):
             [1, 2, 3, 4, 5, 6],
             [7, 8, 9, 10, 11, 12],
             [13, 14, 15, 16, 17, 18]
-        ], dtype=mx.int32)
+        ], dtype=mx.int64)
 
         print(f"  Batch size: {B}")
         print(f"  Sequence length: {S}")

@@ -143,8 +143,9 @@ class AutoWiring(Wiring):
         num_blocks = self.structure['num_blocks']
 
         # Connect blocks sequentially
-        for i in range(num_blocks - 1):
-            self.add_synapse(i, i + 1)
+        for i in range(num_blocks):  # Loop var exception
+            if i < num_blocks - 1:  # Loop var exception
+                self.add_synapse(i, i + 1)
 
         # Output dimension is determined by model structure
         # For xLSTM models, output comes from last block

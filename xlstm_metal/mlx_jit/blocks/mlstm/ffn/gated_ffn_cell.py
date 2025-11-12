@@ -68,7 +68,7 @@ class GatedFFNCell(nn.Module):
         # Sparsity mask (for NCPS wiring)
         if sparsity_mask is not None:
             mask = mx.array(sparsity_mask) if not isinstance(sparsity_mask, mx.array) else sparsity_mask
-            self._sparsity_mask = mx.abs(mask).astype(mx.float32)
+            self._sparsity_mask = mx.abs(mask)
         else:
             self._sparsity_mask = None
 

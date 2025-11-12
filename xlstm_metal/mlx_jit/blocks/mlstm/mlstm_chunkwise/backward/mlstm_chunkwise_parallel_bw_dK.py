@@ -8,8 +8,6 @@ Ported from Triton to Metal C++ using mx.fast.metal_kernel().
 This kernel computes ∂Loss/∂K using intra-chunk and inter-chunk contributions.
 """
 
-import struct
-
 import mlx.core as mx
 
 HEADER = """#include <metal_stdlib>
@@ -41,9 +39,9 @@ PARALLEL_BW_DK_SRC = r"""
     uint siz_b_DHQK = params[9];
     uint siz_b_DHHV = params[10];
 
-    // Extract floats
-    float qk_scale = as_type<float>(params[11]);
-    float EPS = as_type<float>(params[12]);
+    // Extract scalars
+    float qk_scale = scalar_params[0];
+    float EPS = scalar_params[1];
 
     // Extract strides
     uint str_matQK_B_NH = strides[0];
@@ -341,38 +339,23 @@ def mlstm_chunkwise_parallel_bw_dK_metal(
     B, NH, S, DHQK = matQ.shape
     DHHV = matV.shape[3]
 
-    # Pack floats
-    qk_scale_bits = struct.unpack('I', struct.pack('f', qk_scale))[0]
-    eps_bits = struct.unpack('I', struct.pack('f', eps))[0]
-
     params = mx.array([B, NH, S, DHQK, DHHV, NC, L, siz_b_LQ, siz_b_LKV,
-                       siz_b_DHQK, siz_b_DHHV, qk_scale_bits, eps_bits],
-                      dtype=mx.uint32)
+                       siz_b_DHQK, siz_b_DHHV], dtype=mx.uint32)
+    scalar_params = mx.array([qk_scale, eps], dtype=mx.float32)
 
-    # Prepare strides with explicit MLX dtypes
-    NH_arr = mx.array(NH, dtype=mx.int32)
-    S_arr = mx.array(S, dtype=mx.int32)
-    DHQK_arr = mx.array(DHQK, dtype=mx.int32)
-    DHHV_arr = mx.array(DHHV, dtype=mx.int32)
-    NC_arr = mx.array(NC, dtype=mx.int32)
-    L_arr = mx.array(L, dtype=mx.int32)
-    one = mx.array(1, dtype=mx.int32)
-    
-    NC_plus_1 = mx.add(NC_arr, one)
-    
     strides = mx.array([
-        mx.multiply(mx.multiply(NH_arr, S_arr), DHQK_arr),  # str_matQK_B_NH
+        NH * S * DHQK,  # str_matQK_B_NH
         DHQK,  # str_matQK_S
         1,  # str_matQK_DHQK
-        mx.multiply(mx.multiply(NH_arr, S_arr), DHHV_arr),  # str_matHV_B_NH
+        NH * S * DHHV,  # str_matHV_B_NH
         DHHV,  # str_matHV_S
         1,  # str_matHV_DHHV
-        mx.multiply(mx.multiply(NH_arr, NC_arr), L_arr),  # str_vecABI_B_NH
+        NH * NC * L,  # str_vecABI_B_NH
         L,  # str_vecABI_NC
-        mx.multiply(mx.multiply(NC_plus_1, DHQK_arr), DHHV_arr),  # str_matCstate_B_NH
+        (NC + 1) * DHQK * DHHV,  # str_matCstate_B_NH
         DHHV,  # str_matCstate_NCDHQK
         1,  # str_matCstate_DHHV
-        mx.multiply(NH_arr, S_arr),  # str_vecMN_B_NH
+        NH * S,  # str_vecMN_B_NH
         1,  # str_vecMN_S
     ], dtype=mx.uint32)
 
@@ -384,28 +367,21 @@ def mlstm_chunkwise_parallel_bw_dK_metal(
                                   input_names=["matQ", "matK", "matV", "vecI", "vecB", "vecA",
                                                "matCstate_all", "vecNstate_all", "scaMstate_all",
                                                "vecN_out", "vecM_out", "matDeltaH_out", "matDeltaC_states",
-                                               "params", "strides"], output_names=["matDeltaK"], header=HEADER,
+                                               "scalar_params", "params", "strides"],
+                                  output_names=["matDeltaK"], header=HEADER,
                                   source=PARALLEL_BW_DK_SRC)
 
     # Launch: grid over (DHQK/siz_b_DHQK, L/siz_b_LKV, NC * B*NH)
-    siz_b_DHQK_arr = mx.array(siz_b_DHQK, dtype=mx.int32)
-    siz_b_LKV_arr = mx.array(siz_b_LKV, dtype=mx.int32)
-    B_arr = mx.array(B, dtype=mx.int32)
-    
-    DHQK_plus_size_minus_1 = mx.subtract(mx.add(DHQK_arr, siz_b_DHQK_arr), one)
-    num_tiles_DHQK = mx.floor_divide(DHQK_plus_size_minus_1, siz_b_DHQK_arr)
-    
-    L_plus_size_minus_1 = mx.subtract(mx.add(L_arr, siz_b_LKV_arr), one)
-    num_tiles_LKV = mx.floor_divide(L_plus_size_minus_1, siz_b_LKV_arr)
-    
-    grid = (num_tiles_DHQK, num_tiles_LKV, mx.multiply(mx.multiply(NC_arr, B_arr), NH_arr))
+    num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK
+    num_tiles_LKV = (L + siz_b_LKV - 1) // siz_b_LKV
+    grid = (num_tiles_DHQK, num_tiles_LKV, NC * B * NH)
     threadgroup = (siz_b_DHQK, siz_b_LKV, 1)
 
     outputs = kernel(
         inputs=[matQ, matK, matV, vecI, vecB, vecA,
                 matCstate_all, vecNstate_all, scaMstate_all,
                 vecN_out, vecM_out, matDeltaH_out, matDeltaC_states,
-                params, strides],
+                scalar_params, params, strides],
         output_shapes=[matDeltaK.shape],
         output_dtypes=[matQ.dtype],
         grid=grid,

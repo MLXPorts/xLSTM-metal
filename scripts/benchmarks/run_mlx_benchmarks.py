@@ -89,7 +89,7 @@ def time_prefill_and_decode(model, seq_len: int, new_tokens: int) -> Tuple[float
     for _ in range(new_tokens):
         # sample argmax for deterministic timing
         next_id = int(mx.argmax(last_logits[0]))
-        step_in = mx.array([[next_id]], dtype=mx.int32)
+        step_in = mx.array([[next_id]])
         logits, state = model(step_in, hidden_states=state, return_hidden=True)
         last_logits = logits[:, -1, :]
     mx.eval(last_logits)

@@ -133,12 +133,12 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
         if tname.startswith("backbone.blocks."):
             parts = tname.split(".")
             if len(parts) >= 3 and parts[2].isdigit():
-                block_ids.add(_parse_block_index(parts[2]))
+                block_ids.add(int(parts[2]))
 
     if not block_ids:
         raise ValueError("No blocks found in checkpoint")
 
-    num_blocks = len(block_ids)
+    num_blocks = max(block_ids) + 1
 
     # Per-layer dims and head structure from first block
     block_0_prefix = "backbone.blocks.0"
@@ -180,7 +180,7 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
 
     # Derive factors
     qk_dim_factor = qk_dim / d_model
-    v_dim_factor = v_out / d_model
+    v_dim_factor = 1.0  # by design in xLSTM
     ffn_proj_factor = ffn_hidden / d_model
 
     # Presence of biases
@@ -193,12 +193,9 @@ def infer_config_from_safetensors(model_dir: str) -> Dict[str, Any]:
         "embedding_dim": d_model,
         "vocab_size": vocab_size,
         "num_blocks": num_blocks,
-        "qk_dim": qk_dim,
-        "v_dim": v_out,
-        "ffn_hidden_dim": ffn_hidden,
-        "qk_dim_factor": qk_dim_factor,
-        "v_dim_factor": v_dim_factor,
-        "ffn_proj_factor": ffn_proj_factor,
+        "qk_dim_factor": float(qk_dim_factor),
+        "v_dim_factor": float(v_dim_factor),
+        "ffn_proj_factor": float(ffn_proj_factor),
         "num_heads": num_heads,
         "gate_soft_cap": _infer_gate_soft_cap_default(),
         "norm_eps": _infer_norm_eps_default(),

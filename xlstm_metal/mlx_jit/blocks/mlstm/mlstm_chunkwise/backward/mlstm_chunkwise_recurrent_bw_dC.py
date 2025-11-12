@@ -40,8 +40,8 @@ RECURRENT_BW_DC_SRC = r"""
     uint USE_LAST_STATE = params[10];
 
     // Extract floats (reinterpreted from uint32)
-    float qk_scale = as_type<float>(params[11]);
-    float EPS = as_type<float>(params[12]);
+    float qk_scale = scalar_params[0];
+    float EPS = scalar_params[1];
 
     // Extract strides from strides buffer
     uint str_matQ_B_NH = strides[0];
@@ -317,56 +317,41 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
         :param eps:
         :return:
     """
-    import struct
-
     B, NH, S, DHQK = matQ.shape
     DHHV = matDeltaH.shape[3]
 
     # Prepare parameter buffer
     USE_LAST_STATE = 1 if matDeltaC_last is not None else 0
 
-    # Pack floats as reinterpreted uint32
-    qk_scale_bits = struct.unpack('I', struct.pack('f', qk_scale))[0]
-    eps_bits = struct.unpack('I', struct.pack('f', eps))[0]
-
     params = mx.array([B, NH, S, DHQK, DHHV, NC, L, siz_b_DHQK, siz_b_DHHV,
-                       save_states_every_nth_chunk, USE_LAST_STATE,
-                       qk_scale_bits, eps_bits], dtype=mx.uint32)
+                       save_states_every_nth_chunk, USE_LAST_STATE], dtype=mx.uint32)
+    scalar_params = mx.array([qk_scale, eps], dtype=mx.float32)
 
-    # Prepare strides buffer - using explicit MLX dtypes
-    NH_arr = mx.array(NH, dtype=mx.int32)
-    S_arr = mx.array(S, dtype=mx.int32)
-    DHQK_arr = mx.array(DHQK, dtype=mx.int32)
-    DHHV_arr = mx.array(DHHV, dtype=mx.int32)
-    NC_arr = mx.array(NC, dtype=mx.int32)
-    one = mx.array(1, dtype=mx.int32)
-    
-    NC_plus_1 = mx.add(NC_arr, one)
-    
+    # Prepare strides buffer
     strides = mx.array([
-        mx.multiply(mx.multiply(NH_arr, S_arr), DHQK_arr),  # str_matQ_B_NH
+        NH * S * DHQK,  # str_matQ_B_NH
         DHQK,  # str_matQ_S
         1,  # str_matQ_DHQK
-        mx.multiply(NH_arr, S_arr),  # str_vecF_B_NH
-        NC_plus_1,  # str_scaM_inter_B_NH
+        NH * S,  # str_vecF_B_NH
+        NC + 1,  # str_scaM_inter_B_NH
         1,  # str_scaM_inter_NC
-        mx.multiply(NH_arr, S_arr),  # str_vecM_combine_B_NH
+        NH * S,  # str_vecM_combine_B_NH
         1,  # str_vecM_combine_S
-        mx.multiply(mx.multiply(NH_arr, S_arr), DHHV_arr),  # str_matDeltaH_B_NH
+        NH * S * DHHV,  # str_matDeltaH_B_NH
         DHHV,  # str_matDeltaH_S
         1,  # str_matDeltaH_DHHV
-        mx.multiply(NH_arr, S_arr),  # str_vecN_out_B_NH
+        NH * S,  # str_vecN_out_B_NH
         1,  # str_vecN_out_S
-        mx.multiply(mx.multiply(NH_arr, DHQK_arr), DHHV_arr),  # str_matDeltaC_last_B_NH
+        NH * DHQK * DHHV,  # str_matDeltaC_last_B_NH
         DHHV,  # str_matDeltaC_last_DHQK
         1,  # str_matDeltaC_last_DHHV
-        mx.multiply(mx.multiply(NC_plus_1, DHQK_arr), DHHV_arr),  # str_matDeltaC_states_B_NH
+        (NC + 1) * DHQK * DHHV,  # str_matDeltaC_states_B_NH
         DHHV,  # str_matDeltaC_states_NCDHQK
         1,  # str_matDeltaC_states_DHHV
-    ], dtype=mx.uint32)
+    ])
 
     # Allocate output
-    matDeltaC_states = mx.zeros((B, NH, mx.multiply(NC_plus_1, DHQK_arr), DHHV), dtype=matQ.dtype)
+    matDeltaC_states = mx.zeros((B, NH, (NC + 1) * DHQK, DHHV), dtype=matQ.dtype)
 
     # Default last state if not provided
     if matDeltaC_last is None:
@@ -375,26 +360,18 @@ def mlstm_chunkwise_recurrent_bw_dC_metal(
     # Build kernel
     kernel = mx.fast.metal_kernel(name="mlstm_recurrent_bw_dC",
                                   input_names=["matQ", "vecF", "scaM_inter", "vecM_combine", "matDeltaH",
-                                               "vecN_out", "matDeltaC_last", "params", "strides"],
+                                               "vecN_out", "matDeltaC_last", "scalar_params", "params", "strides"],
                                   output_names=["matDeltaC_states"], header=HEADER, source=RECURRENT_BW_DC_SRC)
 
     # Launch: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
-    siz_b_DHQK_arr = mx.array(siz_b_DHQK, dtype=mx.int32)
-    siz_b_DHHV_arr = mx.array(siz_b_DHHV, dtype=mx.int32)
-    B_arr = mx.array(B, dtype=mx.int32)
-    
-    DHQK_plus_size_minus_1 = mx.subtract(mx.add(DHQK_arr, siz_b_DHQK_arr), one)
-    num_tiles_DHQK = mx.floor_divide(DHQK_plus_size_minus_1, siz_b_DHQK_arr)
-    
-    DHHV_plus_size_minus_1 = mx.subtract(mx.add(DHHV_arr, siz_b_DHHV_arr), one)
-    num_tiles_DHHV = mx.floor_divide(DHHV_plus_size_minus_1, siz_b_DHHV_arr)
-    
-    grid = (num_tiles_DHQK, num_tiles_DHHV, mx.multiply(B_arr, NH_arr))
+    num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK
+    num_tiles_DHHV = (DHHV + siz_b_DHHV - 1) // siz_b_DHHV
+    grid = (num_tiles_DHQK, num_tiles_DHHV, B * NH)
     threadgroup = (siz_b_DHHV, siz_b_DHQK, 1)
 
     outputs = kernel(
         inputs=[matQ, vecF, scaM_inter, vecM_combine, matDeltaH,
-                vecN_out, matDeltaC_last, params, strides],
+                vecN_out, matDeltaC_last, scalar_params, params, strides],
         output_shapes=[matDeltaC_states.shape],
         output_dtypes=[matQ.dtype],
         grid=grid,

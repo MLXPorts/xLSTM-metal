@@ -366,6 +366,7 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
         siz_b_DHHV: int = 16,
         save_states_every_nth_chunk: int = 1,
         dbg: Optional[mx.array] = None,
+        state_dtype: mx.Dtype | None = None,
 ) -> Tuple[mx.array, mx.array, mx.array] | Tuple[mx.array, mx.array, mx.array, mx.array]:
     """
     Metal kernel for recurrent forward computation of mLSTM chunk states.
@@ -394,81 +395,67 @@ def mlstm_chunkwise_recurrent_fw_C_metal(
     # Prepare strides buffer (all as if row-contiguous)
     # For K: (B, NH, S, DHQK) -> strides (NH*S*DHQK, S*DHQK, DHQK, 1)
     # For V: (B, NH, S, DHHV) -> strides (NH*S*DHHV, S*DHHV, DHHV, 1)
-
-    # Convert to mx.array once
-    NH_arr = mx.array(NH, dtype=mx.int32)
-    S_arr = mx.array(S, dtype=mx.int32)
-    DHQK_arr = mx.array(DHQK, dtype=mx.int32)
-    DHHV_arr = mx.array(DHHV, dtype=mx.int32)
-    NC_arr = mx.array(NC, dtype=mx.int32)
-    L_arr = mx.array(L, dtype=mx.int32)
-    one = mx.array(1, dtype=mx.int32)
-    three = mx.array(3, dtype=mx.int32)
-
-    NC_plus_1 = mx.add(NC_arr, one)
-
     strides = mx.array([
-        mx.multiply(mx.multiply(NH_arr, S_arr), DHQK_arr),  # str_matK_B_NH
+        NH * S * DHQK,  # str_matK_B_NH
         DHQK,  # str_matK_S
         1,  # str_matK_DHQK
-        mx.multiply(mx.multiply(NH_arr, S_arr), DHHV_arr),  # str_matV_B_NH
+        NH * S * DHHV,  # str_matV_B_NH
         DHHV,  # str_matV_S
         1,  # str_matV_DHHV
-        mx.multiply(NH_arr, S_arr),  # str_vecFI_B_NH
-        mx.multiply(mx.multiply(NC_plus_1, DHQK_arr), DHHV_arr),  # str_matCstates_B_NH
+        NH * S,  # str_vecFI_B_NH
+        (NC + 1) * DHQK * DHHV,  # str_matCstates_B_NH
         DHHV,  # str_matCstates_NCDHQK
         1,  # str_matCstates_DHHV
-        mx.multiply(NC_plus_1, DHQK_arr),  # str_vecNstates_B_NH
+        (NC + 1) * DHQK,  # str_vecNstates_B_NH
         1,  # str_vecNstates_NCDHQK
-        NC_plus_1,  # str_scaMinterstates_B_NH
+        NC + 1,  # str_scaMinterstates_B_NH
         1,  # str_scaMinterstates_NC
-        mx.multiply(mx.multiply(NH_arr, DHQK_arr), DHHV_arr),  # str_matCinitial_B_NH
+        NH * DHQK * DHHV,  # str_matCinitial_B_NH
         DHHV,  # str_matCinitial_DHQK
         1,  # str_matCinitial_DHHV
-        mx.multiply(NH_arr, DHQK_arr),  # str_vecNinitial_B_NH
+        NH * DHQK,  # str_vecNinitial_B_NH
         1,  # str_vecNinitial_DHQK
         NH,  # str_scaMinterinitial_B_NH
     ], dtype=mx.uint32)
 
-    # Allocate output states - use mx operations for shape calculations
-    matC_states = mx.zeros((B, NH, mx.multiply(NC_plus_1, DHQK_arr), DHHV), dtype=matK.dtype)
-    vecN_states = mx.zeros((B, NH, mx.multiply(NC_plus_1, DHQK_arr)), dtype=matK.dtype)
-    scaMinter_states = mx.zeros((B, NH, NC_plus_1), dtype=matK.dtype)
+    # Determine dtype for recurrent states (default to matK dtype if unspecified)
+    states_dtype = state_dtype or matK.dtype
+
+    # Allocate output states
+    matC_states = mx.zeros((B, NH, (NC + 1) * DHQK, DHHV), dtype=states_dtype)
+    vecN_states = mx.zeros((B, NH, (NC + 1) * DHQK), dtype=states_dtype)
+    scaMinter_states = mx.zeros((B, NH, NC + 1), dtype=states_dtype)
 
     # Default initial states if not provided
     if matC_initial is None:
-        matC_initial = mx.zeros((B, NH, DHQK, DHHV), dtype=matK.dtype)
+        matC_initial = mx.zeros((B, NH, DHQK, DHHV), dtype=states_dtype)
+    else:
+        matC_initial = mx.array(matC_initial, dtype=states_dtype)
     if vecN_initial is None:
-        vecN_initial = mx.zeros((B, NH, DHQK), dtype=matK.dtype)
+        vecN_initial = mx.zeros((B, NH, DHQK), dtype=states_dtype)
+    else:
+        vecN_initial = mx.array(vecN_initial, dtype=states_dtype)
     if scaMinter_initial is None:
-        scaMinter_initial = mx.zeros((B, NH), dtype=matK.dtype)
+        scaMinter_initial = mx.zeros((B, NH), dtype=states_dtype)
+    else:
+        scaMinter_initial = mx.array(scaMinter_initial, dtype=states_dtype)
     # Track whether caller asked for debug output; allocate buffer only if requested
     dbg_requested = dbg is not None
     if not dbg_requested:
         # Allocate a temporary buffer to satisfy kernel signature
-        dbg = mx.zeros((mx.add(mx.multiply(L_arr, three), one),))
+        dbg = mx.zeros((L * 3 + 1,))
 
     # Launch pre-compiled kernel: grid over (DHQK/siz_b_DHQK, DHHV/siz_b_DHHV, B*NH)
-    siz_b_DHQK_arr = mx.array(siz_b_DHQK, dtype=mx.int32)
-    siz_b_DHHV_arr = mx.array(siz_b_DHHV, dtype=mx.int32)
-    B_arr = mx.array(B, dtype=mx.int32)
-
-    DHQK_plus_size_minus_1 = mx.subtract(mx.add(DHQK_arr, siz_b_DHQK_arr), one)
-    num_tiles_DHQK = mx.floor_divide(DHQK_plus_size_minus_1, siz_b_DHQK_arr)
-
-    DHHV_plus_size_minus_1 = mx.subtract(mx.add(DHHV_arr, siz_b_DHHV_arr), one)
-    num_tiles_DHHV = mx.floor_divide(DHHV_plus_size_minus_1, siz_b_DHHV_arr)
-
-    grid_z = mx.multiply(B_arr, NH_arr)
-    grid = (num_tiles_DHQK, num_tiles_DHHV, grid_z)
+    num_tiles_DHQK = (DHQK + siz_b_DHQK - 1) // siz_b_DHQK
+    num_tiles_DHHV = (DHHV + siz_b_DHHV - 1) // siz_b_DHHV
+    grid = (num_tiles_DHQK, num_tiles_DHHV, B * NH)
     threadgroup = (siz_b_DHHV, siz_b_DHQK, 1)
 
     outputs = _get_kernel()(
         inputs=[matK, matV, vecF, vecI, matC_initial, vecN_initial,
                 scaMinter_initial, params, strides],
-        output_shapes=[matC_states.shape, vecN_states.shape, scaMinter_states.shape,
-                       (mx.add(mx.multiply(L_arr, three), one),)],
-        output_dtypes=[matK.dtype, matK.dtype, matK.dtype, dbg.dtype],
+        output_shapes=[matC_states.shape, vecN_states.shape, scaMinter_states.shape, (L * 3 + 1,)],
+        output_dtypes=[states_dtype, states_dtype, states_dtype, dbg.dtype],
         grid=grid,
         threadgroup=threadgroup,
     )

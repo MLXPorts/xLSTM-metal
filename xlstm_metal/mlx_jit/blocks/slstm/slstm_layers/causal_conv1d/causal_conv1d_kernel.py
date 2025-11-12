@@ -30,21 +30,19 @@ class CausalConv1dCell(nn.Module):
             self.bias = None
             return
 
-        scale = self._compute_scale(kernel_size)
+        scale = (1.0 / max(1, kernel_size)) ** 0.5
         if channel_mixing:
             shape = (channels, channels, kernel_size)
         else:
             shape = (channels, kernel_size)
-        rand = mx.random.normal(shape, dtype=mx.float32)
-        self.weight = mx.multiply(rand, scale)
+        self.weight = mx.random.normal(shape, dtype=mx.float32) * scale
         self.bias = mx.zeros((channels,), dtype=mx.float32)
 
     def reset_parameters(self) -> None:
         if self.weight is None:
             return
-        scale = self._compute_scale(self.kernel_size)
-        rand = mx.random.normal(self.weight.shape, dtype=mx.float32)
-        self.weight = mx.multiply(rand, scale)
+        scale = (1.0 / max(1, self.kernel_size)) ** 0.5
+        self.weight = mx.random.normal(self.weight.shape, dtype=mx.float32) * scale
         self.bias = mx.zeros_like(self.bias)
 
     def __call__(self, x: mx.array) -> mx.array:
@@ -53,16 +51,6 @@ class CausalConv1dCell(nn.Module):
         if self.channel_mixing:
             return metal_causal_conv1d_mixing(x, self.weight, self.bias)
         return metal_causal_conv1d_depthwise(x, self.weight, self.bias)
-
-    @staticmethod
-    def _compute_scale(kernel_size: int) -> mx.array:
-        """Return MLX scalar for He-style initialization scale."""
-        one_int = mx.array(1, dtype=mx.int32)
-        kernel_tensor = mx.array(kernel_size, dtype=mx.int32)
-        denom_int = mx.maximum(one_int, kernel_tensor)
-        denom = denom_int.astype(mx.float32)
-        base = mx.divide(mx.array(1.0, dtype=mx.float32), denom)
-        return mx.power(base, mx.array(0.5, dtype=mx.float32))
 
     def get_config(self) -> dict:
         return {

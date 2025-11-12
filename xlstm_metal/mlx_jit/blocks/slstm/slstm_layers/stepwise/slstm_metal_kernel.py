@@ -58,11 +58,11 @@ inline float stable_tanh(float x) {
 # Phase 1: sLSTM step computation for a single timestep
 # Implements canonical equations from xlstm/blocks/slstm/src/vanilla/slstm.py
 _SRC_SLSTM_STEP = r"""
-    // params: [B, NH, H, eps]
+    // params: [B, NH, H], scalar_params: [eps]
     uint B = params[0];
     uint NH = params[1];
     uint H = params[2];
-    float eps = as_type<float>(params[3]);
+    float eps = scalar_params[0];
 
     uint tid = thread_position_in_grid.x;
     uint total_heads = B * NH;
@@ -129,7 +129,7 @@ def _get_kernel(name):
         if name == 'slstm_step':
             _KERNELS[name] = mx.fast.metal_kernel(
                 name="slstm_step",
-                input_names=["params", "z", "i_preact", "f_preact", "o_preact",
+                input_names=["params", "scalar_params", "z", "i_preact", "f_preact", "o_preact",
                              "c_state", "n_state", "m_state"],
                 output_names=["h_out", "c_state_out", "n_state_out", "m_state_out"],
                 header=_HEADER,
@@ -175,15 +175,6 @@ def slstm_step_metal(
     """
     B, NH, H = z.shape
 
-    # Ensure float32
-    z = z.astype(mx.float32)
-    i_preact = i_preact.astype(mx.float32)
-    f_preact = f_preact.astype(mx.float32)
-    o_preact = o_preact.astype(mx.float32)
-    c_state = c_state.astype(mx.float32)
-    n_state = n_state.astype(mx.float32)
-    m_state = m_state.astype(mx.float32)
-
     # Flatten for kernel
     z_flat = z.reshape(-1)
     i_flat = i_preact.reshape(-1)
@@ -193,11 +184,9 @@ def slstm_step_metal(
     n_flat = n_state.reshape(-1)
     m_flat = m_state.reshape(-1)
 
-    # Prepare params: [B, NH, H, eps] with eps packed as uint32 bits
-    eps_bits = mx.array([eps], dtype=mx.float32).view(mx.uint32)[0]
-    base_params = mx.array([B, NH, H], dtype=mx.uint32)
-    eps_param = mx.reshape(eps_bits, (1,))
-    params = mx.concatenate([base_params, eps_param], axis=0)
+    # Prepare params buffers
+    params = mx.array([B, NH, H], dtype=mx.uint32)
+    scalar_params = mx.array([eps], dtype=mx.float32)
 
     # Configure grid: use fixed threadgroup size
     # grid and threadgroup must match for single-threadgroup kernels
@@ -207,9 +196,9 @@ def slstm_step_metal(
     # Dispatch kernel
     kernel = _get_kernel('slstm_step')
     h_flat, c_new_flat, n_new_flat, m_new_flat = kernel(
-        inputs=[params, z_flat, i_flat, f_flat, o_flat, c_flat, n_flat, m_flat],
+        inputs=[params, scalar_params, z_flat, i_flat, f_flat, o_flat, c_flat, n_flat, m_flat],
         output_shapes=[(B * NH * H,), (B * NH * H,), (B * NH * H,), (B * NH,)],
-        output_dtypes=[mx.float32, mx.float32, mx.float32, mx.float32],
+        #output_dtypes=[mx.float32, mx.float32, mx.float32, mx.float32],
         grid=grid,
         threadgroup=threadgroup
     )

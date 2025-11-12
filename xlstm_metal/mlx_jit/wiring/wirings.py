@@ -14,7 +14,7 @@ class Wiring:
 
     def __init__(self, units: int) -> None:
         self.units = units
-        self.adjacency_matrix = mx.zeros((units, units), dtype=mx.int32)
+        self.adjacency_matrix = mx.zeros((units, units))
         self.sensory_adjacency_matrix: Optional[mx.array] = None
         self.input_dim: Optional[int] = None
         self.output_dim: Optional[int] = None
@@ -64,7 +64,7 @@ class Wiring:
         :param __:
         :return:
         """
-        return mx.array(self.adjacency_matrix, dtype=mx.int32)
+        return mx.array(self.adjacency_matrix)
 
     def sensory_erev_initializer(self, *_: object, **__: object) -> mx.array:
         """
@@ -75,7 +75,7 @@ class Wiring:
         """
         if self.sensory_adjacency_matrix is None:
             raise ValueError("Sensory adjacency matrix not initialised.")
-        return mx.array(self.sensory_adjacency_matrix, dtype=mx.int32)
+        return mx.array(self.sensory_adjacency_matrix)
 
     def set_input_dim(self, input_dim: int) -> None:
         """
@@ -84,7 +84,7 @@ class Wiring:
         """
         self.input_dim = input_dim
         self.sensory_adjacency_matrix = mx.zeros(
-            (input_dim, self.units), dtype=mx.int32
+            (input_dim, self.units)
         )
 
     def set_output_dim(self, output_dim: int) -> None:
@@ -162,11 +162,11 @@ class Wiring:
         """
         wiring = cls(config['units'])
         wiring.adjacency_matrix = mx.array(
-            config["adjacency_matrix"], dtype=mx.int32
+            config["adjacency_matrix"]
         )
         if config.get("sensory_adjacency_matrix") is not None:
             wiring.sensory_adjacency_matrix = mx.array(
-                config["sensory_adjacency_matrix"], dtype=mx.int32
+                config["sensory_adjacency_matrix"]
             )
         wiring.input_dim = config.get("input_dim")
         wiring.output_dim = config.get("output_dim")
@@ -356,5 +356,5 @@ class Wiring:
         :return:
         """
         if self.sensory_adjacency_matrix is None:
-            return mx.array(0, dtype=mx.int32)
+            return mx.array(0)
         return mx.sum(mx.abs(self.sensory_adjacency_matrix))

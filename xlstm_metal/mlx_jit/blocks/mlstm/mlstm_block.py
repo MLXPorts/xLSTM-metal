@@ -32,10 +32,10 @@ class mLSTMBlock(nn.Module):
         block_index: Block index for weight loading (0-31 for xLSTM-7B)
         embedding_dim: Model dimension (default: 4096)
         num_heads: Number of attention heads (default: 8)
-        qk_dim: Total QK projection dimension (default: 2048)
-        v_dim: Total V projection dimension (default: 4096)
+        qk_dim_factor: QK dimension factor (default: 0.5)
+        v_dim_factor: V dimension factor (default: 1.0)
         gate_soft_cap: Gate soft cap value (default: 15.0)
-        ffn_hidden_dim: Hidden dimension of FFN (default: 10944)
+        ffn_proj_factor: FFN projection factor (default: 2.667)
         ffn_round_up_to_multiple_of: FFN dimension rounding (default: 64)
         mlstm_round_up_to_multiple_of: mLSTM dimension rounding (default: 64)
         chunk_size: mLSTM chunk size (default: 64)
@@ -69,10 +69,10 @@ class mLSTMBlock(nn.Module):
             block_index: int,
             embedding_dim: int = 4096,
             num_heads: int = 8,
-            qk_dim: int = 2048,
-            v_dim: int = 4096,
+            qk_dim_factor: float = 0.5,
+            v_dim_factor: float = 1.0,
             gate_soft_cap: float = 15.0,
-            ffn_hidden_dim: int = 10944,
+            ffn_proj_factor: float = 2.667,
             ffn_round_up_to_multiple_of: int = 64,
             mlstm_round_up_to_multiple_of: int = 64,
             chunk_size: int = 64,
@@ -92,14 +92,14 @@ class mLSTMBlock(nn.Module):
 
         # Compute dimensions with proper rounding (matches safetensors)
         # QK dimension per head
-        qk_dim_per_head_unrounded = qk_dim // num_heads
+        qk_dim_per_head_unrounded = int(embedding_dim * qk_dim_factor / num_heads)
         self.qk_dim_per_head = self._round_up_to_multiple(
             qk_dim_per_head_unrounded,
             mlstm_round_up_to_multiple_of
         )
 
         # V dimension per head
-        v_dim_per_head_unrounded = v_dim // num_heads
+        v_dim_per_head_unrounded = int(embedding_dim * v_dim_factor / num_heads)
         self.v_dim_per_head = self._round_up_to_multiple(
             v_dim_per_head_unrounded,
             mlstm_round_up_to_multiple_of
@@ -109,7 +109,7 @@ class mLSTMBlock(nn.Module):
         self.hidden_size = num_heads * self.v_dim_per_head
 
         # FFN hidden dimension with rounding
-        ffn_hidden_dim_unrounded = ffn_hidden_dim
+        ffn_hidden_dim_unrounded = int(embedding_dim * ffn_proj_factor)
         self.ffn_hidden_dim = self._round_up_to_multiple(
             ffn_hidden_dim_unrounded,
             ffn_round_up_to_multiple_of
@@ -290,10 +290,10 @@ class mLSTMBlock(nn.Module):
             block_index=block_index,
             embedding_dim=config['embedding_dim'],
             num_heads=config['num_heads'],
-            qk_dim=config['qk_dim'],
-            v_dim=config['v_dim'],
+            qk_dim_factor=config['qk_dim_factor'],
+            v_dim_factor=config['v_dim_factor'],
             gate_soft_cap=config['gate_soft_cap'],
-            ffn_hidden_dim=config['ffn_hidden_dim'],
+            ffn_proj_factor=config.get('ffn_proj_factor', 2.667),
             ffn_round_up_to_multiple_of=config.get('ffn_round_up_to_multiple_of', 64),
             mlstm_round_up_to_multiple_of=config.get('mlstm_round_up_to_multiple_of', 64),
             chunk_size=config.get('chunk_size', 64),

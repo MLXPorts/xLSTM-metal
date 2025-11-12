@@ -15,7 +15,7 @@ import mlx.core as mx
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from xlstm_metal.mlx_jit.utils import load_config
+from xlstm_metal.mlx_jit.utils import load_config, resolve_dtype
 from xlstm_metal.mlx_jit.models.wired_xlstm import WiredxLSTM
 from xlstm_metal.mlx_jit.wiring.auto_wiring import create_auto_wiring
 from xlstm_metal.mlx_jit.blocks.soft_cap import soft_cap
@@ -60,6 +60,9 @@ class xLSTMRunner:
         # Load configuration from model directory
         print(f"Loading configuration from {self.model_path / 'config.json'}...")
         self.config = load_config(str(self.model_path))
+        self.compute_dtype = resolve_dtype(self.config.get('autocast_kernel_dtype'))
+        self.state_dtype = resolve_dtype(self.config.get('inference_state_dtype'))
+        self.norm_reduce_force_float32 = self.config.get('norm_reduction_force_float32', True)
 
         # Extract key parameters for easy access
         self.embedding_dim = self.config['embedding_dim']
@@ -79,6 +82,9 @@ class xLSTMRunner:
             wiring=self.wiring,
             load_weights=True,
             model_dir=self.model_path,
+            compute_dtype=self.compute_dtype,
+            state_dtype=self.state_dtype,
+            norm_reduce_force_float32=self.norm_reduce_force_float32,
         )
 
         print(f"✓ xLSTM NCPS model created with {self.num_blocks} blocks, {self.embedding_dim}d")
@@ -189,9 +195,9 @@ class xLSTMRunner:
     def generate_next_token(
             self,
             input_ids: mx.array,
-            temperature: float = 1.0,
-            top_k: Optional[int] = None,
-            top_p: Optional[float] = None
+            temperature: mx.array = mx.array(1.0 ,dtype= mx.float32),
+            top_k: Optional[mx.array] = None,
+            top_p: Optional[mx.array] = None
     ) -> mx.array:
         """
         Generate next token given input token IDs.
@@ -235,7 +241,7 @@ class xLSTMRunner:
             top_p_tensor = mx.array(top_p, dtype=sorted_probs.dtype)
             keep_mask_sorted = cumulative_probs <= top_p_tensor
 
-            positions = mx.arange(keep_mask_sorted.shape[0], dtype=mx.int32)
+            positions = mx.arange(keep_mask_sorted.shape[0])
             first_position = positions == 0
             keep_mask_sorted = mx.where(
                 first_position,
@@ -243,11 +249,11 @@ class xLSTMRunner:
                 keep_mask_sorted
             )
 
-            keep_count = mx.sum(keep_mask_sorted.astype(mx.int32))
+            keep_count = mx.sum(keep_mask_sorted)
             keep_count = mx.maximum(keep_count, mx.ones_like(keep_count))
             last_index = keep_count - mx.ones_like(keep_count)
 
-            threshold = mx.take(sorted_logits, last_index.astype(mx.int32))
+            threshold = mx.take(sorted_logits, last_index)
             mask = next_token_logits >= threshold
             next_token_logits = mx.where(mask, next_token_logits, neg_inf)
 
@@ -284,10 +290,10 @@ class xLSTMRunner:
         self.reset_state()
 
         # Convert prompt to array [1, S]
-        prompt_array = mx.array(prompt_ids, dtype=mx.int32)
+        prompt_array = mx.array(prompt_ids, mx.int64)
         generated = prompt_array
         current_ids = mx.expand_dims(prompt_array, axis=0)
-        stop_tokens_arr = mx.array(stop_tokens, dtype=mx.int32) if stop_tokens else None
+        stop_tokens_arr = mx.array(stop_tokens) if stop_tokens else None
 
         # Generate tokens
         for _ in range(max_tokens):
@@ -299,7 +305,7 @@ class xLSTMRunner:
             )
 
             next_token_vector = mx.reshape(next_token, (1,))
-            generated = mx.concatenate([generated, next_token_vector], axis=0)
+            generated = mx.concatenate([generated, next_token_vector])
 
             # Check for stop tokens
             if stop_tokens_arr is not None and mx.any(next_token == stop_tokens_arr).tolist():

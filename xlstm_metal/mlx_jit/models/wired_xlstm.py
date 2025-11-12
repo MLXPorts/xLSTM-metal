@@ -34,6 +34,7 @@ import mlx.core as mx
 import mlx.nn as nn
 
 from xlstm_metal.mlx_jit.wiring import AutoWiring, create_auto_wiring
+from xlstm_metal.mlx_jit.utils.config_loader import load_safetensor_shards
 
 
 class WiredxLSTM(nn.Module):
@@ -65,12 +66,18 @@ class WiredxLSTM(nn.Module):
             wiring: AutoWiring,
             load_weights: bool = False,
             model_dir: Optional[Union[str, Path]] = None,
+            compute_dtype: mx.Dtype = mx.float32,
+            state_dtype: mx.Dtype = mx.float32,
+            norm_reduce_force_float32: bool = True,
     ):
         super().__init__()
 
         self.wiring = wiring
         self.config = wiring.config
         self.model_dir = Path(model_dir) if model_dir else wiring.model_dir
+        self.compute_dtype = compute_dtype
+        self.state_dtype = state_dtype
+        self.norm_reduce_force_float32 = norm_reduce_force_float32
 
         # Build architecture from wiring
         self._build_model()
@@ -87,6 +94,7 @@ class WiredxLSTM(nn.Module):
                 num_embeddings=self.config['vocab_size'],
                 dims=self.config['embedding_dim']
             )
+            self.embedding.weight = mx.array(self.embedding.weight, dtype=self.compute_dtype)
         else:
             self.embedding = None
 
@@ -101,6 +109,8 @@ class WiredxLSTM(nn.Module):
             # Create appropriate cell based on detected type
             if block_type == 'mlstm':
                 cell = self.wiring.create_block_cell(block_idx)
+                setattr(cell, 'compute_dtype', self.compute_dtype)
+                setattr(cell, 'state_dtype', self.state_dtype)
                 self.blocks.append(cell)
             elif block_type == 'slstm':
                 # TODO: Implement sLSTM cell creation
@@ -127,6 +137,7 @@ class WiredxLSTM(nn.Module):
                 output_dims=self.config['vocab_size'],
                 bias=False
             )
+            self.lm_head.weight = mx.array(self.lm_head.weight, dtype=self.compute_dtype)
         else:
             self.lm_head = None
 
@@ -161,6 +172,10 @@ class WiredxLSTM(nn.Module):
         # Process through blocks
         new_states = []
         for block_idx, block in enumerate(self.blocks):
+            print(f"Processing block {block_idx}...")
+            print(f"x shape: {x.shape}")
+            print(f"state shape: {state[block_idx]}")
+            print(f"block: {block}")
             x, block_state = block(x, state[block_idx])
             new_states.append(block_state)
 
@@ -183,38 +198,18 @@ class WiredxLSTM(nn.Module):
         if self.model_dir is None:
             raise ValueError("model_dir must be provided to load weights")
 
-        # Load index
-        index_path = self.model_dir / "model.safetensors.index.json"
-        if not index_path.exists():
-            raise FileNotFoundError(f"Safetensors index not found: {index_path}")
-
-        import json
-        with open(index_path) as f:
-            index = json.load(f)
-
-        # Group weights by shard
-        shard_weights = {}
-        for weight_key, shard_file in index['weight_map'].items():
-            if shard_file not in shard_weights:
-                shard_weights[shard_file] = []
-            shard_weights[shard_file].append(weight_key)
-
-        # Load weights shard by shard
-        all_weights = {}
-        for shard_file in sorted(shard_weights.keys()):
-            shard_path = self.model_dir / shard_file
-            print(f"Loading {shard_file}...")
-            shard_data = mx.load(str(shard_path))
-            all_weights.update(shard_data)
-
-        # Map weights to model parameters
-        self._load_weights_from_dict(all_weights)
+        # Use shared loader to read every shard via mx.load
+        weights = load_safetensor_shards(str(self.model_dir))
+        self._load_weights_from_dict(weights)
 
     def _load_weights_from_dict(self, weights_dict: Dict[str, mx.array]):
         """Map safetensors weights to model parameters."""
+        def _to_compute(tensor: mx.array) -> mx.array:
+            return mx.array(tensor, dtype=self.compute_dtype)
+
         # Load embedding
         if self.embedding is not None and 'backbone.embeddings.weight' in weights_dict:
-            self.embedding.weight = weights_dict['backbone.embeddings.weight']
+            self.embedding.weight = _to_compute(weights_dict['backbone.embeddings.weight'])
 
         # Load blocks
         for block_idx, block in enumerate(self.blocks):
@@ -227,15 +222,15 @@ class WiredxLSTM(nn.Module):
                         obj = block
                         for part in parts[:-1]:
                             obj = getattr(obj, part)
-                        setattr(obj, parts[-1], weights_dict[safetensors_key])
+                        setattr(obj, parts[-1], _to_compute(weights_dict[safetensors_key]))
 
         # Load output norm
         if self.out_norm is not None and 'backbone.out_norm.weight' in weights_dict:
-            self.out_norm.weight = weights_dict['backbone.out_norm.weight']
+            self.out_norm.weight = _to_compute(weights_dict['backbone.out_norm.weight'])
 
         # Load lm_head
         if self.lm_head is not None and 'lm_head.weight' in weights_dict:
-            self.lm_head.weight = weights_dict['lm_head.weight']
+            self.lm_head.weight = _to_compute(weights_dict['lm_head.weight'])
 
     @classmethod
     def from_pretrained(

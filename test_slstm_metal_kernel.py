@@ -12,15 +12,15 @@ from xlstm_metal.mlx_jit.blocks.slstm.slstm_layers.stepwise.slstm_metal_kernel i
 
 def logsigmoid_mlx(x: mx.array) -> mx.array:
     """Stable logsigmoid using MLX ops only."""
-    zero = mx.array(0.0, dtype=mx.float32)
+    zero = mx.array(0.0)
     # if x >= 0: -log(1 + exp(-x))
     # if x < 0:  x - log(1 + exp(x))
-    neg_x = mx.multiply(x, mx.array(-1.0, dtype=mx.float32))
-    one = mx.array(1.0, dtype=mx.float32)
+    neg_x = mx.multiply(x, mx.array(-1.0))
+    one = mx.array(1.0)
 
     # For x >= 0 branch
     pos_result = mx.multiply(
-        mx.array(-1.0, dtype=mx.float32),
+        mx.array(-1.0),
         mx.log(mx.add(one, mx.exp(neg_x)))
     )
 
@@ -59,17 +59,8 @@ def slstm_step_reference(
     """
     B, NH, H = z.shape
 
-    # Ensure float32
-    z = z.astype(mx.float32)
-    i_preact = i_preact.astype(mx.float32)
-    f_preact = f_preact.astype(mx.float32)
-    o_preact = o_preact.astype(mx.float32)
-    c_state = c_state.astype(mx.float32)
-    n_state = n_state.astype(mx.float32)
-    m_state = m_state.astype(mx.float32)
-
-    eps_arr = mx.array(eps, dtype=mx.float32)
-    one = mx.array(1.0, dtype=mx.float32)
+    eps_arr = mx.array(eps)
+    one = mx.array(1.0,)
 
     # Expand m_state to match z shape for broadcasting
     m_exp = mx.expand_dims(m_state, axis=2)  # [B, NH, 1]
@@ -225,16 +216,16 @@ def test_numerical_stability():
     eps = 1e-6
 
     # Extreme gate values
-    i_preact = mx.array([[10.0, -10.0]], dtype=mx.float32)  # [B, NH]
-    f_preact = mx.array([[10.0, -10.0]], dtype=mx.float32)
-    o_preact = mx.array([[10.0, -10.0]], dtype=mx.float32)
+    i_preact = mx.array([[10.0, -10.0]])  # [B, NH]
+    f_preact = mx.array([[10.0, -10.0]])
+    o_preact = mx.array([[10.0, -10.0]])
 
     # Normal z
     z = mx.random.normal((B, NH, H))
 
     # Large state values
-    c_state = mx.multiply(mx.random.normal((B, NH, H)), mx.array(100.0, dtype=mx.float32))
-    n_state = mx.multiply(mx.abs(mx.random.normal((B, NH, H))), mx.array(100.0, dtype=mx.float32))
+    c_state = mx.multiply(mx.random.normal((B, NH, H)), mx.array(100.0))
+    n_state = mx.multiply(mx.abs(mx.random.normal((B, NH, H))), mx.array(100.0))
     m_state = mx.random.normal((B, NH))
 
     # Reference
