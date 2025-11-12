@@ -1,149 +1,151 @@
-# xLSTM-Metal Technical Documentation
+# xLSTM-Metal Documentation
 
-**Author:** Sydney Renee (The Solace Project)  
-**Contact:** sydney@solace.ofharmony.ai  
-**License:** Apache 2.0
+**Project:** xLSTM for Apple Silicon (MLX + Metal)  
+**Author:** Sydney Renee (sydney@solace.ofharmony.ai)  
+**Status:** Production (January 2025)
 
-Production MLX implementation of xLSTM for Apple Silicon. This documentation describes the working system as of January 2025.
-
-## What This Is
-
-An independently developed port of NX-AI's xLSTM-7B to Apple Silicon using MLX and Metal acceleration. The implementation leverages techniques and patterns from my prior work:
-
-- **NCPS Auto-Wiring** - Adapted from [ncps-mlx](https://github.com/MLXPorts/ncps-mlx) for declarative model composition
-- **Metal Kernel Patterns** - Informed by [m2-bert-mlx](https://github.com/MLXPorts/m2-bert-mlx) numerical stability work
-- **Precision Enforcement** - Built on [ember-ml](https://github.com/SolaceHarmony/ember-ml) linting infrastructure
-- **Unified Memory Optimization** - Techniques shared with [Faiss-mlx](https://github.com/MLXPorts/Faiss-mlx)
+This directory contains technical documentation for the working xLSTM-Metal implementation.
 
 ## Quick Navigation
 
-### Core Documentation
-- **[Architecture Overview](ARCHITECTURE.md)** - System design and component hierarchy
-- **[Numerical Stability](NUMERICAL_STABILITY.md)** - Lessons learned from debugging NaN issues
-- **[Metal Kernels](METAL_KERNELS.md)** - Custom kernel implementation and optimization
-- **[NCPS Wiring](NCPS_WIRING.md)** - Auto-discovery and model composition
+### 🏗️ Architecture & Design
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Complete system architecture
+  - Component overview
+  - NCPS wiring system
+  - mLSTM/sLSTM blocks
+  - Metal kernel design
+  - Implementation details
+  - Performance characteristics
+  - Design decisions and tradeoffs
 
-### Implementation Guides
-- **[Getting Started](GETTING_STARTED.md)** - Installation and first inference
-- **[API Reference](API_REFERENCE.md)** - Python API documentation
-- **[Performance Tuning](PERFORMANCE.md)** - Optimization strategies for M1/M2/M3/M4
+### 📚 API Reference
+- **[COMPONENTS.md](./COMPONENTS.md)** - Auto-generated API documentation
+  - FFN (SwiGLU feed-forward)
+  - mLSTM cells and blocks
+  - sLSTM cells and blocks
+  - Metal forward/backward kernels
+  - NCPS wiring infrastructure
+  - Normalization layers
+  - Utilities (config, weights, loaders)
 
-### Development
-- **[Contributing](CONTRIBUTING.md)** - Development guidelines and workflow
-- **[Testing](TESTING.md)** - Test suite and validation procedures
-- **[Debugging](DEBUGGING.md)** - Common issues and solutions
+### 🧠 NCPS Wiring
+- **[NCPS_WIRING.md](./NCPS_WIRING.md)** - Neural Circuit Policy wiring system
+  - Auto-discovery from safetensors
+  - Block structure introspection
+  - Sequential execution model
+  - Why NCPS over MAD stages
 
-## What Works (January 2025)
+### 🔢 Numerical Stability
+- **[NUMERICAL_STABILITY.md](./NUMERICAL_STABILITY.md)** - Precision engineering
+  - Float32 requirements
+  - Why not bfloat16
+  - Critical stability patterns
+  - Emberlint enforcement rules
+  - Debugging NaN issues
 
-**✅ Stable Inference**
-- xLSTM-7B generation on M1/M2/M3/M4 Mac
-- Float32 precision with proper dtype handling
-- 32-block sequential execution via NCPS auto-wiring
-- Configurable temperature, top-k, top-p sampling
-
-**✅ Metal Acceleration**
-- Custom kernels for mLSTM chunkwise operations
-- Optimized RMSNorm and SoftCap implementations
-- Unified memory architecture leverage
-
-**✅ Production Tooling**
-- Config-driven model loading
-- SafeTensors weight handling
-- Comprehensive error messages
-- Telemetry and profiling hooks
-
-## What Doesn't Work Yet
-
-**⚠️ Known Limitations**
-- **Long Context**: Current implementation tested to ~2K tokens, extended context (>16K) experiments archived
-- **Mixed Precision**: bfloat16 causes numerical drift; staying with float32 for stability
-- **Parallel Execution**: Blocks execute sequentially; multi-head parallelization experiments shelved
-- **sLSTM Integration**: Only mLSTM blocks implemented; sLSTM and Liquid Time-Constant experiments in archive
-
-See `docs_archive/` for experimental work on these topics.
-
-## Project Structure
+## Documentation Organization
 
 ```
-xLSTM-metal/
-├── xlstm_metal/
-│   └── mlx_jit/              # Production MLX implementation
-│       ├── generate.py       # Inference runner
-│       ├── models/           # WiredxLSTM model
-│       ├── wiring/           # NCPS auto-wiring
-│       ├── blocks/           # mLSTM, FFN, normalization
-│       ├── utils/            # Config, weights, tokenizer
-│       └── tokenizer/        # Tokenizer integration
-├── docs/                     # Current documentation
-├── docs_archive/             # Historical experiments and learnings
-├── tests/                    # Test suite
-├── tools/                    # emberlint, embercoach, profiling
-└── quarantine/               # Experimental/broken code
+docs/
+├── README.md                    # This file
+├── ARCHITECTURE.md              # System design (main reference)
+├── COMPONENTS.md                # API documentation (auto-generated)
+├── NCPS_WIRING.md              # Wiring system details
+├── NUMERICAL_STABILITY.md      # Precision patterns
+└── METAL_KERNEL_GUIDE.md       # (from m2-bert-mlx, Metal programming)
 ```
 
-## The Journey (Lessons Learned)
+## Historical Documentation
 
-This port required solving several non-obvious problems. Key learnings documented:
+Experimental designs, debugging logs, and research notes are preserved in:
 
-1. **Dtype Confusion**: xLSTM config has `torch_dtype`, `autocast_kernel_dtype`, and `inference_state_dtype` - using the wrong one causes NaNs. See [docs_archive/COMPLETE_FIX_SUMMARY.md](../docs_archive/COMPLETE_FIX_SUMMARY.md).
+```
+docs_archive/
+├── architecture/        # MAD system (historical), current NCPS analysis
+├── debugging/           # Bug fixes (dtype confusion, kernel issues)
+├── lessons_learned/     # Distilled debugging principles
+├── components/          # Metal kernel implementation notes
+├── experiments/         # Flowlang DSL, other prototypes
+├── research/            # Future work, academic analysis
+├── porting/             # Platform-specific notes
+└── project_management/  # Milestones, summaries
+```
 
-2. **FFT Normalization**: PyTorch and MLX handle `irfft` normalization differently. One applies `1/n`, the other doesn't. Getting this wrong causes order-of-magnitude errors. See [docs_archive/NUMERIC_STABILITY_TORCH_vs_MLX.md](../docs_archive/NUMERIC_STABILITY_TORCH_vs_MLX.md).
+See `docs_archive/README.md` for navigation guide.
 
-3. **Python Scalars**: Using `float()`, `int()`, `.item()` in hot paths breaks graph optimization and introduces double-rounding. Zero-tolerance policy enforced via emberlint. See [docs_archive/NUMERIC_STABILITY_TORCH_vs_MLX.md](../docs_archive/NUMERIC_STABILITY_TORCH_vs_MLX.md).
+## How to Use This Documentation
 
-4. **Metal Shader Limits**: Metal has stricter limits than CUDA (threadgroup memory, argument counts). Kernels need different tiling strategies. See [docs_archive/FIX_RMSNORM_METAL_KERNEL.md](../docs_archive/FIX_RMSNORM_METAL_KERNEL.md).
+**If you want to...**
 
-5. **State Management**: mLSTM has (C, n, m) state tensors with specific shapes and update rules. Getting covariance dimensions wrong (k⊗v vs v⊗k) silently produces garbage. See [docs_archive/architecture/MLSTM_NUMERICAL_STABILITY_ANALYSIS.md](../docs_archive/architecture/MLSTM_NUMERICAL_STABILITY_ANALYSIS.md).
+| Goal | Start Here |
+|------|------------|
+| Understand the overall system | [ARCHITECTURE.md](./ARCHITECTURE.md) |
+| Look up a specific class or function | [COMPONENTS.md](./COMPONENTS.md) |
+| Learn about the wiring system | [NCPS_WIRING.md](./NCPS_WIRING.md) |
+| Debug numerical issues | [NUMERICAL_STABILITY.md](./NUMERICAL_STABILITY.md) |
+| Write custom Metal kernels | [METAL_KERNEL_GUIDE.md](./METAL_KERNEL_GUIDE.md) |
+| Understand design decisions | [ARCHITECTURE.md § Design Decisions](./ARCHITECTURE.md#design-decisions) |
+| See what didn't work | `docs_archive/debugging/` |
+| Find future research directions | `docs_archive/research/` |
 
-## Experimental Work (Archived)
+## Documentation Philosophy
 
-The `docs_archive/` directory contains experiments and architectural explorations:
+**Active docs (this directory):**
+- Describe the working, production system
+- Maintained in sync with code
+- Authoritative technical reference
+- Suitable for external users
 
-- **Extended Context** ([plan/EXTENDED_CONTEXT_PLAN.md](../docs_archive/plan/EXTENDED_CONTEXT_PLAN.md)) - Hierarchical prefill, working memory pools, dynamic allocation strategies
-- **State Expansion** ([plan/STATE_EXPANSION_PRECISION.md](../docs_archive/plan/STATE_EXPANSION_PRECISION.md)) - Double-bf16 limb representations for bandwidth reduction
-- **Reversible RNNs** ([plan/REVERSIBLE_RNN_NOTES.md](../docs_archive/plan/REVERSIBLE_RNN_NOTES.md)) - Memory-efficient backprop strategies
-- **MAD Wiring** ([components/mad/MAD_WIRING_INTEGRATION.md](../docs_archive/components/mad/MAD_WIRING_INTEGRATION.md)) - Original stage-based composition (replaced by NCPS)
-- **LFM2 Comparison** ([plan/xLSTM_vs_LFM2_Comparison.md](../docs_archive/plan/xLSTM_vs_LFM2_Comparison.md)) - Architecture analysis
+**Archive docs (docs_archive/):**
+- Preserve intellectual history
+- Document failed experiments (why they failed)
+- Future research directions
+- Planning notes and milestones
+- Internal development reference
 
-These represent real research and development effort but are not part of the current production system.
+**Docstrings (in code):**
+- API-level documentation
+- Mathematical explanations
+- Usage examples
+- Extracted to COMPONENTS.md automatically
 
-## Attribution
+## Related Projects
 
-**Original Research:**
-- xLSTM architecture by Beck et al. (NX-AI)
-- arXiv:2405.04517 and arXiv:2503.13427
-- Model weights: [NX-AI/xLSTM-7b](https://huggingface.co/NX-AI/xLSTM-7b)
+This work builds on and contributes to:
 
-**This Port:**
-- Sydney Renee (The Solace Project)
-- Independent implementation for Apple Silicon
-- Not affiliated with NX-AI
+- **[ncps-mlx](https://github.com/MLXPorts/ncps-mlx)** - NCPS wiring patterns for MLX
+- **[m2-bert-mlx](https://github.com/MLXPorts/m2-bert-mlx)** - Metal kernel design, FFT precision
+- **[ember-ml](https://github.com/SolaceHarmony/ember-ml)** - Precision linting (emberlint)
+- **[Faiss-mlx](https://github.com/MLXPorts/Faiss-mlx)** - Unified memory patterns
 
-**Related Work:**
-- [ncps-mlx](https://github.com/MLXPorts/ncps-mlx) - NCPS wiring patterns for MLX
-- [m2-bert-mlx](https://github.com/MLXPorts/m2-bert-mlx) - Metal kernel techniques
-- [ember-ml](https://github.com/SolaceHarmony/ember-ml) - Precision enforcement tooling
-- [Faiss-mlx](https://github.com/MLXPorts/Faiss-mlx) - Unified memory optimization
+All part of The Solace Project ecosystem.
 
-## Getting Help
+## Contributing to Documentation
 
-1. **Documentation**: Start with [ARCHITECTURE.md](ARCHITECTURE.md) and [GETTING_STARTED.md](GETTING_STARTED.md)
-2. **Issues**: File bugs on GitHub with `generate.py` output and system info
-3. **Development**: Read [AGENTS.md](../AGENTS.md) for coding guidelines
-4. **Historical Context**: Check `docs_archive/` for past experiments
+**When adding new components:**
+1. Write comprehensive docstrings in code
+2. Run `python tools/extract_docstrings.py` to update COMPONENTS.md
+3. Add architecture notes to ARCHITECTURE.md if needed
+4. Update this README if adding new doc files
 
-## Contributing
+**When fixing bugs:**
+1. Document the fix in code comments
+2. Add summary to `docs_archive/lessons_learned/`
+3. Update NUMERICAL_STABILITY.md if precision-related
 
-Contributions welcome. Follow these principles:
+**Documentation style:**
+- Technical and precise
+- Include code examples
+- Explain *why* not just *what*
+- Reference papers/projects where applicable
+- Use Sydney's voice (engineering-focused, no fluff)
 
-1. **Zero-Mock Policy**: No fake implementations in production paths
-2. **Reuse First**: Search codebase before implementing
-3. **Precision First**: Run emberlint before committing
-4. **Document Trials**: If experiments fail, document why in `docs_archive/`
-5. **Test Everything**: Run `python run_pytest.py` before PRs
+## Questions?
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+**Technical issues:** Open GitHub issue  
+**Documentation gaps:** PR or issue  
+**Design discussions:** sydney@solace.ofharmony.ai
 
 ---
 
-**This is working, production-tested code.** The docs reflect what actually runs, not aspirational features. Experimental work is clearly marked and archived separately.
+*This documentation represents production-tested code. Experimental approaches are preserved in `docs_archive/` for historical reference and future research.*
