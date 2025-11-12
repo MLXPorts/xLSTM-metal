@@ -167,6 +167,7 @@ import mlx.nn as nn
 
 from xlstm_metal.mlx_jit.wiring import AutoWiring, create_auto_wiring
 from xlstm_metal.mlx_jit.utils.config_loader import load_safetensor_shards
+from xlstm_metal.mlx_jit.blocks.rms_norm import RMSNormCell
 
 
 class WiredxLSTM(nn.Module):
@@ -200,8 +201,8 @@ class WiredxLSTM(nn.Module):
         Stack of xLSTM blocks (mLSTM/sLSTM/attention cells).
     embedding : nn.Embedding | None
         Token embedding layer.
-    out_norm : nn.RMSNorm | None
-        Pre-LM-head normalization.
+    out_norm : RMSNormCell | None
+        Pre-LM-head normalization (uses custom RMSNormCell for canonical behavior).
     lm_head : nn.Linear | None
         Language modeling head (vocab projection).
 
@@ -313,9 +314,11 @@ class WiredxLSTM(nn.Module):
 
         # Output normalization
         if self.wiring.structure['has_out_norm']:
-            self.out_norm = nn.RMSNorm(
+            self.out_norm = RMSNormCell(
                 dims=self.config['embedding_dim'],
-                eps=self.config.get('norm_eps', 1e-6)
+                eps=self.config.get('norm_eps', 1e-6),
+                force_float32_reductions=self.norm_reduce_force_float32,
+                param_dtype=self.compute_dtype,
             )
         else:
             self.out_norm = None

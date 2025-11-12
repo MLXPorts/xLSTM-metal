@@ -1,0 +1,2 @@
+from .mlstm_chunkwise_recurrent_fw_C import mlstm_chunkwise_recurrent_fw_C_metal
+from .mlstm_chunkwise_parallel_fw_Hintra import mlstm_chunkwise_parallel_fw_Hintra_metal

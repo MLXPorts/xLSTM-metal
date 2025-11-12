@@ -145,7 +145,7 @@ class RMSNormMetalKernel(nn.Module):
         # cache keyed by (dtype, force_float32)
         self._kernels: dict[tuple[mx.Dtype, bool], Optional[mx.fast.metal_kernel]] = {}
 
-    def build(self, dtype: mx.Dtype, force_float32: bool) -> mx.fast.metal_kernel:
+    def build(self, dtype: mx.Dtype, force_float32: bool):
         key = (dtype, force_float32)
         if key in self._kernels and self._kernels[key] is not None:
             return self._kernels[key]
@@ -171,7 +171,7 @@ class RMSNormMetalKernel(nn.Module):
         self._kernels[key] = kernel
         return kernel
 
-    def __call__(self, dtype: mx.Dtype, force_float32: bool) -> mx.fast.metal_kernel:
+    def __call__(self, dtype: mx.Dtype, force_float32: bool):
         return self.build(dtype, force_float32)
 
     def apply(
@@ -186,11 +186,12 @@ class RMSNormMetalKernel(nn.Module):
         params = mx.array([rows, cols, tg], dtype=mx.uint32)
         kernel = self(inputs_2d.dtype, force_float32)
         threadgroup = (tg, 1, 1)
+        grid = (rows * tg, 1, 1)
         (out,) = kernel(
             inputs=[inputs_2d, weight, eps, params],
             output_shapes=[inputs_2d.shape],
             output_dtypes=[inputs_2d.dtype],
-            grid=(rows, 1, 1),
+            grid=grid,
             threadgroup=threadgroup,
         )
         return out
