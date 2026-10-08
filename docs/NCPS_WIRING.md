@@ -1,5 +1,7 @@
 # NCPS Auto-Wiring System
 
+Current inference construction, state handling, and planned memory work are described in [Inference and Memory Status](INFERENCE_STATUS.md). Component descriptions and design examples below also cover training modules and extensions outside the inference constructor.
+
 **Author:** Sydney Renee  
 **Inspiration:** [ncps-mlx](https://github.com/MLXPorts/ncps-mlx) Neural Circuit Policy wiring patterns  
 **Status:** Production (January 2025)

@@ -1,5 +1,7 @@
 # xLSTM-Metal Component Documentation
 
+Current inference construction, state handling, and planned memory work are described in [Inference and Memory Status](INFERENCE_STATUS.md). Component descriptions and design examples below also cover training modules and extensions outside the inference constructor.
+
 **Author:** Sydney Renee (sydney@solace.ofharmony.ai)  
 **Extracted from:** Production docstrings, kernel comments, and implementation notes  
 **Last Updated:** January 2025

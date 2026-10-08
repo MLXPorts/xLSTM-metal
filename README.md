@@ -24,10 +24,11 @@ python generate.py --model xlstm_7b_model --interactive
 xLSTM-Metal uses MLX for native Apple Silicon acceleration with automatic configuration loading:
 
 ```python
+import mlx.core as mx
 from xlstm_metal.mlx_jit.generate import xLSTMRunner
 from xlstm_metal.mlx_jit.tokenizer import TokenizerBlock, TokenizerConfig
 
-# Load model (config-driven, works with any xLSTM size)
+# Load a compatible mLSTM checkpoint (dimensions come from its configuration)
 runner = xLSTMRunner("xlstm_7b_model")
 
 # Initialize tokenizer
@@ -48,7 +49,7 @@ print(output)
 
 **Key Design Principles:**
 
-- **Config-Driven**: Automatically adapts to any xLSTM model size from `config.json`
+- **Config-Driven**: Loads dimensions from `config.json` for compatible mLSTM checkpoints
 - **MLX-Native**: Full Apple Silicon optimization with Metal acceleration
 - **NCPS Wiring**: Declarative block composition with automatic structure discovery
 - **Simple & Direct**: No heavy abstractions, clear data flow
@@ -56,13 +57,13 @@ print(output)
 
 ## Features
 
-- Apple Silicon Native**: Optimized for M1/M2/M3/M4 with Metal acceleration via MLX
-- Config-Driven Architecture**: Automatically loads and adapts to any xLSTM model size
-- NCPS Wiring System**: Neural Circuit Policy-inspired wiring for declarative block composition
-- Simple API**: Clean generation interface without heavy abstractions
-- Numerical Stability**: Proper dtype handling (float32/bfloat16) for stable inference
-- Smart Weight Loading**: Supports safetensors with automatic sharding and structure discovery
-- Production-Ready**: Resolved NaN issues, validated on xLSTM-7B model
+- **Apple Silicon Native**: Optimized for M1/M2/M3/M4 with Metal acceleration via MLX
+- **Config-Driven Architecture**: Loads compatible mLSTM checkpoints from configuration and safetensors
+- **NCPS Wiring System**: Neural Circuit Policy-inspired wiring for declarative block composition
+- **Simple API**: Clean generation interface without heavy abstractions
+- **Numerical Stability**: Proper dtype handling (float32/bfloat16) for stable inference
+- **Smart Weight Loading**: Supports safetensors with automatic sharding and structure discovery
+- **Production-Ready**: Resolved NaN issues, validated on xLSTM-7B model
 
 ## What's New (v0.3.0)
 
@@ -76,9 +77,11 @@ print(output)
 - ✅ **Parameter propagation**: Fixed dtype flow through block hierarchy
 - ✅ **Better error messages**: Actionable guidance for common issues
 
-See [COMPLETE_FIX_SUMMARY.md](docs/COMPLETE_FIX_SUMMARY.md) and [DOCSTRING_ENRICHMENT_SUMMARY.md](docs/DOCSTRING_ENRICHMENT_SUMMARY.md) for full details.
+See [COMPLETE_FIX_SUMMARY.md](docs_archive/debugging/COMPLETE_FIX_SUMMARY.md) and [DOCSTRING_ENRICHMENT_SUMMARY.md](docs_archive/project_management/DOCSTRING_ENRICHMENT_SUMMARY.md) for full details.
 
 ## Architecture
+
+The port uses sLSTM for training work and mLSTM for inference. The current MLX inference constructor builds mLSTM blocks; detecting sLSTM or attention keys does not enable those blocks in `WiredxLSTM`. This describes this port, not every xLSTM-derived model. See [Inference and Memory Status](docs/INFERENCE_STATUS.md) for state handling and planned extensions.
 
 xLSTM-Metal uses a modular, auto-discovery architecture inspired by Neural Circuit Policies (NCPS):
 
@@ -87,7 +90,7 @@ xLSTM-Metal uses a modular, auto-discovery architecture inspired by Neural Circu
 **1. WiredxLSTM Model** (`xlstm_metal/mlx_jit/models/wired_xlstm.py`)
 - Top-level model class that assembles complete xLSTM language models
 - Automatic structure discovery from safetensors checkpoints
-- Builds correct stack of blocks (mLSTM, sLSTM) dynamically based on checkpoint inspection
+- Builds the mLSTM inference stack from checkpoint inspection; sLSTM and attention constructors are not enabled in `WiredxLSTM`
 
 **2. NCPS Auto-Wiring** (`xlstm_metal/mlx_jit/wiring/auto_wiring.py`)
 - Inspired by Neural Circuit Policy wiring patterns for declarative composition
@@ -99,7 +102,7 @@ xLSTM-Metal uses a modular, auto-discovery architecture inspired by Neural Circu
 **3. mLSTM/sLSTM Blocks** (`xlstm_metal/mlx_jit/blocks/`)
 - **mLSTM (Matrix LSTM)**: Matrix-valued hidden states with covariance update rules
 - **sLSTM (Scalar LSTM)**: Traditional scalar memory with exponential gating
-- Modular cell design pattern (stateless transformations)
+- Modular projection, recurrent-kernel, and output cells; recurrent cells return explicit state
 - Optimized Metal kernels for core operations (matmul, elementwise)
 
 **4. Generation Engine** (`xlstm_metal/mlx_jit/generate.py`)
@@ -114,7 +117,7 @@ xLSTM-Metal uses a modular, auto-discovery architecture inspired by Neural Circu
 Input Token IDs [B, S]
   ↓ embedding (token → vector)
 Embeddings [B, S, D]
-  ↓ blocks[0..N-1]  (mLSTM/sLSTM with residuals + FFN)
+  ↓ blocks[0..N-1]  (mLSTM with residuals + FFN)
 Hidden States [B, S, D]
   ↓ out_norm (RMSNorm)
 Normalized [B, S, D]
@@ -142,10 +145,10 @@ x = x + residual
 
 The NCPS-inspired wiring system provides:
 
-1. **Zero-config loading**: Works with any xLSTM checkpoint without hardcoding architecture
-2. **Model-agnostic**: Single codebase handles 1B, 7B, 13B, etc. variants
+1. **Zero-config loading**: Loads compatible mLSTM checkpoints without hardcoding their dimensions
+2. **Model-agnostic**: Single model class assembles supported block types from checkpoint metadata
 3. **Introspectable**: Query block types and structure before instantiation
-4. **Version agnostic**: Adapts to checkpoint structure changes automatically
+4. **Version agnostic**: Discovers checkpoint structure; unsupported block types require implementation
 5. **Modular**: Easy to add new block types (attention, sparse MoE, etc.)
 
 ### MLX Backend
@@ -161,17 +164,17 @@ MLX provides native Apple Silicon optimization:
 ### Official Models
 
 - **xLSTM-7B** (`NX-AI/xLSTM-7b`): 7 billion parameter model
-    - 32 xLSTM blocks with mLSTM and sLSTM layers
-    - 4096 embedding dimensions, 32 attention heads
+    - 32 mLSTM blocks in the inference stack
+    - 4096 embedding dimensions, 8 mLSTM heads
     - Trained on diverse text corpus
 
 ### Custom Models
 
-Any xLSTM model with a `config.json` file is supported. The implementation automatically:
+Custom inference checkpoints need compatible mLSTM blocks, configuration fields, and safetensors weight names. A `config.json` file alone does not establish compatibility. The implementation:
 
 - Detects model architecture from configuration
 - Creates appropriate NCPS wiring for block execution
-- Loads weights from safetensors or NPZ format
+- Loads safetensors weights through the inference model loader
 
 ## Installation
 
@@ -183,7 +186,7 @@ pip install mlx
 pip install transformers tokenizers
 
 # Clone repository
-git clone https://github.com/SolaceHarmony/xLSTM-Metal.git
+git clone https://github.com/MLXPorts/xLSTM-metal.git
 cd xLSTM-metal
 
 # Download xLSTM-7B model from HuggingFace (~14GB)
@@ -233,6 +236,7 @@ python generate.py --model xlstm_7b_model --prompt "Test" --show-wiring
 ### Python API
 
 ```python
+import mlx.core as mx
 from xlstm_metal.mlx_jit.generate import xLSTMRunner
 from xlstm_metal.mlx_jit.tokenizer import TokenizerBlock, TokenizerConfig
 
@@ -282,10 +286,7 @@ xLSTM-Metal leverages Apple Silicon's unified memory architecture and Metal acce
 
 Performance characteristics depend on model size, sequence length, and hardware generation (M1/M2/M3/M4).
 
-**Typical Performance (xLSTM-7B on M2 Max)**:
-- First token latency: ~500ms (includes model loading and Metal shader compilation)
-- Subsequent tokens: ~50-100ms per token
-- Memory usage: ~14GB (model weights) + ~2-4GB (inference state)
+Persistent recurrent state and peak inference memory are different quantities. With 32 blocks, 8 heads, and per-head q/k and value dimensions of 256 and 512, float32 matrix state totals 128 MiB per batch item, plus normalizers. Weights, activations, and chunkwise working buffers add to that footprint; latency and peak memory require measurements for the chosen hardware and dtypes.
 
 See [docs/](docs/) for detailed architecture documentation and optimization guides.
 
@@ -293,7 +294,7 @@ See [docs/](docs/) for detailed architecture documentation and optimization guid
 
 ### xLSTM Architecture
 
-The Extended Long Short-Term Memory (xLSTM) architecture combines:
+The xLSTM family includes the following components. This port's inference stack uses mLSTM; the sLSTM modules belong to its training work:
 
 - **mLSTM (matrix LSTM)**: Matrix memory and covariance update rule
 - **sLSTM (scalar LSTM)**: Scalar memory with exponential gating
@@ -312,7 +313,7 @@ xLSTM extends traditional LSTM with:
 ### Implementation Highlights
 
 - **Config-Driven Architecture**: Automatic model creation from JSON configuration
-- **Weight Loading**: Support for safetensors and NPZ formats
+- **Weight Loading**: Safetensors loading in the inference runner
 - **Memory Efficiency**: Optimized for Apple's unified memory
 - **Type Safety**: Full MLX array type support
 
@@ -345,7 +346,7 @@ python run_pytest.py
 python -m pytest tests/test_pretrained_inference.py -v
 
 # Test numerical parity
-python test_numerical_parity.py
+python -m pytest tests/test_mlx_torch_numerical_parity.py
 ```
 
 ### Contributing
@@ -366,7 +367,7 @@ This is an independent port to Apple Silicon. Contributions are welcome! Please:
 - **Author**: Sydney Renee
 - **Organization**: The Solace Project
 - **Email**: sydney@solace.ofharmony.ai
-- **Repository**: https://github.com/SolaceHarmony/xLSTM-Metal
+- **Repository**: https://github.com/MLXPorts/xLSTM-metal
 
 This port includes:
 - MLX backend implementation with Metal acceleration
@@ -418,12 +419,12 @@ If you use this implementation, please cite the original xLSTM paper:
 
 Complete technical documentation available in [docs/](docs/):
 
-- [MLX Architecture Guide](docs/porting/mlx_metal/XLSTM_MLX_ARCHITECTURE.md)
-- [NCPS Wiring System](docs/components/mad/MAD_WIRING_INTEGRATION.md)
-- [Testing Guide](docs/porting/mlx_metal/MLX_TESTING.md)
+- [MLX Architecture Guide](docs/ARCHITECTURE.md)
+- [NCPS Wiring System](docs/NCPS_WIRING.md)
+- [Testing Guide](docs_archive/porting/mlx_metal/MLX_TESTING.md)
 - [Developer Guide](AGENTS.md)
-- [Complete Fix Summary](docs/COMPLETE_FIX_SUMMARY.md)
-- [Docstring Enrichment](docs/DOCSTRING_ENRICHMENT_SUMMARY.md)
+- [Complete Fix Summary](docs_archive/debugging/COMPLETE_FIX_SUMMARY.md)
+- [Docstring Enrichment](docs_archive/project_management/DOCSTRING_ENRICHMENT_SUMMARY.md)
 
 ## Requirements
 

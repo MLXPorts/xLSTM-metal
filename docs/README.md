@@ -1,5 +1,7 @@
 # xLSTM-Metal Documentation
 
+Current inference construction, state handling, and planned memory work are described in [Inference and Memory Status](INFERENCE_STATUS.md). Component descriptions and design examples below also cover training modules and extensions outside the inference constructor.
+
 **Project:** xLSTM for Apple Silicon (MLX + Metal)  
 **Author:** Sydney Renee (sydney@solace.ofharmony.ai)  
 **Status:** Production (January 2025)
@@ -83,7 +85,7 @@ See `docs_archive/README.md` for navigation guide.
 | Look up a specific class or function | [COMPONENTS.md](./COMPONENTS.md) |
 | Learn about the wiring system | [NCPS_WIRING.md](./NCPS_WIRING.md) |
 | Debug numerical issues | [NUMERICAL_STABILITY.md](./NUMERICAL_STABILITY.md) |
-| Write custom Metal kernels | [METAL_KERNEL_GUIDE.md](./METAL_KERNEL_GUIDE.md) |
+| Write custom Metal kernels | [METAL_KERNEL_GUIDE.md](../docs_archive/components/kernels/MLX_Metal_Kernel_Guide.md) |
 | Understand design decisions | [ARCHITECTURE.md § Design Decisions](./ARCHITECTURE.md#design-decisions) |
 | See what didn't work | `docs_archive/debugging/` |
 | Find future research directions | `docs_archive/research/` |
