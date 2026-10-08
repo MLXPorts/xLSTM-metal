@@ -1,5 +1,7 @@
 # xLSTM-Metal Architecture
 
+Current inference construction, state handling, and planned memory work are described in [Inference and Memory Status](INFERENCE_STATUS.md). Component descriptions and design examples below also cover training modules and extensions outside the inference constructor.
+
 **Author:** Sydney Renee (sydney@solace.ofharmony.ai)  
 **Status:** Production (January 2025)  
 **Stack:** MLX + Metal on Apple Silicon
@@ -347,17 +349,9 @@ Full forensics: `docs_archive/COMPLETE_FIX_SUMMARY.md`, `docs_archive/FIX_DTYPE_
 
 ## Memory Layout
 
-**xLSTM-7B on M2 Max (64GB):**
+For a batch item with 32 blocks, 8 heads, q/k dimension 256 per head, and value dimension 512 per head, float32 `C` occupies 4 MiB per block and 128 MiB across the stack. The `n` vectors and `m` scalars add about 0.25 MiB. These dimensions follow `embedding_dim=4096`, `qk_dim_factor=0.5`, and `v_dim_factor=1.0`; other configurations change the footprint.
 
-```
-Model weights:     ~14 GB  (7.16B params × fp32)
-Embeddings:        ~512 MB (vocab=131072, dim=4096, fp32)
-Per-block state:   ~2 MB   (C: 8×512×1024, n: 8×512, m: 8, fp32)
-Total state:       ~64 MB  (32 blocks)
-Activation cache:  ~128 MB (intermediate tensors, varies by batch)
-──────────────────────────────────────────────────
-Total:             ~15 GB  (leaves ~49GB for OS/apps)
-```
+This counts persistent recurrent state only. Model weights, embeddings, chunk-boundary intermediates, activations, and Metal working buffers are separate allocations. Weight storage is parameter count times the actual loaded dtype size (about 14 GB at two bytes per parameter or 28 GB at four bytes for a 7B model).
 
 **Unified Memory Advantage:**
 - No CPU↔GPU copies (data stays in shared RAM)
@@ -903,4 +897,3 @@ for prompt in prompts:
 - Accumulation over 32 blocks causes NaN after ~15 blocks
 - Metal doesn't natively support bf16 on all devices
 - See `docs_archive/debugging/dtype_confusion/` for full analysis
-

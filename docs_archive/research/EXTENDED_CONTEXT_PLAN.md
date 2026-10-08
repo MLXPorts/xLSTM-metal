@@ -1,5 +1,7 @@
 Title: sLSTM + Multi‑Kernel Scheduling for Extended Context on Apple/MPS
 
+Status: research plan. The hierarchical scheduler, memory pools, and extended-prefill API below are planned work, separate from the current mLSTM inference runner. See [Inference and Memory Status](../../docs/INFERENCE_STATUS.md).
+
 Objectives
 
 - Extend effective context for xLSTM (mLSTM + sLSTM) to 20K–100K+ tokens while maintaining coherence and throughput on
@@ -122,4 +124,3 @@ Current Tools
   step)
 - Runners: `scripts/run_local_xlstm_mps.py`, `scripts/xlstm_run.py`
 - Bench/Opt: `scripts/bench_mps.py`, `scripts/bench_mps_ray.py`, `scripts/optimize_mps.py`
-
